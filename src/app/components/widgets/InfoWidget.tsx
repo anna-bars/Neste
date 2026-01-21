@@ -5,7 +5,8 @@ interface InfoWidgetProps {
   rateValue?: number;
   description?: React.ReactNode;
   className?: string;
-  perecntageInfo?: string
+  perecntageInfo?: string;
+  subText?: string; 
 }
 
 export const InfoWidget: React.FC<InfoWidgetProps> = ({

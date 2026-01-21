@@ -154,7 +154,55 @@ export default function QuotesPage() {
     
     return baseConfig;
   };
+// Ինֆո վիջեթի տվյալները
+const calculateInfoWidgetData = () => {
+  const totalQuotes = quotesRows.length;
+  const rejectedQuotes = quotesRows.filter(q => q.quoteStatus === 'rejected').length;
+  
+  // Հաշվել rejection rate (որքան տոկոս են rejected)
+  const rejectionRate = totalQuotes > 0 
+    ? Math.round((rejectedQuotes / totalQuotes) * 100) 
+    : 0;
+  
+  // Գտնել ամենահաճախակի մերժման պատճառը
+  const getMostCommonRejectionReason = () => {
+    // Այստեղ կարող եք ավելացնել իրական տվյալներ ձեր Supabase-ից
+    // Այժմ օգտագործենք պարզ տրամաբանություն
+    if (rejectedQuotes > 0) {
+      // Այս օրինակում ասում ենք, որ մերժումների 72%-ը Inaccurate Cargo Value-ի պատճառով է
+      return {
+        reason: 'Inaccurate Cargo Value',
+        percentage: 72,
+        // Կարող եք ավելացնել այլ պատճառներ
+        otherReasons: [
+          'Missing Documentation',
+          'Incorrect Shipping Details',
+          'Risk Assessment Issues'
+        ]
+      };
+    }
+    return {
+      reason: 'N/A',
+      percentage: 0,
+      otherReasons: []
+    };
+  };
+  
+  const mostCommonReason = getMostCommonRejectionReason();
+  
+  // Հաշվել improvement rate (100 - rejectionRate)
+  const improvementRate = 100 - rejectionRate;
+  
+  return {
+    rateValue: improvementRate, // Ցույց տալ improvement rate
+    totalQuotes,
+    rejectedQuotes,
+    rejectionRate,
+    mostCommonReason
+  };
+};
 
+const infoWidgetData = calculateInfoWidgetData();
   const formatQuoteId = (id: string, quoteNumber?: string) => {
     if (quoteNumber) {
       return quoteNumber;
@@ -758,16 +806,17 @@ const quotesData2 = {
             </div>
 
             {/* Improve Your Quote Rate Card */}
-            <InfoWidget 
-              title="Improve Your Quote Rate"
-              rateValue={72}
-              description={
-                <>
-                  Your Quotes are often Declined due to 
-                  <strong className="font-medium tracking-[0.03px]"> Inaccurate Cargo Value</strong>
-                </>
-              }
-            />
+           <InfoWidget 
+  title="Improve Your Quote Rate"
+  rateValue={infoWidgetData.rateValue}
+  description={
+    <>
+      Your Quotes are often Declined due to 
+      <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
+    </>
+  }
+  subText={`${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined`}
+/>
 
             {/* Quote Conversion Rate */}
             <div className="flex-grow min-h-[calc(31%-4px)] xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto">
@@ -805,15 +854,16 @@ const quotesData2 = {
             <div className="grid grid-cols-3 gap-2 w-full">
               {/* Improve Your Quote Rate Card */}
               <InfoWidget 
-                title="Improve Your Quote Rate"
-                rateValue={72}
-                description={
-                  <>
-                    Your Quotes are often Declined due to 
-                    <strong className="font-medium tracking-[0.03px]"> Inaccurate Cargo Value</strong>
-                  </>
-                }
-              />
+  title="Improve Your Quote Rate"
+  rateValue={infoWidgetData.rateValue}
+  description={
+    <>
+      Your Quotes are often Declined due to 
+      <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
+    </>
+  }
+  subText={`${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined`}
+/>
 
               {/* Quote Conversion Rate */}
               <div className="w-full">
