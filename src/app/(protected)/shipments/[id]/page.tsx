@@ -944,20 +944,7 @@ const { data: updatedDocument, error: upsertError } = await supabase
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h4 className="font-semibold text-gray-900 mb-4">Quick Actions</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center">
-                  <Download className="w-5 h-5 text-gray-600 mb-2" />
-                  <span className="text-xs font-medium text-gray-700">Download All</span>
-                </button>
-                <button className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center">
-                  <Printer className="w-5 h-5 text-gray-600 mb-2" />
-                  <span className="text-xs font-medium text-gray-700">Print</span>
-                </button>
-              </div>
-            </div>
+            
 
             {/* Help Card */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6">
