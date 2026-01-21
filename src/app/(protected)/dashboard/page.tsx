@@ -310,7 +310,7 @@ export default function DashboardPage() {
 
       } catch (error) {
         console.error('Error loading dashboard data:', error)
-        setDashboardRows(getFallbackData())
+        
       } finally {
         setLoading(false)
       }
@@ -500,7 +500,7 @@ useEffect(() => {
     });
     setSortedRows(sorted);
   } else {
-    setSortedRows(getFallbackData());
+    
   }
 }, [dashboardRows]);
 
@@ -608,162 +608,6 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
            new Date(a.sortDate || a.rawData?.created_at).getTime();
   });
 };
-  const getFallbackData = () => {
-    return [
-      {
-        type: 'Policy',
-        id: 'POL-770756',
-        cargo: 'pharma',
-        value: 2219.99,
-        status: { 
-          text: 'Active', 
-          color: 'bg-emerald-50', 
-          dot: 'bg-emerald-500', 
-          textColor: 'text-emerald-700' 
-        },
-        date: 'Jan 20, 11:08 PM',
-        button: { 
-          text: 'View Shipment', 
-          variant: 'success' as const,
-          onClick: (row: any) => router.push('/shipments/c3f4cf07-eae0-4527-a795-6ec08ec590e7')
-        },
-        dataType: 'policy'
-      },
-      {
-        type: 'Quote',
-        id: 'Q-00842',
-        cargo: 'pharma',
-        value: 85000,
-        status: { 
-          text: 'Waiting for review (1 day left)', 
-          color: 'bg-blue-50', 
-          dot: 'bg-blue-500', 
-          textColor: 'text-blue-700' 
-        },
-        date: 'Jan 19, 11:39 PM',
-        button: { 
-          text: 'View Details', 
-          variant: 'secondary' as const,
-          onClick: (row: any) => handleQuoteAction(row, { status: 'submitted' })
-        },
-        dataType: 'quote'
-      },
-      {
-        type: 'Policy',
-        id: 'POL-663931',
-        cargo: 'pharma',
-        value: 2219.99,
-        status: { 
-          text: 'Active', 
-          color: 'bg-emerald-50', 
-          dot: 'bg-emerald-500', 
-          textColor: 'text-emerald-700' 
-        },
-        date: 'Jan 20, 10:50 PM',
-        button: { 
-          text: 'View Shipment', 
-          variant: 'success' as const,
-          onClick: (row: any) => router.push('/shipments/8973bd4b-d206-42fc-ac7c-b7f16c051509')
-        },
-        dataType: 'policy'
-      },
-      {
-        type: 'Quote',
-        id: 'Q-T-001',
-        cargo: 'Unknown',
-        value: 0,
-        status: { 
-          text: 'Expired (Today)', 
-          color: 'bg-gray-100', 
-          dot: 'bg-gray-400', 
-          textColor: 'text-gray-600' 
-        },
-        date: 'Jan 19, 11:30 PM',
-        button: { 
-          text: 'View Details', 
-          variant: 'secondary' as const,
-          onClick: (row: any) => handleQuoteAction(row, { status: 'expired' })
-        },
-        dataType: 'quote'
-      },
-      {
-        type: 'Quote',
-        id: 'Q-08822',
-        cargo: 'clothing',
-        value: 7780,
-        status: { 
-          text: 'Expired (1 day ago)', 
-          color: 'bg-gray-100', 
-          dot: 'bg-gray-400', 
-          textColor: 'text-gray-600' 
-        },
-        date: 'Jan 19, 10:52 PM',
-        button: { 
-          text: 'View Details', 
-          variant: 'secondary' as const,
-          onClick: (row: any) => handleQuoteAction(row, { status: 'expired' })
-        },
-        dataType: 'quote'
-      },
-      {
-        type: 'Quote',
-        id: 'Q-00085',
-        cargo: 'machinery',
-        value: 84999.99,
-        status: { 
-          text: 'Rejected', 
-          color: 'bg-rose-50', 
-          dot: 'bg-rose-500', 
-          textColor: 'text-rose-700' 
-        },
-        date: 'Jan 19, 10:16 PM',
-        button: { 
-          text: 'View Details', 
-          variant: 'secondary' as const,
-          onClick: (row: any) => handleQuoteAction(row, { status: 'rejected' })
-        },
-        dataType: 'quote'
-      },
-      {
-        type: 'Quote',
-        id: 'Q-09400',
-        cargo: 'pharma',
-        value: 4499.99,
-        status: { 
-          text: 'Approved & Paid', 
-          color: 'bg-emerald-50', 
-          dot: 'bg-emerald-500', 
-          textColor: 'text-emerald-700' 
-        },
-        date: 'Jan 19, 10:06 PM',
-        button: { 
-          text: 'View Policy', 
-          variant: 'success' as const,
-          onClick: (row: any) => handleQuoteAction(row, { status: 'approved', payment_status: 'paid' })
-        },
-        dataType: 'quote'
-      },
-      {
-        type: 'Quote',
-        id: 'Q-07232',
-        cargo: 'electronics',
-        value: 12000,
-        status: { 
-          text: 'Pay to Activate', 
-          color: 'bg-amber-50', 
-          dot: 'bg-amber-500', 
-          textColor: 'text-amber-700' 
-        },
-        date: 'Jan 19, 10:05 PM',
-        button: { 
-          text: 'Pay Now', 
-          variant: 'primary' as const,
-          onClick: (row: any) => handleQuoteAction(row, { status: 'pay_to_activate' })
-        },
-        dataType: 'quote'
-      }
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort fallback data too
-  };
 
   const handleQuoteAction = (row: any, quote: any) => {
     const quoteId = row.rawData?.id || row.id;
@@ -1046,7 +890,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
             </div>
 
             <HighValueCargoWidget 
-              percentage={calculateHighValuePercentage(dashboardRows.length > 0 ? dashboardRows : getFallbackData())}
+              percentage={calculateHighValuePercentage(dashboardRows)}
               mtdValue={`${Math.floor(performanceMetrics.totalInsured.total / 1000)}k`}
             />
           </div>
@@ -1086,7 +930,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
 
               <div className="w-full h-[240px]">
                 <HighValueCargoWidget 
-                  percentage={calculateHighValuePercentage(dashboardRows.length > 0 ? dashboardRows : getFallbackData())}
+                  percentage={calculateHighValuePercentage(dashboardRows)}
                   mtdValue={`${Math.floor(performanceMetrics.totalInsured.total / 1000)}k`}
                 />
               </div>
