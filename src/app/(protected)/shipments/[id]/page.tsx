@@ -10,7 +10,7 @@ import {
   AlertCircle, Eye, Printer, FileUp, ArrowLeft,
   ChevronRight, Zap, BadgeCheck, Users, Phone, Lock,
   CreditCard, TrendingUp, FileCheck, FileWarning, CheckCircle2,
-  Loader2
+  Loader2, Info, FileSignature, AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -27,6 +27,7 @@ interface PolicyData {
   coverage_start: string;
   coverage_end: string;
   premium_amount: number;
+  payment_status: string;
   insurance_certificate_url: string;
   terms_url: string;
   receipt_url: string;
@@ -46,6 +47,16 @@ interface ShipmentDocument {
   updated_at: string;
 }
 
+// Claim eligibility interface
+interface EligibilityCheck {
+  policyActive: boolean;
+  paymentCompleted: boolean;
+  coverageValid: boolean;
+  documentsComplete: boolean;
+  canFileClaim: boolean;
+  missingDocs: string[];
+}
+
 export default function ShipmentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -56,77 +67,151 @@ export default function ShipmentDetailPage() {
     type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading' | null;
     progress: number;
   }>({ type: null, progress: 0 });
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'information' | 'documents' | 'claim'>('information');
+  
+  // Claim form state
+  const [claimForm, setClaimForm] = useState({
+    claim_type: 'loss',
+    incident_date: '',
+    incident_location_country: '',
+    incident_location_city: '',
+    description: '',
+    claimed_amount: '',
+  });
+  
+  // Supporting documents for claim
+  const [supportingDocs, setSupportingDocs] = useState<File[]>([]);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
+  
+  // Eligibility
+  const [eligibility, setEligibility] = useState<EligibilityCheck>({
+    policyActive: false,
+    paymentCompleted: false,
+    coverageValid: false,
+    documentsComplete: false,
+    canFileClaim: false,
+    missingDocs: []
+  });
+  
   const shipmentId = params.id as string;
 
   useEffect(() => {
     loadData();
   }, [shipmentId]);
-const loadData = async () => {
-  const supabase = createClient();
-  
-  try {
-    // Load policy data
-    const { data: policyData, error: policyError } = await supabase
-      .from('policies')
-      .select('*')
-      .eq('id', shipmentId)
-      .single();
-    
-    if (policyError || !policyData) {
-      toast.error('Shipment not found');
-      router.push('/dashboard');
-      return;
+
+  useEffect(() => {
+    if (policy && documents) {
+      checkEligibility();
     }
+  }, [policy, documents]);
+
+  const loadData = async () => {
+    const supabase = createClient();
     
-    setPolicy(policyData);
-    
-    // First, try to get existing document
-    const { data: existingDocs, error: findError } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('policy_id', shipmentId)
-      .maybeSingle();
-    
-    if (findError) {
-      console.error('Error finding documents:', findError);
-    }
-    
-    let documentsData;
-    
-    if (existingDocs) {
-      // Document already exists - just use it
-      documentsData = existingDocs;
-    } else {
-      // No document exists - create a new one
-      const { data: newDocs, error: createError } = await supabase
-        .from('documents')
-        .insert({
-          policy_id: shipmentId,
-          commercial_invoice_status: 'pending',
-          packing_list_status: 'pending',
-          bill_of_lading_status: 'pending'
-        })
-        .select()
+    try {
+      // Load policy data
+      const { data: policyData, error: policyError } = await supabase
+        .from('policies')
+        .select('*')
+        .eq('id', shipmentId)
         .single();
       
-      if (createError) {
-        console.error('Error creating document:', createError);
-      } else {
-        documentsData = newDocs;
+      if (policyError || !policyData) {
+        toast.error('Shipment not found');
+        router.push('/dashboard');
+        return;
       }
+      
+      setPolicy(policyData);
+      
+      // First, try to get existing document
+      const { data: existingDocs, error: findError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('policy_id', shipmentId)
+        .maybeSingle();
+      
+      if (findError) {
+        console.error('Error finding documents:', findError);
+      }
+      
+      let documentsData;
+      
+      if (existingDocs) {
+        // Document already exists - just use it
+        documentsData = existingDocs;
+      } else {
+        // No document exists - create a new one
+        const { data: newDocs, error: createError } = await supabase
+          .from('documents')
+          .insert({
+            policy_id: shipmentId,
+            commercial_invoice_status: 'pending',
+            packing_list_status: 'pending',
+            bill_of_lading_status: 'pending'
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('Error creating document:', createError);
+        } else {
+          documentsData = newDocs;
+        }
+      }
+      
+      if (documentsData) {
+        setDocuments(documentsData);
+      }
+      
+    } catch (error) {
+      console.error('Error loading shipment:', error);
+      toast.error('Failed to load shipment details');
+    } finally {
+      setLoading(false);
     }
-    
-    if (documentsData) {
-      setDocuments(documentsData);
-    }
-    
-  } catch (error) {
-    console.error('Error loading shipment:', error);
-    toast.error('Failed to load shipment details');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
+  const checkEligibility = () => {
+    if (!policy || !documents) return;
+
+    const now = new Date();
+    const startDate = new Date(policy.coverage_start);
+    const endDate = new Date(policy.coverage_end);
+
+    const checks = {
+      policyActive: policy.status === 'active',
+      paymentCompleted: policy.payment_status === 'paid' || policy.payment_status === 'completed',
+      coverageValid: now >= startDate && now <= endDate,
+    };
+
+    // Check documents
+    const requiredDocs = [
+      { type: 'Commercial Invoice', status: documents.commercial_invoice_status },
+      { type: 'Packing List', status: documents.packing_list_status },
+      { type: 'Bill of Lading', status: documents.bill_of_lading_status }
+    ];
+
+    const missingDocs = requiredDocs
+      .filter(doc => doc.status !== 'approved')
+      .map(doc => doc.type);
+
+    const documentsComplete = missingDocs.length === 0;
+
+    const canFileClaim = checks.policyActive && 
+                         checks.paymentCompleted && 
+                         checks.coverageValid && 
+                         documentsComplete;
+
+    setEligibility({
+      ...checks,
+      documentsComplete,
+      canFileClaim,
+      missingDocs
+    });
+  };
 
   const handleFileUpload = async (
     type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
@@ -244,16 +329,14 @@ const loadData = async () => {
         updateData.bill_of_lading_status = 'uploaded';
       }
       
-      // Use upsert
-      // Use update instead of upsert
-const { data: updatedDocument, error: upsertError } = await supabase
-  .from('documents')
-  .update({
-    ...updateData
-  })
-  .eq('policy_id', policy.id)
-  .select()
-  .single();
+      const { data: updatedDocument, error: upsertError } = await supabase
+        .from('documents')
+        .update({
+          ...updateData
+        })
+        .eq('policy_id', policy.id)
+        .select()
+        .single();
       
       if (upsertError) {
         throw upsertError;
@@ -280,6 +363,148 @@ const { data: updatedDocument, error: upsertError } = await supabase
       
       toast.error(errorMessage);
       setUploading({ type: null, progress: 0 });
+    }
+  };
+
+  const handleClaimFileUpload = (files: FileList) => {
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    const maxSize = 5 * 1024 * 1024;
+
+    const newFiles = Array.from(files).filter(file => {
+      if (!validTypes.includes(file.type)) {
+        toast.error(`${file.name}: Please upload PDF, JPEG, or PNG only`);
+        return false;
+      }
+      if (file.size > maxSize) {
+        toast.error(`${file.name}: File size must be less than 5MB`);
+        return false;
+      }
+      return true;
+    });
+
+    setSupportingDocs(prev => [...prev, ...newFiles]);
+  };
+
+  const removeSupportingDoc = (index: number) => {
+    setSupportingDocs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitClaim = async () => {
+    if (!policy || !eligibility.canFileClaim) return;
+
+    // Validate form
+    if (!claimForm.incident_date) {
+      toast.error('Please select incident date');
+      return;
+    }
+
+    if (!claimForm.incident_location_country || !claimForm.incident_location_city) {
+      toast.error('Please enter incident location');
+      return;
+    }
+
+    if (!claimForm.description.trim()) {
+      toast.error('Please describe the incident');
+      return;
+    }
+
+    const claimedAmount = parseFloat(claimForm.claimed_amount);
+    if (!claimedAmount || claimedAmount <= 0) {
+      toast.error('Please enter a valid claimed amount');
+      return;
+    }
+
+    if (claimedAmount > policy.coverage_amount) {
+      toast.error(`Claimed amount cannot exceed coverage amount: $${policy.coverage_amount.toLocaleString()}`);
+      return;
+    }
+
+    const incidentDate = new Date(claimForm.incident_date);
+    const coverageStart = new Date(policy.coverage_start);
+    const coverageEnd = new Date(policy.coverage_end);
+
+    if (incidentDate < coverageStart || incidentDate > coverageEnd) {
+      toast.error('Incident date must be within coverage period');
+      return;
+    }
+
+    setSubmittingClaim(true);
+
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error('You must be logged in to submit a claim');
+        return;
+      }
+
+      // Upload supporting documents if any
+      let supportingDocUrls: string[] = [];
+      if (supportingDocs.length > 0) {
+        const uploadPromises = supportingDocs.map(async (file, index) => {
+          const timestamp = Date.now();
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${timestamp}_${index}_claim_evidence.${fileExt}`;
+          const filePath = `claim-documents/${policy.policy_number}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('shipment-documents')
+            .upload(filePath, file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('shipment-documents')
+            .getPublicUrl(filePath);
+
+          return publicUrl;
+        });
+
+        supportingDocUrls = await Promise.all(uploadPromises);
+      }
+
+      // Create claim record
+      const { data: claim, error: claimError } = await supabase
+        .from('claims')
+        .insert({
+          policy_id: policy.id,
+          user_id: user.id,
+          claim_type: claimForm.claim_type,
+          incident_date: claimForm.incident_date,
+          incident_location_country: claimForm.incident_location_country,
+          incident_location_city: claimForm.incident_location_city,
+          description: claimForm.description,
+          claimed_amount: claimedAmount,
+          status: 'submitted',
+          supporting_documents: supportingDocUrls
+        })
+        .select()
+        .single();
+
+      if (claimError) throw claimError;
+
+      // Reset form
+      setClaimForm({
+        claim_type: 'loss',
+        incident_date: '',
+        incident_location_country: '',
+        incident_location_city: '',
+        description: '',
+        claimed_amount: '',
+      });
+      setSupportingDocs([]);
+
+      toast.success(`Claim ${claim.claim_number || '#'} submitted successfully! We will review it within 5-7 business days.`);
+      
+      // Switch back to documents tab
+      setActiveTab('documents');
+
+    } catch (error: any) {
+      console.error('Error submitting claim:', error);
+      toast.error(error.message || 'Failed to submit claim');
+    } finally {
+      setSubmittingClaim(false);
     }
   };
 
@@ -378,49 +603,6 @@ const { data: updatedDocument, error: upsertError } = await supabase
     return { totalDocs, uploadedDocs, approvedDocs, pendingDocs };
   };
 
-  const documentStats = getDocumentStats();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <DashboardHeader />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading shipment details...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!policy) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <DashboardHeader />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
-            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Shipment Not Found</h2>
-            <p className="text-gray-600 mb-6">The shipment you're looking for doesn't exist.</p>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const serviceFee = 99;
-  const taxes = Math.round(policy.premium_amount * 0.08);
-  const totalPaid = policy.premium_amount + serviceFee + taxes;
-
   // Render document card with upload progress
   const renderDocumentCard = (
     type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
@@ -491,7 +673,7 @@ const { data: updatedDocument, error: upsertError } = await supabase
               View
             </button>
             <button
-              onClick={() => handleDownloadDocument(url, `${type}-${policy.policy_number}.pdf`)}
+              onClick={() => handleDownloadDocument(url, `${type}-${policy?.policy_number}.pdf`)}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
               <Download className="w-4 h-4" />
@@ -554,12 +736,76 @@ const { data: updatedDocument, error: upsertError } = await supabase
     );
   };
 
+  // Tab navigation
+  const tabs = [
+    {
+      id: 'information',
+      name: 'Information',
+      icon: <Info className="w-4 h-4" />,
+      enabled: true
+    },
+    {
+      id: 'documents',
+      name: 'Documents',
+      icon: <FileText className="w-4 h-4" />,
+      enabled: true
+    },
+    {
+      id: 'claim',
+      name: 'File a Claim',
+      icon: <FileSignature className="w-4 h-4" />,
+      enabled: eligibility.canFileClaim // Disabled if not eligible
+    }
+  ];
+
+  const documentStats = getDocumentStats();
+  const serviceFee = 99;
+  const taxes = Math.round((policy?.premium_amount || 0) * 0.08);
+  const totalPaid = (policy?.premium_amount || 0) + serviceFee + taxes;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+        <DashboardHeader />
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading shipment details...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!policy) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+        <DashboardHeader />
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Shipment Not Found</h2>
+            <p className="text-gray-600 mb-6">The shipment you're looking for doesn't exist.</p>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <DashboardHeader />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Header with progress dashboard */}
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -580,9 +826,9 @@ const { data: updatedDocument, error: upsertError } = await supabase
                 <ChevronRight className="w-3 h-3" />
                 <span className="text-gray-900 font-medium">Policy #{policy.policy_number}</span>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">Shipment Documents</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Shipment Details</h1>
               <p className="text-gray-600 mt-2">
-                Upload required documents to complete your shipment setup
+                Manage your shipment documents and file claims
               </p>
             </div>
             
@@ -612,250 +858,574 @@ const { data: updatedDocument, error: upsertError } = await supabase
             </div>
           </div>
 
-          {/* Document Progress Dashboard */}
+          {/* Tab Navigation */}
           <div className="mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Required</p>
-                    <p className="text-2xl font-bold text-gray-900">3</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Uploaded</p>
-                    <p className="text-2xl font-bold text-gray-900">{documentStats.uploadedDocs}/3</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-emerald-600" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Approved</p>
-                    <p className="text-2xl font-bold text-gray-900">{documentStats.approvedDocs}/3</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Pending</p>
-                    <p className="text-2xl font-bold text-gray-900">{documentStats.pendingDocs}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900">Document Completion</h3>
-                <span className="text-sm font-medium text-blue-600">
-                  {Math.round((documentStats.uploadedDocs / 3) * 100)}% Complete
-                </span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-3">
-                <div 
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${(documentStats.uploadedDocs / 3) * 100}%` }}
-                ></div>
-              </div>
-              <p className="text-sm text-gray-600 mt-3">
-                {documentStats.pendingDocs === 0 
-                  ? 'All documents uploaded! Your shipment is ready for processing.'
-                  : `Upload ${documentStats.pendingDocs} more document${documentStats.pendingDocs > 1 ? 's' : ''} to complete your shipment setup.`
-                }
-              </p>
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => tab.enabled && setActiveTab(tab.id as any)}
+                    disabled={!tab.enabled}
+                    className={`
+                      flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
+                      ${activeTab === tab.id
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }
+                      ${!tab.enabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                  >
+                    {tab.icon}
+                    {tab.name}
+                    {!tab.enabled && tab.id === 'claim' && (
+                      <AlertTriangle className="w-3 h-3 text-amber-500" />
+                    )}
+                  </button>
+                ))}
+              </nav>
             </div>
           </div>
         </div>
 
+        {/* Tab Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Quick Upload Section */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                      <Upload className="w-5 h-5 text-blue-600" />
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2">
+            {activeTab === 'information' && (
+              <div className="space-y-6">
+                {/* Shipment Details Card */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Shipment Details</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Package className="w-4 h-4" />
+                        <span className="text-sm">Cargo Type</span>
+                      </div>
+                      <p className="font-medium text-gray-900">{policy.cargo_type}</p>
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">Upload Documents</h2>
-                      <p className="text-gray-600">Required for claim processing and shipment verification</p>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <DollarSign className="w-4 h-4" />
+                        <span className="text-sm">Coverage Amount</span>
+                      </div>
+                      <p className="font-medium text-gray-900">{formatCurrency(policy.coverage_amount)}</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <MapPin className="w-4 h-4" />
+                        <span className="text-sm">Route</span>
+                      </div>
+                      <p className="font-medium text-gray-900">
+                        {policy.origin?.city || 'Unknown'} → 
+                        {policy.destination?.city || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-6">
+                    <h4 className="font-medium text-gray-900 mb-4">Coverage Period</h4>
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 flex-1">
+                        <Calendar className="w-5 h-5 text-gray-600" />
+                        <div>
+                          <p className="text-xs text-gray-500">Start Date</p>
+                          <p className="text-sm font-medium">{formatDate(policy.coverage_start)}</p>
+                        </div>
+                      </div>
+                      <div className="h-0.5 w-8 bg-gray-300"></div>
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 flex-1">
+                        <Calendar className="w-5 h-5 text-gray-600" />
+                        <div>
+                          <p className="text-xs text-gray-500">End Date</p>
+                          <p className="text-sm font-medium">{formatDate(policy.coverage_end)}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="hidden lg:block">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500">Priority</p>
-                    <p className="text-lg font-bold text-blue-600">High</p>
+
+                {/* Policy Documents */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Policy Documents</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-blue-100">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Insurance Certificate</h4>
+                          <p className="text-xs text-gray-600">Official policy document</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => policy.insurance_certificate_url && handleViewDocument(policy.insurance_certificate_url)}
+                        className="w-full py-2 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        View Document
+                      </button>
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-gray-100">
+                          <FileText className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Terms & Conditions</h4>
+                          <p className="text-xs text-gray-600">Policy terms</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => policy.terms_url && handleViewDocument(policy.terms_url)}
+                        className="w-full py-2 px-3 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        View Terms
+                      </button>
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-green-100">
+                          <FileText className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Payment Receipt</h4>
+                          <p className="text-xs text-gray-600">Transaction confirmation</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => policy.receipt_url && handleViewDocument(policy.receipt_url)}
+                        className="w-full py-2 px-3 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        View Receipt
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              <div className="space-y-4">
-                {renderDocumentCard(
-                  'commercial_invoice',
-                  'Commercial Invoice',
-                  'Shows cargo value and trade details',
-                  documents?.commercial_invoice_status || 'pending',
-                  documents?.commercial_invoice_url || null
-                )}
-                
-                {renderDocumentCard(
-                  'packing_list',
-                  'Packing List',
-                  'Shows quantity, weight, and packaging details',
-                  documents?.packing_list_status || 'pending',
-                  documents?.packing_list_url || null
-                )}
-                
-                {renderDocumentCard(
-                  'bill_of_lading',
-                  'Bill of Lading / Air Waybill',
-                  'Carrier-issued shipment receipt',
-                  documents?.bill_of_lading_status || 'pending',
-                  documents?.bill_of_lading_url || null
-                )}
-              </div>
-            </div>
+            {activeTab === 'documents' && (
+              <div className="space-y-6">
+                {/* Quick Upload Section */}
+                {/* Document Progress Dashboard */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Document Progress</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Uploaded</p>
+                          <p className="text-2xl font-bold text-gray-900">{documentStats.uploadedDocs}/3</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                          <Upload className="w-5 h-5 text-emerald-600" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Approved</p>
+                          <p className="text-2xl font-bold text-gray-900">{documentStats.approvedDocs}/3</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Pending</p>
+                          <p className="text-2xl font-bold text-gray-900">{documentStats.pendingDocs}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-amber-600" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-            {/* Shipment Details Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Shipment Details</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <Package className="w-4 h-4" />
-                    <span className="text-sm">Cargo Type</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-gray-900">Document Completion</h4>
+                    <span className="text-sm font-medium text-blue-600">
+                      {Math.round((documentStats.uploadedDocs / 3) * 100)}% Complete
+                    </span>
                   </div>
-                  <p className="font-medium text-gray-900">{policy.cargo_type}</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <DollarSign className="w-4 h-4" />
-                    <span className="text-sm">Coverage Amount</span>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${(documentStats.uploadedDocs / 3) * 100}%` }}
+                    ></div>
                   </div>
-                  <p className="font-medium text-gray-900">{formatCurrency(policy.coverage_amount)}</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm">Route</span>
-                  </div>
-                  <p className="font-medium text-gray-900">
-                    {policy.origin?.city || 'Unknown'} → 
-                    {policy.destination?.city || 'Unknown'}
+                  <p className="text-sm text-gray-600 mt-3">
+                    {documentStats.pendingDocs === 0 
+                      ? 'All documents uploaded! Your shipment is ready for processing.'
+                      : `Upload ${documentStats.pendingDocs} more document${documentStats.pendingDocs > 1 ? 's' : ''} to complete your shipment setup.`
+                    }
                   </p>
                 </div>
-              </div>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                          <Upload className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-bold text-gray-900">Upload Documents</h2>
+                          <p className="text-gray-600">Required for claim processing and shipment verification</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="hidden lg:block">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">Priority</p>
+                        <p className="text-lg font-bold text-blue-600">High</p>
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="border-t border-gray-200 pt-6">
-                <h4 className="font-medium text-gray-900 mb-4">Coverage Period</h4>
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 flex-1">
-                    <Calendar className="w-5 h-5 text-gray-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">Start Date</p>
-                      <p className="text-sm font-medium">{formatDate(policy.coverage_start)}</p>
-                    </div>
-                  </div>
-                  <div className="h-0.5 w-8 bg-gray-300"></div>
-                  <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 flex-1">
-                    <Calendar className="w-5 h-5 text-gray-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">End Date</p>
-                      <p className="text-sm font-medium">{formatDate(policy.coverage_end)}</p>
-                    </div>
+                  <div className="space-y-4">
+                    {renderDocumentCard(
+                      'commercial_invoice',
+                      'Commercial Invoice',
+                      'Shows cargo value and trade details',
+                      documents?.commercial_invoice_status || 'pending',
+                      documents?.commercial_invoice_url || null
+                    )}
+                    
+                    {renderDocumentCard(
+                      'packing_list',
+                      'Packing List',
+                      'Shows quantity, weight, and packaging details',
+                      documents?.packing_list_status || 'pending',
+                      documents?.packing_list_url || null
+                    )}
+                    
+                    {renderDocumentCard(
+                      'bill_of_lading',
+                      'Bill of Lading / Air Waybill',
+                      'Carrier-issued shipment receipt',
+                      documents?.bill_of_lading_status || 'pending',
+                      documents?.bill_of_lading_url || null
+                    )}
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* System Documents */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Policy Documents</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-blue-100">
-                      <FileText className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Insurance Certificate</h4>
-                      <p className="text-xs text-gray-600">Official policy document</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => policy.insurance_certificate_url && handleViewDocument(policy.insurance_certificate_url)}
-                    className="w-full py-2 px-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    View Document
-                  </button>
-                </div>
                 
-                <div className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-gray-100">
-                      <FileText className="w-5 h-5 text-gray-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Terms & Conditions</h4>
-                      <p className="text-xs text-gray-600">Policy terms</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => policy.terms_url && handleViewDocument(policy.terms_url)}
-                    className="w-full py-2 px-3 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    View Terms
-                  </button>
-                </div>
-                
-                <div className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-green-100">
-                      <FileText className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Payment Receipt</h4>
-                      <p className="text-xs text-gray-600">Transaction confirmation</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => policy.receipt_url && handleViewDocument(policy.receipt_url)}
-                    className="w-full py-2 px-3 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    View Receipt
-                  </button>
-                </div>
               </div>
-            </div>
+            )}
+
+            {activeTab === 'claim' && (
+              <div className="space-y-6">
+                {/* Eligibility Check */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Eligibility Check</h3>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        eligibility.policyActive ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                        {eligibility.policyActive ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Policy is active</p>
+                        <p className="text-sm text-gray-500">
+                          {eligibility.policyActive 
+                            ? 'Your policy is currently active' 
+                            : 'Your policy is not active'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        eligibility.paymentCompleted ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                        {eligibility.paymentCompleted ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Payment completed</p>
+                        <p className="text-sm text-gray-500">
+                          {eligibility.paymentCompleted 
+                            ? 'Premium payment completed' 
+                            : 'Premium payment pending'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        eligibility.coverageValid ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                        {eligibility.coverageValid ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Coverage period valid</p>
+                        <p className="text-sm text-gray-500">
+                          {eligibility.coverageValid 
+                            ? `Current date is within coverage period` 
+                            : 'Current date is outside coverage period'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                        eligibility.documentsComplete ? 'bg-green-100' : 'bg-amber-100'
+                      }`}>
+                        {eligibility.documentsComplete ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Required documents approved</p>
+                        <p className="text-sm text-gray-500">
+                          {eligibility.documentsComplete 
+                            ? 'All required documents are approved' 
+                            : `${eligibility.missingDocs.length} document${eligibility.missingDocs.length > 1 ? 's' : ''} pending approval`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {!eligibility.canFileClaim && (
+                    <div className="p-4 bg-gradient-to-r from-red-50 to-amber-50 rounded-xl border border-amber-200">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-amber-700 mb-1">Action Required</p>
+                          {eligibility.missingDocs.length > 0 ? (
+                            <div>
+                              <p className="text-sm text-amber-600 mb-2">
+                                Upload and get approval for these documents:
+                              </p>
+                              <ul className="text-sm text-amber-600 space-y-1">
+                                {eligibility.missingDocs.map((doc, index) => (
+                                  <li key={index} className="flex items-center gap-2">
+                                    <FileWarning className="w-3 h-3" />
+                                    {doc}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-amber-600">
+                              Complete all eligibility requirements to file a claim
+                            </p>
+                          )}
+                          <button
+                            onClick={() => setActiveTab('documents')}
+                            className="mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                          >
+                            <Upload className="w-3 h-3" />
+                            {eligibility.missingDocs.length > 0 ? 'Upload Documents' : 'Check Policy Status'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Claim Form */}
+                {eligibility.canFileClaim && (
+                  <>
+                    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Details</h3>
+                      
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Claim Type
+                          </label>
+                          <select
+                            value={claimForm.claim_type}
+                            onChange={(e) => setClaimForm(prev => ({ ...prev, claim_type: e.target.value }))}
+                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                          >
+                            <option value="loss">Loss</option>
+                            <option value="damage">Damage</option>
+                            <option value="theft">Theft</option>
+                            <option value="delay">Delay</option>
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Incident Date
+                            </label>
+                            <input
+                              type="date"
+                              value={claimForm.incident_date}
+                              onChange={(e) => setClaimForm(prev => ({ ...prev, incident_date: e.target.value }))}
+                              min={policy.coverage_start}
+                              max={policy.coverage_end}
+                              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Must be between {formatDate(policy.coverage_start)} and {formatDate(policy.coverage_end)}
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Claimed Amount (USD)
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                                $
+                              </span>
+                              <input
+                                type="number"
+                                value={claimForm.claimed_amount}
+                                onChange={(e) => setClaimForm(prev => ({ ...prev, claimed_amount: e.target.value }))}
+                                min="0"
+                                max={policy.coverage_amount}
+                                step="0.01"
+                                className="w-full pl-8 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Max: {formatCurrency(policy.coverage_amount)} coverage
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Country
+                            </label>
+                            <input
+                              type="text"
+                              value={claimForm.incident_location_country}
+                              onChange={(e) => setClaimForm(prev => ({ ...prev, incident_location_country: e.target.value }))}
+                              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                              placeholder="Enter country"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              City
+                            </label>
+                            <input
+                              type="text"
+                              value={claimForm.incident_location_city}
+                              onChange={(e) => setClaimForm(prev => ({ ...prev, incident_location_city: e.target.value }))}
+                              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                              placeholder="Enter city"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Description of Incident
+                          </label>
+                          <textarea
+                            value={claimForm.description}
+                            onChange={(e) => setClaimForm(prev => ({ ...prev, description: e.target.value }))}
+                            rows={4}
+                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+                            placeholder="Describe what happened in detail..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Supporting Documents */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-6">Supporting Evidence</h3>
+                      <p className="text-gray-600 mb-4">
+                        Upload photos or documents that support your claim (optional but recommended)
+                      </p>
+                      
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                          <Eye className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <p className="text-gray-700 font-medium mb-2">Upload evidence files</p>
+                        <p className="text-sm text-gray-500 mb-4">
+                          Photos of damage, police reports, carrier reports, etc.
+                          <br />
+                          PDF, JPEG, or PNG (max 5MB each)
+                        </p>
+                        <label className="inline-block px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            multiple
+                            onChange={(e) => e.target.files && handleClaimFileUpload(e.target.files)}
+                          />
+                          Choose Files
+                        </label>
+                      </div>
+
+                      {supportingDocs.length > 0 && (
+                        <div className="mt-6">
+                          <h4 className="font-medium text-gray-900 mb-3">Selected Files</h4>
+                          <div className="space-y-2">
+                            {supportingDocs.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <FileText className="w-5 h-5 text-gray-600" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{file.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => removeSupportingDoc(index)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <XCircle className="w-5 h-5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
+          {/* Right Column - Sidebar */}
           <div className="space-y-6">
             {/* Payment Summary */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
@@ -904,63 +1474,124 @@ const { data: updatedDocument, error: upsertError } = await supabase
                 </div>
               </div>
 
-              <button 
-                onClick={() => router.push(`/shipments/${policy.id}/file-a-claim`)}
-                className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-              >
-                <AlertCircle className="w-4 h-4" />
-                File a Claim
-              </button>
+              {/* Submit Claim Button for claim tab */}
+              {activeTab === 'claim' && eligibility.canFileClaim && (
+                <button 
+                  onClick={handleSubmitClaim}
+                  disabled={submittingClaim}
+                  className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {submittingClaim ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4" />
+                      Submit Claim
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
-            {/* Next Steps */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <h4 className="font-semibold text-gray-900 mb-4">Next Steps</h4>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+            {/* Claim Process Info (only shown in claim tab) */}
+            {activeTab === 'claim' && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <h4 className="font-semibold text-gray-900 mb-4">Claim Process</h4>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span className="text-sm font-bold text-blue-600">1</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Submit Claim</p>
+                      <p className="text-xs text-gray-500">Complete and submit the claim form</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Policy Active</p>
-                    <p className="text-xs text-gray-500">Your cargo is insured and protected</p>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                      <span className="text-sm font-bold text-gray-600">2</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Under Review</p>
+                      <p className="text-xs text-gray-500">Claim adjuster reviews your submission</p>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    documentStats.uploadedDocs === 3 ? 'bg-emerald-100' : 'bg-blue-100'
-                  }`}>
-                    {documentStats.uploadedDocs === 3 ? (
-                      <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <Upload className="w-4 h-4 text-blue-600" />
-                    )}
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                      <span className="text-sm font-bold text-gray-600">3</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Decision</p>
+                      <p className="text-xs text-gray-500">Claim approved or rejected</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Upload Documents</p>
-                    <p className="text-xs text-gray-500">
-                      {documentStats.uploadedDocs === 3 
-                        ? 'All documents uploaded'
-                        : `${3 - documentStats.uploadedDocs} document${documentStats.uploadedDocs < 2 ? 's' : ''} remaining`
-                      }
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-gray-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Track Shipment</p>
-                    <p className="text-xs text-gray-500">Monitor your shipment progress</p>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                      <span className="text-sm font-bold text-gray-600">4</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Payment</p>
+                      <p className="text-xs text-gray-500">Funds transferred if approved</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            
+            {/* Next Steps (for information tab) */}
+            {activeTab === 'information' && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <h4 className="font-semibold text-gray-900 mb-4">Next Steps</h4>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Policy Active</p>
+                      <p className="text-xs text-gray-500">Your cargo is insured and protected</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      documentStats.uploadedDocs === 3 ? 'bg-emerald-100' : 'bg-blue-100'
+                    }`}>
+                      {documentStats.uploadedDocs === 3 ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Upload className="w-4 h-4 text-blue-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Upload Documents</p>
+                      <p className="text-xs text-gray-500">
+                        {documentStats.uploadedDocs === 3 
+                          ? 'All documents uploaded'
+                          : `${3 - documentStats.uploadedDocs} document${documentStats.uploadedDocs < 2 ? 's' : ''} remaining`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Track Shipment</p>
+                      <p className="text-xs text-gray-500">Monitor your shipment progress</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Help Card */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6">
@@ -1004,26 +1635,5 @@ const { data: updatedDocument, error: upsertError } = await supabase
         </div>
       </div>
     </div>
-  );
-}
-
-function Share(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
-    </svg>
   );
 }
