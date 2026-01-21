@@ -497,23 +497,36 @@ const { data: updatedDocument, error: upsertError } = await supabase
               <Download className="w-4 h-4" />
               Download
             </button>
-            <button
-              onClick={() => document.getElementById(`${type}_upload`)?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
-            >
-              <Upload className="w-4 h-4" />
-              Replace
-            </button>
-            <input
-              id={`${type}_upload`}
-              type="file"
-              className="hidden"
-              accept=".pdf,.jpg,.jpeg,.png"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileUpload(type, file);
-              }}
-            />
+            
+            {/* Միայն եթե approved չէ, ցույց տալ Replace կոճակը */}
+            {status !== 'approved' && (
+              <>
+                <button
+                  onClick={() => document.getElementById(`${type}_upload`)?.click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+                >
+                  <Upload className="w-4 h-4" />
+                  Replace
+                </button>
+                <input
+                  id={`${type}_upload`}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(type, file);
+                  }}
+                />
+              </>
+            )}
+            
+            {/* Եթե approved է, ցույց տալ մեկնաբանություն */}
+            {status === 'approved' && (
+              <div className="ml-2 text-sm text-green-600 font-medium">
+                ✓ Approved
+              </div>
+            )}
           </div>
         ) : (
           <div>
