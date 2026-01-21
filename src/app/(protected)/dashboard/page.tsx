@@ -342,44 +342,79 @@ const calculateDaysUntilExpiry = (item: any) => {
         
         setConversionData(newConversionData);
 
-        // Հաշվել ավելի ճշգրիտ performance metrics
-        const totalInsuredAmount = (policies || []).reduce((sum, policy) => 
-          sum + (parseFloat(policy.coverage_amount) || 0), 0);
-        
-        const activePoliciesCount = (policies || []).filter(p => p.status === 'active').length;
-        const submittedQuotesCount = (quotes || []).filter(q => q.status === 'submitted').length;
-        const underReviewCount = (quotes || []).filter(q => q.status === 'under_review').length;
-        const draftQuotesCount = (quotes || []).filter(q => q.status === 'draft').length;
-        const totalQuotes = quotes?.length || 1;
+        // Կոդի հատվածը, որը պետք է փոխարինել `loadDashboardData` ֆունկցիայում
 
-        // Ավելի ճշգրիտ հաշվարկներ
-        const totalInsuredInK = Math.floor(totalInsuredAmount / 1000);
-        const decimalPart = Math.round((totalInsuredAmount % 1000) / 10);
-        
-        setPerformanceMetrics({
-          totalInsured: { 
-            value: totalInsuredInK.toString(), 
-            decimal: `${decimalPart}k`, 
-            total: totalInsuredAmount 
-          },
-          activePolicies: { 
-            count: activePoliciesCount, 
-            percentage: Math.round((activePoliciesCount / totalQuotes) * 100) || 47
-          },
-          quotesAwaiting: { 
-            count: submittedQuotesCount, 
-            percentage: Math.round((submittedQuotesCount / totalQuotes) * 100) || 25
-          },
-          underReview: { 
-            count: underReviewCount, 
-            percentage: Math.round((underReviewCount / totalQuotes) * 100)
-          },
-          readyToPay: { 
-            count: draftQuotesCount, 
-            percentage: Math.round((draftQuotesCount / totalQuotes) * 100) || 17
-          }
-        });
+// Հաշվել ավելի ճշգրիտ performance metrics
+const totalInsuredAmount = (policies || []).reduce((sum, policy) => 
+  sum + (parseFloat(policy.coverage_amount) || 0), 0);
 
+const activePoliciesCount = (policies || []).filter(p => p.status === 'active').length;
+
+// 1. Contracts Due to Expire (Մինչև 2 օր մնացած քվոտաներ/պոլիսներ)
+const contractsDueToExpireCount = formattedData.filter(item => {
+  if (item.expiringDays === null || item.expiringDays === undefined) return false;
+  
+  // Պահպանել միայն Active կամ Approved/Paid դրությամբները
+  const isActiveOrApprovedPaid = 
+    (item.dataType === 'policy' && item.policyStatus === 'active') ||
+    (item.dataType === 'quote' && item.quoteStatus === 'approved' && item.paymentStatus === 'paid');
+  
+  return isActiveOrApprovedPaid && item.expiringDays >= 0 && item.expiringDays <= 2;
+}).length;
+
+// 2. Required Document Uploads (Պետք է ստուգել documents աղյուսակը)
+const { data: pendingDocuments, error: docsError } = await supabase
+  .from('documents')
+  .select('*')
+  .eq('user_id', user.id);
+
+let requiredDocumentUploadsCount = 0;
+if (!docsError && pendingDocuments) {
+  // Հաշվել բոլոր pending ստատուսով փաստաթղթերը
+  requiredDocumentUploadsCount = pendingDocuments.filter(doc => {
+    return doc.commercial_invoice_status === 'pending' ||
+           doc.packing_list_status === 'pending' ||
+           doc.bill_of_lading_status === 'pending';
+  }).length;
+}
+
+// 3. Under Review - դեռևս անհրաժեշտ է
+const underReviewCount = (quotes || []).filter(q => q.status === 'under_review').length;
+
+// 4. Ready to Pay - միայն approved, բայց չվճարված քվոտաներ
+const readyToPayCount = (quotes || []).filter(q => 
+  q.status === 'approved' && q.payment_status !== 'paid'
+).length;
+
+const totalQuotes = quotes?.length || 1;
+
+// Ավելի ճշգրիտ հաշվարկներ
+const totalInsuredInK = Math.floor(totalInsuredAmount / 1000);
+const decimalPart = Math.round((totalInsuredAmount % 1000) / 10);
+
+setPerformanceMetrics({
+  totalInsured: { 
+    value: totalInsuredInK.toString(), 
+    decimal: `${decimalPart}k`, 
+    total: totalInsuredAmount 
+  },
+  activePolicies: { 
+    count: activePoliciesCount, 
+    percentage: Math.round((activePoliciesCount / (policies?.length || 1)) * 100) || 33
+  },
+  quotesAwaiting: { // Այժմ դա կլինի Required Document Uploads
+    count: requiredDocumentUploadsCount, 
+    percentage: Math.round((requiredDocumentUploadsCount / totalQuotes) * 100) || 0
+  },
+  underReview: { // Այժմ դա կլինի Contracts Due to Expire
+    count: contractsDueToExpireCount, 
+    percentage: Math.round((contractsDueToExpireCount / totalQuotes) * 100) || 0
+  },
+  readyToPay: { 
+    count: readyToPayCount, 
+    percentage: Math.round((readyToPayCount / totalQuotes) * 100) || 0
+  }
+});
       } catch (error) {
         console.error('Error loading dashboard data:', error)
         
@@ -835,55 +870,55 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
             max-[1024px]:min-h-auto max-[1024px]:max-h-none
           ">
             <PerformanceOverview 
-              title="Performance Overview"
-              timePeriod="This Month"
-              metrics={[
-                {
-                  id: 'total-insured-amount',
-                  value: performanceMetrics.totalInsured.value,
-                  decimal: performanceMetrics.totalInsured.decimal,
-                  prefix: '$',
-                  label: 'Total Insured Amount',
-                  hasArrow: false
-                },
-                {
-                  id: 'active-policies',
-                  value: performanceMetrics.activePolicies.count.toString(),
-                  decimal: performanceMetrics.activePolicies.percentage.toString(),
-                  suffix: '%',
-                  label: 'Active Policies',
-                  hasArrow: true,
-                  arrowDirection: 'up'
-                },
-                {
-                  id: 'quotes-awaiting',
-                  value: performanceMetrics.quotesAwaiting.count.toString(),
-                  decimal: performanceMetrics.quotesAwaiting.percentage.toString(),
-                  suffix: '%',
-                  label: 'Quotes Awaiting Approval',
-                  hasArrow: true,
-                  arrowDirection: 'down'
-                },
-                {
-                  id: 'under-review',
-                  value: performanceMetrics.underReview.count.toString(),
-                  decimal: '',
-                  suffix: '%',
-                  label: 'Under Review',
-                  hasArrow: true,
-                  arrowDirection: performanceMetrics.underReview.count > 0 ? 'up' : 'down'
-                },
-                {
-                  id: 'ready-to-pay',
-                  value: performanceMetrics.readyToPay.count.toString(),
-                  decimal: '',
-                  suffix: '%',
-                  label: 'Ready to Pay',
-                  hasArrow: true,
-                  arrowDirection: performanceMetrics.readyToPay.count > 0 ? 'up' : 'down'
-                }
-              ]}
-            />
+  title="Performance Overview"
+  timePeriod="This Month"
+  metrics={[
+    {
+      id: 'total-insured-amount',
+      value: performanceMetrics.totalInsured.value,
+      decimal: performanceMetrics.totalInsured.decimal,
+      prefix: '$',
+      label: 'Total Insured Amount',
+      hasArrow: false
+    },
+    {
+      id: 'active-policies',
+      value: performanceMetrics.activePolicies.count.toString(),
+      decimal: performanceMetrics.activePolicies.percentage.toString(),
+      suffix: '%',
+      label: 'Active Policies',
+      hasArrow: true,
+      arrowDirection: 'up'
+    },
+    {
+      id: 'quotes-awaiting',
+      value: performanceMetrics.quotesAwaiting.count.toString(),
+      decimal: performanceMetrics.quotesAwaiting.percentage.toString(),
+      suffix: '%',
+      label: 'Required Document Uploads', // ՓՈԽՎԱԾ
+      hasArrow: true,
+      arrowDirection: 'down'
+    },
+    {
+      id: 'under-review',
+      value: performanceMetrics.underReview.count.toString(),
+      decimal: '',
+      suffix: '%',
+      label: 'Contracts Due to Expire', // ՓՈԽՎԱԾ
+      hasArrow: true,
+      arrowDirection: performanceMetrics.underReview.count > 0 ? 'up' : 'down'
+    },
+    {
+      id: 'ready-to-pay',
+      value: performanceMetrics.readyToPay.count.toString(),
+      decimal: '',
+      suffix: '%',
+      label: 'Ready to Pay',
+      hasArrow: true,
+      arrowDirection: performanceMetrics.readyToPay.count > 0 ? 'up' : 'down'
+    }
+  ]}
+/>
 
             <div className="block md:hidden">
               <ConversionChart 
