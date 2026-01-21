@@ -9,7 +9,8 @@ import {
   Shield, Calendar, MapPin, Package, DollarSign, Truck,
   AlertCircle, Eye, Printer, FileUp, ArrowLeft,
   ChevronRight, Zap, BadgeCheck, Users, Phone, Lock,
-  CreditCard, TrendingUp, FileCheck, FileWarning, CheckCircle2
+  CreditCard, TrendingUp, FileCheck, FileWarning, CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -60,78 +61,72 @@ export default function ShipmentDetailPage() {
   useEffect(() => {
     loadData();
   }, [shipmentId]);
-
-  const loadData = async () => {
-    const supabase = createClient();
+const loadData = async () => {
+  const supabase = createClient();
+  
+  try {
+    // Load policy data
+    const { data: policyData, error: policyError } = await supabase
+      .from('policies')
+      .select('*')
+      .eq('id', shipmentId)
+      .single();
     
-    try {
-      // Load policy data
-      const { data: policyData, error: policyError } = await supabase
-        .from('policies')
-        .select('*')
-        .eq('id', shipmentId)
+    if (policyError || !policyData) {
+      toast.error('Shipment not found');
+      router.push('/dashboard');
+      return;
+    }
+    
+    setPolicy(policyData);
+    
+    // First, try to get existing document
+    const { data: existingDocs, error: findError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('policy_id', shipmentId)
+      .maybeSingle();
+    
+    if (findError) {
+      console.error('Error finding documents:', findError);
+    }
+    
+    let documentsData;
+    
+    if (existingDocs) {
+      // Document already exists - just use it
+      documentsData = existingDocs;
+    } else {
+      // No document exists - create a new one
+      const { data: newDocs, error: createError } = await supabase
+        .from('documents')
+        .insert({
+          policy_id: shipmentId,
+          commercial_invoice_status: 'pending',
+          packing_list_status: 'pending',
+          bill_of_lading_status: 'pending'
+        })
+        .select()
         .single();
       
-      if (policyError || !policyData) {
-        toast.error('Shipment not found');
-        router.push('/dashboard');
-        return;
-      }
-      
-      setPolicy(policyData);
-      
-      // Load shipment document record
-      const { data: existingDocs, error: docsError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('policy_id', shipmentId)
-        .maybeSingle();
-      
-      if (docsError) {
-        console.error('Error loading documents:', docsError);
-        
-        if (docsError.code === 'PGRST116') {
-          const { data: newDocs, error: createError } = await supabase
-            .from('documents')
-            .upsert({
-              policy_id: shipmentId,
-              commercial_invoice_status: 'pending',
-              packing_list_status: 'pending',
-              bill_of_lading_status: 'pending'
-            })
-            .select()
-            .single();
-          
-          if (!createError && newDocs) {
-            setDocuments(newDocs);
-          }
-        }
-      } else if (!existingDocs) {
-        const { data: newDocs, error: createError } = await supabase
-          .from('documents')
-          .upsert({
-            policy_id: shipmentId,
-            commercial_invoice_status: 'pending',
-            packing_list_status: 'pending',
-            bill_of_lading_status: 'pending'
-          })
-          .select()
-          .single();
-        
-        if (!createError && newDocs) {
-          setDocuments(newDocs);
-        }
+      if (createError) {
+        console.error('Error creating document:', createError);
       } else {
-        setDocuments(existingDocs);
+        documentsData = newDocs;
       }
-      
-    } catch (error) {
-      console.error('Error loading shipment:', error);
-      toast.error('Failed to load shipment details');
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    if (documentsData) {
+      setDocuments(documentsData);
+    }
+    
+  } catch (error) {
+    console.error('Error loading shipment:', error);
+    toast.error('Failed to load shipment details');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleFileUpload = async (
     type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
@@ -170,14 +165,6 @@ export default function ShipmentDetailPage() {
       
       let finalFilePath = `documents/${policy.policy_number}/${type}/${safeFileName}`;
       
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploading(prev => ({
-          ...prev,
-          progress: prev.progress < 90 ? prev.progress + 10 : prev.progress
-        }));
-      }, 100);
-      
       // Check/create bucket
       try {
         const { data: buckets } = await supabase.storage.listBuckets();
@@ -194,7 +181,14 @@ export default function ShipmentDetailPage() {
         console.warn('Bucket check failed:', bucketError);
       }
       
-      // Upload file
+      // Upload file with progress simulation
+      let currentProgress = 0;
+      const progressInterval = setInterval(() => {
+        currentProgress += 10;
+        if (currentProgress >= 90) clearInterval(progressInterval);
+        setUploading({ type, progress: currentProgress });
+      }, 200);
+      
       const { error: uploadError } = await supabase.storage
         .from('shipment-documents')
         .upload(finalFilePath, file, {
@@ -251,17 +245,15 @@ export default function ShipmentDetailPage() {
       }
       
       // Use upsert
-      const { data: updatedDocument, error: upsertError } = await supabase
-        .from('documents')
-        .upsert({
-          ...updateData,
-          commercial_invoice_status: type === 'commercial_invoice' ? 'uploaded' : (documents?.commercial_invoice_status || 'pending'),
-          packing_list_status: type === 'packing_list' ? 'uploaded' : (documents?.packing_list_status || 'pending'),
-          bill_of_lading_status: type === 'bill_of_lading' ? 'uploaded' : (documents?.bill_of_lading_status || 'pending')
-        })
-        .eq('policy_id', policy.id)
-        .select()
-        .single();
+      // Use update instead of upsert
+const { data: updatedDocument, error: upsertError } = await supabase
+  .from('documents')
+  .update({
+    ...updateData
+  })
+  .eq('policy_id', policy.id)
+  .select()
+  .single();
       
       if (upsertError) {
         throw upsertError;
@@ -429,6 +421,126 @@ export default function ShipmentDetailPage() {
   const taxes = Math.round(policy.premium_amount * 0.08);
   const totalPaid = policy.premium_amount + serviceFee + taxes;
 
+  // Render document card with upload progress
+  const renderDocumentCard = (
+    type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
+    title: string,
+    description: string,
+    status: string,
+    url: string | null
+  ) => {
+    const isUploading = uploading.type === type;
+    
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-300 transition-all duration-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${
+              status === 'approved' ? 'bg-green-100' :
+              status === 'uploaded' ? 'bg-amber-100' :
+              'bg-gray-100'
+            }`}>
+              {isUploading ? (
+                <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+              ) : (
+                getStatusIcon(status)
+              )}
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">{title}</h3>
+              <p className="text-sm text-gray-600">{description}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isUploading ? (
+              <span className="text-sm font-medium px-3 py-1 rounded-full bg-blue-100 text-blue-800">
+                Uploading {uploading.progress}%
+              </span>
+            ) : (
+              <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                status === 'approved' ? 'bg-green-100 text-green-800' :
+                status === 'uploaded' ? 'bg-amber-100 text-amber-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {getStatusText(status)}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {isUploading ? (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-blue-700">Uploading file...</span>
+              <span className="text-sm font-bold text-blue-700">{uploading.progress}%</span>
+            </div>
+            <div className="w-full bg-blue-100 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploading.progress}%` }}
+              ></div>
+            </div>
+          </div>
+        ) : url ? (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleViewDocument(url)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              View
+            </button>
+            <button
+              onClick={() => handleDownloadDocument(url, `${type}-${policy.policy_number}.pdf`)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </button>
+            <button
+              onClick={() => document.getElementById(`${type}_upload`)?.click()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+            >
+              <Upload className="w-4 h-4" />
+              Replace
+            </button>
+            <input
+              id={`${type}_upload`}
+              type="file"
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(type, file);
+              }}
+            />
+          </div>
+        ) : (
+          <div>
+            <label className="block">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors hover:bg-blue-50/50">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
+                  <Upload className="w-6 h-6 text-blue-600" />
+                </div>
+                <p className="text-gray-700 font-medium">Click to upload {title}</p>
+                <p className="text-sm text-gray-500 mt-1">PDF, JPEG, or PNG (max 5MB)</p>
+              </div>
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(type, file);
+                }}
+              />
+            </label>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <DashboardHeader />
@@ -565,7 +677,7 @@ export default function ShipmentDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            {/* Quick Upload Section - Highlighted for action */}
+            {/* Quick Upload Section */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -588,276 +700,30 @@ export default function ShipmentDetailPage() {
               </div>
 
               <div className="space-y-4">
-                {/* Commercial Invoice */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-300 transition-all duration-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        documents?.commercial_invoice_status === 'approved' ? 'bg-green-100' :
-                        documents?.commercial_invoice_status === 'uploaded' ? 'bg-amber-100' :
-                        'bg-gray-100'
-                      }`}>
-                        {getStatusIcon(documents?.commercial_invoice_status || 'pending')}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">Commercial Invoice</h3>
-                        <p className="text-sm text-gray-600">Shows cargo value and trade details</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                        documents?.commercial_invoice_status === 'approved' ? 'bg-green-100 text-green-800' :
-                        documents?.commercial_invoice_status === 'uploaded' ? 'bg-amber-100 text-amber-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {getStatusText(documents?.commercial_invoice_status || 'pending')}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {documents?.commercial_invoice_url ? (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleViewDocument(documents.commercial_invoice_url!)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
-                      <button
-                        onClick={() => handleDownloadDocument(documents.commercial_invoice_url!, `commercial-invoice-${policy.policy_number}.pdf`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </button>
-                      <button
-                        onClick={() => document.getElementById('commercial_invoice_upload')?.click()}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Replace
-                      </button>
-                      <input
-                        id="commercial_invoice_upload"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload('commercial_invoice', file);
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors hover:bg-blue-50/50">
-                          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
-                            <Upload className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <p className="text-gray-700 font-medium">Click to upload Commercial Invoice</p>
-                          <p className="text-sm text-gray-500 mt-1">PDF, JPEG, or PNG (max 5MB)</p>
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileUpload('commercial_invoice', file);
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
-
-                {/* Packing List */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-300 transition-all duration-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        documents?.packing_list_status === 'approved' ? 'bg-green-100' :
-                        documents?.packing_list_status === 'uploaded' ? 'bg-amber-100' :
-                        'bg-gray-100'
-                      }`}>
-                        {getStatusIcon(documents?.packing_list_status || 'pending')}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">Packing List</h3>
-                        <p className="text-sm text-gray-600">Shows quantity, weight, and packaging details</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                        documents?.packing_list_status === 'approved' ? 'bg-green-100 text-green-800' :
-                        documents?.packing_list_status === 'uploaded' ? 'bg-amber-100 text-amber-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {getStatusText(documents?.packing_list_status || 'pending')}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {documents?.packing_list_url ? (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleViewDocument(documents.packing_list_url!)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
-                      <button
-                        onClick={() => handleDownloadDocument(documents.packing_list_url!, `packing-list-${policy.policy_number}.pdf`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </button>
-                      <button
-                        onClick={() => document.getElementById('packing_list_upload')?.click()}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Replace
-                      </button>
-                      <input
-                        id="packing_list_upload"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload('packing_list', file);
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors hover:bg-blue-50/50">
-                          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
-                            <Upload className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <p className="text-gray-700 font-medium">Click to upload Packing List</p>
-                          <p className="text-sm text-gray-500 mt-1">PDF, JPEG, or PNG (max 5MB)</p>
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileUpload('packing_list', file);
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bill of Lading */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-300 transition-all duration-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        documents?.bill_of_lading_status === 'approved' ? 'bg-green-100' :
-                        documents?.bill_of_lading_status === 'uploaded' ? 'bg-amber-100' :
-                        'bg-gray-100'
-                      }`}>
-                        {getStatusIcon(documents?.bill_of_lading_status || 'pending')}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">Bill of Lading / Air Waybill</h3>
-                        <p className="text-sm text-gray-600">Carrier-issued shipment receipt</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                        documents?.bill_of_lading_status === 'approved' ? 'bg-green-100 text-green-800' :
-                        documents?.bill_of_lading_status === 'uploaded' ? 'bg-amber-100 text-amber-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {getStatusText(documents?.bill_of_lading_status || 'pending')}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {documents?.bill_of_lading_url ? (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleViewDocument(documents.bill_of_lading_url!)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
-                      <button
-                        onClick={() => handleDownloadDocument(documents.bill_of_lading_url!, `bill-of-lading-${policy.policy_number}.pdf`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </button>
-                      <button
-                        onClick={() => document.getElementById('bill_of_lading_upload')?.click()}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Replace
-                      </button>
-                      <input
-                        id="bill_of_lading_upload"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload('bill_of_lading', file);
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors hover:bg-blue-50/50">
-                          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
-                            <Upload className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <p className="text-gray-700 font-medium">Click to upload Bill of Lading</p>
-                          <p className="text-sm text-gray-500 mt-1">PDF, JPEG, or PNG (max 5MB)</p>
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileUpload('bill_of_lading', file);
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
+                {renderDocumentCard(
+                  'commercial_invoice',
+                  'Commercial Invoice',
+                  'Shows cargo value and trade details',
+                  documents?.commercial_invoice_status || 'pending',
+                  documents?.commercial_invoice_url || null
+                )}
+                
+                {renderDocumentCard(
+                  'packing_list',
+                  'Packing List',
+                  'Shows quantity, weight, and packaging details',
+                  documents?.packing_list_status || 'pending',
+                  documents?.packing_list_url || null
+                )}
+                
+                {renderDocumentCard(
+                  'bill_of_lading',
+                  'Bill of Lading / Air Waybill',
+                  'Carrier-issued shipment receipt',
+                  documents?.bill_of_lading_status || 'pending',
+                  documents?.bill_of_lading_url || null
+                )}
               </div>
-              
-              {uploading.type && (
-                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium">Uploading {getDocumentName(uploading.type)}...</span>
-                    <span className="font-bold text-blue-700">{uploading.progress}%</span>
-                  </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploading.progress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Shipment Details Card */}
