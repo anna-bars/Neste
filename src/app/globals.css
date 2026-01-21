@@ -1,0 +1,202 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+/* src/app/globals.css կամ layout.tsx-ի style-ներ */
+@media screen and (max-width: 1280px) {
+  .sign-img-cont {
+    display: none;
+  }
+  
+  .sign-in-cont {
+    width: 100% !important;
+  }
+  
+  .sign-in {
+    width: 385px !important;
+    gap: 22px !important;
+  }
+  
+  .logo-img {
+    left: 35px !important;
+    top: 28px !important;
+  }
+  
+  h1 {
+    font-size: 24px;
+  }
+  
+  .subtitle {
+    font-size: 13px !important;
+  }
+  
+  .cta {
+    font-size: 13px !important;
+  }
+  
+  .logo-img {
+    width: 132px !important;
+  }
+}
+
+@media screen and (max-width: 645px) {
+  .sign-in {
+    width: 82% !important;
+    gap: 32px !important;
+  }
+  
+  .logo-img {
+    width: 124px !important;
+  }
+}
+/* app/globals.css */
+/* Add these styles for mobile menu */
+@keyframes fadeInUpFast {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInUpFast {
+  animation: fadeInUpFast 0.25s ease forwards;
+}
+
+/* Mobile specific styles */
+/* @media (max-width: 768px) {
+  body.menu-open {
+    overflow: hidden;
+  }
+  
+  body.menu-open .tb {
+    opacity: 0.3;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+} */
+@media screen and (max-width: 768px) {
+  .container {
+    width: 88% !important;
+  }
+  .tb {
+    padding: 24px 0 16px 0 !important;
+  }
+}
+.hamburger-menu-btn {
+    position: absolute;
+    top: 26px;
+    right: 4%;
+    z-index: 1458245;
+}
+
+
+/* 🍹🍹🍹🍹🍹 */
+
+.scroll-container {
+         height: 100vh;
+} 
+         .block-1 {
+    /* Բարձրությունը կլինի ավտո (համաձայն պարունակության) */
+    height: auto;
+    flex-shrink: 0; /* Կանխում է սեղմումը */
+}
+
+.block-2 {
+    flex-grow: 1; /* Զբաղեցնում է մնացած ամբողջ տարածքը */
+    min-height: 0; /* Կարևոր է, որ բովանդակությունը չսեղմի բլոկը */
+    /* overflow-y: auto;  */
+}
+        @media screen and (max-width: 1336px) {
+        .block-2 {
+    overflow: scroll !important;
+}
+
+        }
+
+/* 🍭 */
+/* Global Scrollbar Styles */
+/* style jsx-ում ավելացրեք */
+/* Ultra minimal scrollbar - just a thin line */
+/* Ultra minimal scrollbar - just a thin line */
+*::-webkit-scrollbar {
+  width: 4px; /* կամ 1px եթե շատ բարակ եք ուզում */
+  margin-left: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #d5e3fa7c; /* Մոխրագույն */
+  /* Եթե border-radius ուզում եք, ավելացրեք */
+  border-radius: 48px; /* 0px - ուղիղ գիծ, 1px - մի փոքր կլորացված */
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #669cee86; /* Մուգ մոխրագույն hover-ի ժամանակ */
+}
+
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-corner {
+  display: none;
+}
+* {
+  font-weight: normal !important;
+}
+:root {
+  --approved-start: #BED5F8;
+  --approved-end: #669CEE;
+  
+  --declined-start: #F8BEBE;
+  --declined-end: #EEAF66;
+  
+  --expired-start: #BEF8BE;
+  --expired-end: #66EE88;
+}
+/* Լրացուցիչ CSS ֆայլում */
+@media screen and (max-width: 768px) {
+  .omblock {
+    min-width: 92.5% !important;
+    padding-bottom: 50px !important;
+    max-width: 83% !important;
+  }
+}
+
+/* Hide scrollbars on mobile */
+@media (max-width: 767px) {
+  * {
+    -ms-overflow-style: none;  /* IE & Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+
+  *::-webkit-scrollbar {
+    display: none;             /* Chrome, Safari */
+  }
+}
