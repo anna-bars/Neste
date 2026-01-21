@@ -956,14 +956,6 @@ const { data: updatedDocument, error: upsertError } = await supabase
                   <Printer className="w-5 h-5 text-gray-600 mb-2" />
                   <span className="text-xs font-medium text-gray-700">Print</span>
                 </button>
-                <button className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center">
-                  <Eye className="w-5 h-5 text-gray-600 mb-2" />
-                  <span className="text-xs font-medium text-gray-700">Preview</span>
-                </button>
-                <button className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center">
-                  <Share className="w-5 h-5 text-gray-600 mb-2" />
-                  <span className="text-xs font-medium text-gray-700">Share</span>
-                </button>
               </div>
             </div>
 
