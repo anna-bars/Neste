@@ -873,7 +873,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
             max-[1280px]:min-h-auto max-[1280px]:max-h-none max-[1280px]:row-start-2
             max-[1024px]:min-h-auto max-[1024px]:max-h-none
           ">
-            <PerformanceOverview 
+<PerformanceOverview 
   title="Performance Overview"
   timePeriod="This Month"
   metrics={[
@@ -892,25 +892,28 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       suffix: '%',
       label: 'Active Policies',
       hasArrow: true,
-      arrowDirection: 'up'
+      arrowDirection: 'up',
+      arrowColor: 'blue' // Կապույտ վերևի սլաք → top-arrow.svg
     },
     {
       id: 'quotes-awaiting',
       value: performanceMetrics.quotesAwaiting.count.toString(),
       decimal: '',
       suffix: '%',
-      label: 'Required Document Uploads', // ՓՈԽՎԱԾ
+      label: 'Required Document Uploads',
       hasArrow: true,
-      arrowDirection: 'down'
+      arrowDirection: 'down',
+      arrowColor: 'red' // Կարմիր ներքևի սլաք → bottom-arrow-red.svg
     },
     {
       id: 'under-review',
       value: performanceMetrics.underReview.count.toString(),
       decimal: '',
       suffix: '%',
-      label: 'Contracts Due to Expire', // ՓՈԽՎԱԾ
+      label: 'Contracts Due to Expire',
       hasArrow: true,
-      arrowDirection: performanceMetrics.underReview.count > 0 ? 'up' : 'down'
+      arrowDirection: 'down',
+      arrowColor: 'red' // Կարմիր ներքևի սլաք → bottom-arrow-red.svg
     },
     {
       id: 'ready-to-pay',
@@ -919,7 +922,8 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       suffix: '%',
       label: 'Ready to Pay',
       hasArrow: true,
-      arrowDirection: performanceMetrics.readyToPay.count > 0 ? 'up' : 'down'
+      arrowDirection: 'up',
+      arrowColor: 'blue' // Կապույտ վերևի սլաք → top-arrow.svg
     }
   ]}
 />
