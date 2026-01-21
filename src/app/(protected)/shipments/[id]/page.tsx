@@ -115,128 +115,204 @@ export default function ShipmentDetailPage() {
     }
   };
 
-  const handleFileUpload = async (
-    type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
-    file: File
-  ) => {
-    if (!policy) return;
+const handleFileUpload = async (
+  type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
+  file: File
+) => {
+  if (!policy) return;
+  
+  // Validate file type
+  const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+  if (!validTypes.includes(file.type)) {
+    toast.error('Please upload PDF, JPEG, or PNG files only');
+    return;
+  }
+  
+  // Validate file size (5MB max)
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('File size must be less than 5MB');
+    return;
+  }
+  
+  setUploading({ type, progress: 0 });
+  
+  try {
+    const supabase = createClient();
     
-    // Validate file type
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Please upload PDF, JPEG, or PNG files only');
-      return;
-    }
+    // Create safe file path
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
     
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
-      return;
-    }
+    // Generate initial file path
+    let filePath = `documents/${policy.policy_number}/${type}/${timestamp}_${type}.${fileExtension}`;
     
-    setUploading({ type, progress: 0 });
+    console.log('Uploading file:', {
+      originalName: file.name,
+      filePath
+    });
     
+    // Simulate upload progress
+    const progressInterval = setInterval(() => {
+      setUploading(prev => ({
+        ...prev,
+        progress: prev.progress < 90 ? prev.progress + 10 : prev.progress
+      }));
+    }, 100);
+    
+    // First, check if bucket exists
     try {
-      const supabase = createClient();
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
-      // Upload to Supabase Storage
-      const filePath = `documents/${policy.policy_number}/${type}/${Date.now()}-${file.name}`;
+      if (bucketsError) {
+        console.error('Error listing buckets:', bucketsError);
+      }
       
-      let uploadResult;
-      try {
-        uploadResult = await supabase.storage
-          .from('shipment-documents')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-      } catch (bucketError) {
-        console.log('Bucket might not exist, trying to create...');
-        
-        // Try to create bucket
+      const bucketExists = buckets?.some(bucket => bucket.name === 'shipment-documents');
+      
+      if (!bucketExists) {
+        console.log('Creating bucket: shipment-documents');
         await supabase.storage.createBucket('shipment-documents', {
-          public: true
+          public: true,
+          fileSizeLimit: 5242880, // 5MB
+          allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
         });
-        
-        // Retry upload
-        uploadResult = await supabase.storage
-          .from('shipment-documents')
-          .upload(filePath, file);
       }
-      
-      const { data: uploadData, error: uploadError } = uploadResult;
-      
-      if (uploadError) {
-        throw uploadError;
-      }
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('shipment-documents')
-        .getPublicUrl(filePath);
-      
-      // Update database
-      const updateData: any = {
-        updated_at: new Date().toISOString()
-      };
-      
-      if (type === 'commercial_invoice') {
-        updateData.commercial_invoice_url = publicUrl;
-        updateData.commercial_invoice_status = 'uploaded';
-      } else if (type === 'packing_list') {
-        updateData.packing_list_url = publicUrl;
-        updateData.packing_list_status = 'uploaded';
-      } else if (type === 'bill_of_lading') {
-        updateData.bill_of_lading_url = publicUrl;
-        updateData.bill_of_lading_status = 'uploaded';
-      }
-      
-      // Սկզբում փորձենք գտնել գոյություն ունեցող գրառում
-      const { data: existingDoc, error: findError } = await supabase
-        .from('documents')
-        .select('id')
-        .eq('policy_id', shipmentId)
-        .maybeSingle();
-      
-      let updatedDocument;
-      
-      if (existingDoc) {
-        // Եթե գրառումը գոյություն ունի, update
-        const { data, error } = await supabase
-          .from('documents')
-          .update(updateData)
-          .eq('id', existingDoc.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        updatedDocument = data;
-      } else {
-        // Եթե գրառումը չկա, insert
-        const { data, error } = await supabase
-          .from('documents')
-          .insert({
-            policy_id: shipmentId,
-            ...updateData
-          })
-          .select()
-          .single();
-        
-        if (error) throw error;
-        updatedDocument = data;
-      }
-      
-      setDocuments(updatedDocument);
-      toast.success(`${getDocumentName(type)} uploaded successfully!`);
-      
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload document');
-    } finally {
-      setUploading({ type: null, progress: 0 });
+    } catch (bucketError) {
+      console.warn('Bucket check/creation failed, continuing:', bucketError);
     }
-  };
-
+    
+    // Upload file
+    let uploadError = null;
+    let finalFilePath = filePath;
+    
+    const uploadResult = await supabase.storage
+      .from('shipment-documents')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
+    
+    uploadError = uploadResult.error;
+    
+    // If file already exists, try with a different name
+    if (uploadError?.message?.includes('already exists') || uploadError?.message?.includes('duplicate')) {
+      const uniqueFileName = `${timestamp}_${Math.random().toString(36).substring(2, 9)}_${type}.${fileExtension}`;
+      finalFilePath = `documents/${policy.policy_number}/${type}/${uniqueFileName}`;
+      
+      console.log('Retrying with unique filename:', uniqueFileName);
+      
+      const retryResult = await supabase.storage
+        .from('shipment-documents')
+        .upload(finalFilePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+      
+      uploadError = retryResult.error;
+    }
+    
+    clearInterval(progressInterval);
+    
+    if (uploadError) {
+      throw uploadError;
+    }
+    
+    setUploading({ type, progress: 100 });
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('shipment-documents')
+      .getPublicUrl(finalFilePath);
+    
+    console.log('File uploaded successfully. Public URL:', publicUrl);
+    
+    // Update database
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+      policy_id: shipmentId
+    };
+    
+    if (type === 'commercial_invoice') {
+      updateData.commercial_invoice_url = publicUrl;
+      updateData.commercial_invoice_status = 'uploaded';
+    } else if (type === 'packing_list') {
+      updateData.packing_list_url = publicUrl;
+      updateData.packing_list_status = 'uploaded';
+    } else if (type === 'bill_of_lading') {
+      updateData.bill_of_lading_url = publicUrl;
+      updateData.bill_of_lading_status = 'uploaded';
+    }
+    
+    // Check if document record exists
+    const { data: existingDoc } = await supabase
+      .from('documents')
+      .select('id')
+      .eq('policy_id', shipmentId)
+      .maybeSingle();
+    
+    let updatedDocument;
+    
+    if (existingDoc?.id) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('documents')
+        .update(updateData)
+        .eq('id', existingDoc.id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
+      updatedDocument = data;
+    } else {
+      // Insert new record
+      const { data, error } = await supabase
+        .from('documents')
+        .insert([updateData])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Insert error:', error);
+        throw error;
+      }
+      updatedDocument = data;
+    }
+    
+    setDocuments(updatedDocument);
+    toast.success(`${getDocumentName(type)} uploaded successfully!`);
+    
+    // Reset upload progress after success
+    setTimeout(() => {
+      setUploading({ type: null, progress: 0 });
+    }, 1000);
+    
+  } catch (error: any) {
+    console.error('Upload error details:', error);
+    
+    let errorMessage = 'Failed to upload document';
+    if (error.message?.includes('The resource already exists')) {
+      errorMessage = 'File already exists. Please rename your file.';
+    } else if (error.message?.includes('Invalid key') || error.message?.includes('invalid character')) {
+      errorMessage = 'File name contains invalid characters. Please rename the file to use only letters, numbers, and underscores.';
+    } else if (error.message?.includes('File size limit exceeded')) {
+      errorMessage = 'File size exceeds 5MB limit';
+    } else if (error.message?.includes('Invalid file type')) {
+      errorMessage = 'Invalid file type. Please upload PDF, JPEG, or PNG only.';
+    } else if (error.message?.includes('not found')) {
+      errorMessage = 'Storage bucket not found. Please contact support.';
+    } else if (error.message?.includes('permission denied') || error.message?.includes('Forbidden')) {
+      errorMessage = 'Permission denied. Please check your storage permissions.';
+    }
+    
+    toast.error(errorMessage);
+    setUploading({ type: null, progress: 0 });
+  }
+};
   const getDocumentName = (type: string) => {
     switch (type) {
       case 'commercial_invoice': return 'Commercial Invoice';
