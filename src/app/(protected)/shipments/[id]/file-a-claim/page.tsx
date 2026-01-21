@@ -21,6 +21,7 @@ interface PolicyData {
   deductible: number;
   cargo_type: string;
   transportation_mode: string;
+  
   origin: any;
   destination: any;
   coverage_start: string;
@@ -307,7 +308,7 @@ export default function FileAClaimPage() {
       
       // Redirect to claims page
       setTimeout(() => {
-        router.push('/claims');
+        toast.success('Claim submitted successfully!');
       }, 2000);
 
     } catch (error: any) {
