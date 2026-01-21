@@ -902,9 +902,9 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
     case 'under-review':
       // Contracts Due to Expire: count > 0 = bad (red up)
       return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'red' as const,
-        isPositive: false
+        arrowDirection: 'down' as const,
+        arrowColor: 'blue' as const,
+        isPositive: true
       };
       
     case 'ready-to-pay':
