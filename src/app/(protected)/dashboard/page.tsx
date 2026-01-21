@@ -909,8 +909,8 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       suffix: '%',
       label: 'Required Document Uploads',
       hasArrow: true,
-      arrowDirection: 'down',
-      arrowColor: 'blue' // Կապույտ ներքևի սլաք → bottom-arrow-blue.svg (ՓՈԽՎԱԾ red-ից blue)
+      arrowDirection: 'up', // ՓՈԽՎԱԾ: down-ից up
+      arrowColor: 'red' // ՓՈԽՎԱԾ: blue-ից red → top-arrow-red.svg
     },
     {
       id: 'under-review',
@@ -920,7 +920,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       label: 'Contracts Due to Expire',
       hasArrow: true,
       arrowDirection: 'down',
-      arrowColor: 'blue' // Կապույտ ներքևի սլաք → bottom-arrow-blue.svg (ՓՈԽՎԱԾ red-ից blue)
+      arrowColor: 'blue' // Կապույտ ներքևի սլաք → bottom-arrow-blue.svg
     },
     {
       id: 'ready-to-pay',
