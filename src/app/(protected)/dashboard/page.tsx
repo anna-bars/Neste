@@ -346,18 +346,22 @@ const calculateDaysUntilExpiry = (item: any) => {
 
 // Հաշվել ավելի ճշգրիտ performance metrics
 // Կոդի հատվածը, որը պետք է փոխարինել `loadDashboardData` ֆունկցիայում
+// dashboard/page.tsx-ում loadDashboardData ֆունկցիայում
+// Այս մասը փոխարինեք ձեր ներկայիս metrics-ի հաշվարկի հետ
 
+// ...ձեր գոյություն ունեցող կոդը...
+
+// Տվյալների հաշվարկից հետո՝ հաշվել metrics-ը
 const totalInsuredAmount = (policies || []).reduce((sum, policy) => 
   sum + (parseFloat(policy.coverage_amount) || 0), 0);
 
 const activePoliciesCount = (policies || []).filter(p => p.status === 'active').length;
-const totalPoliciesCount = policies?.length || 1; // Թույլ չտալ 0-ի բաժանում
+const totalPoliciesCount = policies?.length || 1;
 
-// 1. Contracts Due to Expire (Մինչև 2 օր մնացած քվոտաներ/պոլիսներ)
+// 1. Contracts Due to Expire
 const contractsDueToExpireCount = formattedData.filter(item => {
   if (item.expiringDays === null || item.expiringDays === undefined) return false;
   
-  // Պահպանել միայն Active կամ Approved/Paid դրությամբները
   const isActiveOrApprovedPaid = 
     (item.dataType === 'policy' && item.policyStatus === 'active') ||
     (item.dataType === 'quote' && item.quoteStatus === 'approved' && item.paymentStatus === 'paid');
@@ -365,33 +369,29 @@ const contractsDueToExpireCount = formattedData.filter(item => {
   return isActiveOrApprovedPaid && item.expiringDays >= 0 && item.expiringDays <= 2;
 }).length;
 
-// 2. Required Document Uploads (Պետք է ստուգել documents աղյուսակը)
-const { data: pendingDocuments, error: docsError } = await supabase
-  .from('documents')
-  .select('*')
-  .eq('user_id', user.id);
-
-  console.log("🐟", pendingDocuments)
-  const { data: allDocuments, error: allDocsError } = await supabase
-  .from('documents')
-  .select('*');
-
-console.log("📄 All documents:", allDocuments);
-console.log("❌ All docs error:", allDocsError);
+// 2. Required Document Uploads - փաստաթղթերի հիման վրա
 let requiredDocumentUploadsCount = 0;
-if (!allDocsError && allDocuments) {
-  // Հաշվել բոլոր pending ստատուսով փաստաթղթերը
-  requiredDocumentUploadsCount = allDocuments.filter(doc => {
-    return doc.commercial_invoice_status === 'pending' ||
-           doc.packing_list_status === 'pending' ||
-           doc.bill_of_lading_status === 'pending';
-  }).length;
+
+try {
+  const { data: allDocuments, error: allDocsError } = await supabase
+    .from('documents')
+    .select('*');
+
+  if (!allDocsError && allDocuments) {
+    requiredDocumentUploadsCount = allDocuments.filter(doc => {
+      return doc.commercial_invoice_status === 'pending' ||
+             doc.packing_list_status === 'pending' ||
+             doc.bill_of_lading_status === 'pending';
+    }).length;
+  }
+} catch (error) {
+  console.error("Error fetching documents:", error);
 }
 
-// 3. Under Review - դեռևս անհրաժեշտ է
+// 3. Under Review
 const underReviewCount = (quotes || []).filter(q => q.status === 'under_review').length;
 
-// 4. Ready to Pay - միայն approved, բայց չվճարված քվոտաներ
+// 4. Ready to Pay
 const readyToPayCount = (quotes || []).filter(q => 
   q.status === 'approved' && q.payment_status !== 'paid'
 ).length;
@@ -402,6 +402,55 @@ const totalQuotes = quotes?.length || 1;
 const totalInsuredInK = Math.floor(totalInsuredAmount / 1000);
 const decimalPart = Math.round((totalInsuredAmount % 1000) / 10);
 
+// Հիմա հաշվարկենք arrowDirection և arrowColor
+// Մենթալ տրամաբանություն. Եթե count > 0, ապա up arrow (բացի Ready to Pay-ից, որը ունի հակառակ տրամաբանություն)
+// Ready to Pay-ի համար՝ count > 0 = good (blue up), count === 0 = bad (red down)
+// Մյուսների համար՝ count > 0 = bad (red up), count === 0 = good (blue down)
+
+const calculateArrowConfig = (metricId: string, count: number, previousCount?: number) => {
+  switch(metricId) {
+    case 'active-policies':
+      // Active Policies: count > 0 = good (blue up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'blue' as const,
+        isPositive: true
+      };
+      
+    case 'quotes-awaiting':
+      // Required Document Uploads: count > 0 = bad (red up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'red' as const,
+        isPositive: false
+      };
+      
+    case 'under-review':
+      // Contracts Due to Expire: count > 0 = bad (red up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'red' as const,
+        isPositive: false
+      };
+      
+    case 'ready-to-pay':
+      // Ready to Pay: count > 0 = good (blue up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'blue' as const,
+        isPositive: true
+      };
+      
+    default:
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'blue' as const,
+        isPositive: true
+      };
+  }
+};
+
+// Տեղադրել metrics-ը state-ում
 setPerformanceMetrics({
   totalInsured: { 
     value: totalInsuredInK.toString(), 
@@ -410,7 +459,6 @@ setPerformanceMetrics({
   },
   activePolicies: { 
     count: activePoliciesCount, 
-    // ՓՈԽՎԱԾ՝ բաժանել totalPoliciesCount-ի վրա, ոչ թե totalQuotes-ի
     percentage: Math.round((activePoliciesCount / totalPoliciesCount) * 100) || 0
   },
   quotesAwaiting: {
@@ -833,6 +881,48 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
     
     setActiveWidget(currentIndex)
   };
+const calculateArrowConfig = (metricId: string, count: number, previousCount?: number) => {
+  switch(metricId) {
+    case 'active-policies':
+      // Active Policies: count > 0 = good (blue up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'blue' as const,
+        isPositive: true
+      };
+      
+    case 'quotes-awaiting':
+      // Required Document Uploads: count > 0 = bad (red up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'red' as const,
+        isPositive: false
+      };
+      
+    case 'under-review':
+      // Contracts Due to Expire: count > 0 = bad (red up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'red' as const,
+        isPositive: false
+      };
+      
+    case 'ready-to-pay':
+      // Ready to Pay: count > 0 = good (blue up)
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'blue' as const,
+        isPositive: true
+      };
+      
+    default:
+      return {
+        arrowDirection: 'up' as const,
+        arrowColor: 'blue' as const,
+        isPositive: true
+      };
+  }
+};
 
   const scrollToWidget = (index: number) => {
     if (!scrollContainerRef.current || !isMobile) return
@@ -899,8 +989,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       suffix: '%',
       label: 'Active Policies',
       hasArrow: true,
-      arrowDirection: 'up',
-      arrowColor: 'blue' // Կապույտ վերևի սլաք → top-arrow.svg
+      ...calculateArrowConfig('active-policies', performanceMetrics.activePolicies.count)
     },
     {
       id: 'quotes-awaiting',
@@ -909,8 +998,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       suffix: '%',
       label: 'Required Document Uploads',
       hasArrow: true,
-      arrowDirection: 'up', // ՓՈԽՎԱԾ: down-ից up
-      arrowColor: 'red' // ՓՈԽՎԱԾ: blue-ից red → top-arrow-red.svg
+      ...calculateArrowConfig('quotes-awaiting', performanceMetrics.quotesAwaiting.count)
     },
     {
       id: 'under-review',
@@ -919,8 +1007,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       suffix: '%',
       label: 'Contracts Due to Expire',
       hasArrow: true,
-      arrowDirection: 'down',
-      arrowColor: 'blue' // Կապույտ ներքևի սլաք → bottom-arrow-blue.svg
+      ...calculateArrowConfig('under-review', performanceMetrics.underReview.count)
     },
     {
       id: 'ready-to-pay',
@@ -929,8 +1016,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       suffix: '%',
       label: 'Ready to Pay',
       hasArrow: true,
-      arrowDirection: 'up',
-      arrowColor: 'blue' // Կապույտ վերևի սլաք → top-arrow.svg
+      ...calculateArrowConfig('ready-to-pay', performanceMetrics.readyToPay.count)
     }
   ]}
 />
