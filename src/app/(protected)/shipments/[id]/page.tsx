@@ -891,7 +891,10 @@ const { data: updatedDocument, error: upsertError } = await supabase
                 </div>
               </div>
 
-              <button className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+              <button 
+                onClick={() => router.push(`/shipments/${policy.id}/file-a-claim`)}
+                className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              >
                 <AlertCircle className="w-4 h-4" />
                 File a Claim
               </button>
