@@ -61,59 +61,85 @@ export default function ShipmentDetailPage() {
     loadData();
   }, [shipmentId]);
 
-  const loadData = async () => {
-    const supabase = createClient();
+const loadData = async () => {
+  const supabase = createClient();
+  
+  try {
+    // Load policy data
+    const { data: policyData, error: policyError } = await supabase
+      .from('policies')
+      .select('*')
+      .eq('id', shipmentId)
+      .single();
     
-    try {
-      // Load policy data
-      const { data: policyData, error: policyError } = await supabase
-        .from('policies')
-        .select('*')
-        .eq('id', shipmentId)
-        .single();
+    if (policyError || !policyData) {
+      toast.error('Shipment not found');
+      router.push('/dashboard');
+      return;
+    }
+    
+    setPolicy(policyData);
+    
+    // Load shipment document record - use upsert instead of always creating
+    const { data: existingDocs, error: docsError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('policy_id', shipmentId)
+      .maybeSingle();
+    
+    if (docsError) {
+      console.error('Error loading documents:', docsError);
       
-      if (policyError || !policyData) {
-        toast.error('Shipment not found');
-        router.push('/dashboard');
-        return;
-      }
-      
-      setPolicy(policyData);
-      
-      // Load or create shipment document record
-      const { data: existingDocs, error: docsError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('policy_id', shipmentId)
-        .maybeSingle();
-      
-      if (docsError || !existingDocs) {
+      // Only create if it's a "not found" error, not other errors
+      if (docsError.code === 'PGRST116') { // Not found error code
         // Create new document record if doesn't exist
         const { data: newDocs, error: createError } = await supabase
           .from('documents')
-          .insert([{
+          .upsert({
             policy_id: shipmentId,
             commercial_invoice_status: 'pending',
             packing_list_status: 'pending',
             bill_of_lading_status: 'pending'
-          }])
+          })
           .select()
           .single();
         
         if (!createError && newDocs) {
           setDocuments(newDocs);
+        } else if (createError) {
+          console.error('Error creating document record:', createError);
         }
-      } else {
-        setDocuments(existingDocs);
       }
+    } else if (!existingDocs) {
+      // No error but no documents found - create new
+      const { data: newDocs, error: createError } = await supabase
+        .from('documents')
+        .upsert({
+          policy_id: shipmentId,
+          commercial_invoice_status: 'pending',
+          packing_list_status: 'pending',
+          bill_of_lading_status: 'pending'
+        })
+        .select()
+        .single();
       
-    } catch (error) {
-      console.error('Error loading shipment:', error);
-      toast.error('Failed to load shipment details');
-    } finally {
-      setLoading(false);
+      if (!createError && newDocs) {
+        setDocuments(newDocs);
+      } else if (createError) {
+        console.error('Error creating document record:', createError);
+      }
+    } else {
+      // Documents exist, set them
+      setDocuments(existingDocs);
     }
-  };
+    
+  } catch (error) {
+    console.error('Error loading shipment:', error);
+    toast.error('Failed to load shipment details');
+  } finally {
+    setLoading(false);
+  }
+};
 
 const handleFileUpload = async (
   type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
@@ -139,16 +165,26 @@ const handleFileUpload = async (
   try {
     const supabase = createClient();
     
-    // Create safe file path
+    // Sanitize filename function
+    const sanitizeFileName = (fileName: string): string => {
+      return fileName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    };
+    
     const timestamp = Date.now();
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+    const safeFileName = `${timestamp}_${sanitizeFileName(file.name.slice(0, -fileExtension.length - 1))}.${fileExtension}`;
     
-    // Generate initial file path
-    let filePath = `documents/${policy.policy_number}/${type}/${timestamp}_${type}.${fileExtension}`;
+    let finalFilePath = `documents/${policy.policy_number}/${type}/${safeFileName}`;
     
     console.log('Uploading file:', {
       originalName: file.name,
-      filePath
+      safeFileName,
+      finalFilePath
     });
     
     // Simulate upload progress
@@ -161,62 +197,54 @@ const handleFileUpload = async (
     
     // First, check if bucket exists
     try {
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      if (bucketsError) {
-        console.error('Error listing buckets:', bucketsError);
-      }
-      
+      const { data: buckets } = await supabase.storage.listBuckets();
       const bucketExists = buckets?.some(bucket => bucket.name === 'shipment-documents');
       
       if (!bucketExists) {
         console.log('Creating bucket: shipment-documents');
         await supabase.storage.createBucket('shipment-documents', {
           public: true,
-          fileSizeLimit: 5242880, // 5MB
+          fileSizeLimit: 5242880,
           allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
         });
       }
     } catch (bucketError) {
-      console.warn('Bucket check/creation failed, continuing:', bucketError);
+      console.warn('Bucket check failed:', bucketError);
     }
     
     // Upload file
-    let uploadError = null;
-    let finalFilePath = filePath;
-    
-    const uploadResult = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('shipment-documents')
-      .upload(filePath, file, {
+      .upload(finalFilePath, file, {
         cacheControl: '3600',
         upsert: false,
         contentType: file.type
       });
     
-    uploadError = uploadResult.error;
-    
-    // If file already exists, try with a different name
-    if (uploadError?.message?.includes('already exists') || uploadError?.message?.includes('duplicate')) {
-      const uniqueFileName = `${timestamp}_${Math.random().toString(36).substring(2, 9)}_${type}.${fileExtension}`;
-      finalFilePath = `documents/${policy.policy_number}/${type}/${uniqueFileName}`;
-      
-      console.log('Retrying with unique filename:', uniqueFileName);
-      
-      const retryResult = await supabase.storage
-        .from('shipment-documents')
-        .upload(finalFilePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
-        });
-      
-      uploadError = retryResult.error;
-    }
-    
     clearInterval(progressInterval);
     
     if (uploadError) {
-      throw uploadError;
+      console.error('Upload error:', uploadError);
+      
+      // If file already exists, try with unique name
+      if (uploadError.message?.includes('already exists') || uploadError.message?.includes('duplicate')) {
+        const uniqueFileName = `${timestamp}_${Math.random().toString(36).substring(2, 9)}_${type}.${fileExtension}`;
+        finalFilePath = `documents/${policy.policy_number}/${type}/${uniqueFileName}`;
+        
+        const { error: retryError } = await supabase.storage
+          .from('shipment-documents')
+          .upload(finalFilePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type
+          });
+        
+        if (retryError) {
+          throw retryError;
+        }
+      } else {
+        throw uploadError;
+      }
     }
     
     setUploading({ type, progress: 100 });
@@ -226,12 +254,12 @@ const handleFileUpload = async (
       .from('shipment-documents')
       .getPublicUrl(finalFilePath);
     
-    console.log('File uploaded successfully. Public URL:', publicUrl);
+    console.log('File uploaded. URL:', publicUrl);
     
-    // Update database
+    // Prepare update data
     const updateData: any = {
-      updated_at: new Date().toISOString(),
-      policy_id: shipmentId
+      policy_id: policy.id,
+      updated_at: new Date().toISOString()
     };
     
     if (type === 'commercial_invoice') {
@@ -245,74 +273,49 @@ const handleFileUpload = async (
       updateData.bill_of_lading_status = 'uploaded';
     }
     
-    // Check if document record exists
-    const { data: existingDoc } = await supabase
+    // Use upsert to either update existing or create new
+    const { data: updatedDocument, error: upsertError } = await supabase
       .from('documents')
-      .select('id')
-      .eq('policy_id', shipmentId)
-      .maybeSingle();
+      .upsert({
+        ...updateData,
+        // Include all required fields for insert if needed
+        commercial_invoice_status: type === 'commercial_invoice' ? 'uploaded' : (documents?.commercial_invoice_status || 'pending'),
+        packing_list_status: type === 'packing_list' ? 'uploaded' : (documents?.packing_list_status || 'pending'),
+        bill_of_lading_status: type === 'bill_of_lading' ? 'uploaded' : (documents?.bill_of_lading_status || 'pending')
+      })
+      .eq('policy_id', policy.id)
+      .select()
+      .single();
     
-    let updatedDocument;
-    
-    if (existingDoc?.id) {
-      // Update existing record
-      const { data, error } = await supabase
-        .from('documents')
-        .update(updateData)
-        .eq('id', existingDoc.id)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Update error:', error);
-        throw error;
-      }
-      updatedDocument = data;
-    } else {
-      // Insert new record
-      const { data, error } = await supabase
-        .from('documents')
-        .insert([updateData])
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Insert error:', error);
-        throw error;
-      }
-      updatedDocument = data;
+    if (upsertError) {
+      console.error('Upsert error:', upsertError);
+      throw upsertError;
     }
     
     setDocuments(updatedDocument);
     toast.success(`${getDocumentName(type)} uploaded successfully!`);
     
-    // Reset upload progress after success
     setTimeout(() => {
       setUploading({ type: null, progress: 0 });
     }, 1000);
     
   } catch (error: any) {
-    console.error('Upload error details:', error);
+    console.error('Upload error:', error);
     
     let errorMessage = 'Failed to upload document';
-    if (error.message?.includes('The resource already exists')) {
-      errorMessage = 'File already exists. Please rename your file.';
-    } else if (error.message?.includes('Invalid key') || error.message?.includes('invalid character')) {
-      errorMessage = 'File name contains invalid characters. Please rename the file to use only letters, numbers, and underscores.';
+    if (error.message?.includes('Invalid key') || error.message?.includes('invalid character')) {
+      errorMessage = 'File name contains invalid characters. Please use a simpler file name.';
     } else if (error.message?.includes('File size limit exceeded')) {
       errorMessage = 'File size exceeds 5MB limit';
     } else if (error.message?.includes('Invalid file type')) {
       errorMessage = 'Invalid file type. Please upload PDF, JPEG, or PNG only.';
-    } else if (error.message?.includes('not found')) {
-      errorMessage = 'Storage bucket not found. Please contact support.';
-    } else if (error.message?.includes('permission denied') || error.message?.includes('Forbidden')) {
-      errorMessage = 'Permission denied. Please check your storage permissions.';
     }
     
     toast.error(errorMessage);
     setUploading({ type: null, progress: 0 });
   }
 };
+
   const getDocumentName = (type: string) => {
     switch (type) {
       case 'commercial_invoice': return 'Commercial Invoice';
