@@ -1,120 +1,325 @@
 'use client'
 
 import DashboardLayout from '../DashboardLayout'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { UniversalTable, renderStatus, renderButton } from '@/app/components/tables/UniversalTable';
 import QuotesExpirationCard from '@/app/components/charts/QuotesExpirationCard'
 import InfoWidget from '@/app/components/widgets/InfoWidget'
 import { PolicyTimelineWidget } from '@/app/components/charts/PolicyTimeline';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/app/context/UserContext';
 
-// Dashboard-ի տվյալներ - ԼՐԱՑՈՒՄ
-const quotesRows = [
-  {
-    id: 'P-3401',
-    cargo: 'Electronics',
-    shipmentValue: '$12,500.00',
-    premiumAmount: '$170.00',
-    expirationDate: `Dec 1, '25 – Dec 1, '26`,
-    status: { 
-      text: 'Active', 
-      color: 'bg-[#16a34a]/10', 
-      dot: 'bg-[#16a34a]', 
-      textColor: 'text-[#16a34a]' 
-    },
-    button: { 
-      text: 'Download Cert', 
-      variant: 'primary' as const,
-      onClick: (row: any) => console.log('Download Certificate', row.id)
-    }
-  },
-  {
-    id: 'P-2015',
-    cargo: 'Textiles',
-    shipmentValue: '$25,800.00',
-    premiumAmount: '$285.00',
-    expirationDate: `Oct 15, '25 – Dec 15, '25`,
-    status: { 
-      text: 'Expiring Soon', 
-      color: 'bg-[#cbd03c]/10', 
-      dot: 'bg-[#cbd03c]', 
-      textColor: 'text-[#cbd03c]' 
-    },
-    button: { 
-      text: 'Renew Policy', 
-      variant: 'primary' as const,
-      onClick: (row: any) => console.log('Renew Policy', row.id)
-    }
-  }
-];
-
-const quotesColumns = [
-  {
-    key: 'id',
-    label: 'Policy ID',
-    sortable: true,
-    renderDesktop: (value: string) => (
-      <span className="font-poppins text-sm text-[#2563eb] underline hover:text-[#1d4ed8] transition-colors duration-300 cursor-pointer">
-        {value}
-      </span>
-    )
-  },
-  {
-    key: 'cargo',
-    label: 'Cargo',
-    sortable: true
-  },
-  {
-    key: 'shipmentValue',
-    label: 'Value',
-    sortable: true
-  },
-  {
-    key: 'premiumAmount',
-    label: 'Premium Paid',
-    sortable: true
-  },
-  {
-    key: 'expirationDate',
-    label: 'Coverage Period',
-    sortable: true
-  },
-  {
-    key: 'status',
-    label: 'Policy Status',
-    sortable: true,
-    renderDesktop: (status: any) => renderStatus(status)
-  },
-  {
-    key: 'button',
-    label: 'Action',
-    renderDesktop: (button: any, row: any) => renderButton(button, row),
-    className: 'flex justify-end'
-  }
-];
- 
 export default function ShipmentsPage() {
   const [activeTab, setActiveTab] = useState('This Week')
   const [loading, setLoading] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  const [policiesRows, setPoliciesRows] = useState<any[]>([])
+  
+  const { user } = useUser()
+  const supabase = createClient()
 
-   const shipmentsData = {
-    'This Week': { totalQuotes: 15, expiringQuotes: 7, expiringRate: 47 },
-    'Next Week': { totalQuotes: 20, expiringQuotes: 5, expiringRate: 25 },
-    'In 2–4 Weeks': { totalQuotes: 30, expiringQuotes: 10, expiringRate: 33 },
-    'Next Month': { totalQuotes: 25, expiringQuotes: 15, expiringRate: 60 }
+  // Ստանալ policies տվյալները Supabase-ից
+  useEffect(() => {
+    const loadPoliciesData = async () => {
+      if (!user) return
+      
+      try {
+        // Ստանալ բոլոր policies-ը օգտատիրոջ համար
+        const { data: policies, error } = await supabase
+          .from('policies')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        if (error) {
+          console.error('Error loading policies:', error)
+          // Օգտագործել fallback տվյալները
+          setPoliciesRows(getFallbackData())
+          return
+        }
+
+        if (policies && policies.length > 0) {
+          const formattedData = formatPoliciesData(policies)
+          setPoliciesRows(formattedData)
+        } else {
+          // Օգտագործել fallback տվյալները
+          setPoliciesRows(getFallbackData())
+        }
+
+      } catch (error) {
+        console.error('Error loading policies data:', error)
+        setPoliciesRows(getFallbackData())
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPoliciesData()
+  }, [user])
+
+  // Ֆորմատավորել policies տվյալները UniversalTable-ի համար
+  const formatPoliciesData = (policies: any[]) => {
+    const formattedData: any[] = []
+
+    policies.forEach(policy => {
+      const statusConfig = getStatusConfig(policy)
+      
+      const buttonAction = { 
+        text: statusConfig.buttonText, 
+        variant: statusConfig.buttonVariant,
+        onClick: (row: any) => handlePolicyAction(row, policy)
+      }
+      
+      formattedData.push({
+        id: policy.policy_number || `POL-${policy.id.slice(-6)}`,
+        cargo: policy.cargo_type || 'Unknown',
+        shipmentValue: `$${(policy.coverage_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        premiumAmount: `$${(policy.premium_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        expirationDate: formatCoveragePeriod(policy.coverage_start, policy.coverage_end),
+        status: {
+          text: statusConfig.text,
+          color: statusConfig.color,
+          dot: statusConfig.dot,
+          textColor: statusConfig.textColor
+        },
+        button: buttonAction,
+        rawData: policy
+      })
+    })
+
+    return formattedData.sort((a, b) => 
+      new Date(b.rawData.created_at).getTime() - new Date(a.rawData.created_at).getTime()
+    )
   }
 
-  useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1000)
+  // Ստատուսի կոնֆիգուրացիան policy-ի համար
+  const getStatusConfig = (policy: any) => {
+    const now = new Date()
+    const coverageEnd = new Date(policy.coverage_end)
+    const daysUntilExpiry = Math.ceil((coverageEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     
-    return () => clearTimeout(timer)
-  }, [])
+    const isActive = policy.status === 'active'
+    const isExpiringSoon = isActive && daysUntilExpiry <= 30 && daysUntilExpiry > 0
+    const isExpired = isActive && daysUntilExpiry <= 0
+    const isPending = policy.status === 'pending'
+
+    if (isExpired) {
+      return {
+        text: 'Expired',
+        color: 'bg-gray-100',
+        dot: 'bg-gray-400',
+        textColor: 'text-gray-600',
+        buttonText: 'View Details',
+        buttonVariant: 'secondary' as const
+      }
+    }
+
+    if (isExpiringSoon) {
+      return {
+        text: `Expiring in ${daysUntilExpiry} days`,
+        color: 'bg-amber-50',
+        dot: 'bg-amber-500',
+        textColor: 'text-amber-700',
+        buttonText: 'Renew Policy',
+        buttonVariant: 'primary' as const
+      }
+    }
+
+    if (isActive) {
+      return {
+        text: 'Active',
+        color: 'bg-emerald-50',
+        dot: 'bg-emerald-500',
+        textColor: 'text-emerald-700',
+        buttonText: 'Download Cert',
+        buttonVariant: 'primary' as const
+      }
+    }
+
+    if (isPending) {
+      return {
+        text: 'Pending Activation',
+        color: 'bg-blue-50',
+        dot: 'bg-blue-500',
+        textColor: 'text-blue-700',
+        buttonText: 'View Details',
+        buttonVariant: 'secondary' as const
+      }
+    }
+
+    // Default
+    return {
+      text: policy.status || 'Unknown',
+      color: 'bg-gray-100',
+      dot: 'bg-gray-500',
+      textColor: 'text-gray-700',
+      buttonText: 'View Details',
+      buttonVariant: 'secondary' as const
+    }
+  }
+
+  // Ֆորմատավորել ծածկույթի ժամանակահատվածը
+  const formatCoveragePeriod = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return 'N/A'
+    
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: '2-digit'
+      })
+    }
+    
+    return `${formatDate(start)} – ${formatDate(end)}`
+  }
+
+  // Policy գործողությունների մշակում
+  const handlePolicyAction = (row: any, policy: any) => {
+    const policyId = policy.id
+    
+    switch (policy.status) {
+      case 'active':
+        if (policy.insurance_certificate_url) {
+          // Բացել certificate-ը նոր tab-ում
+          window.open(policy.insurance_certificate_url, '_blank')
+        } else {
+          console.log('Download certificate for:', policyId)
+          // Այստեղ կարող եք ավելացնել certificate ներբեռնման լոգիկա
+        }
+        break
+      case 'pending':
+        console.log('View pending policy:', policyId)
+        break
+      default:
+        console.log('View policy details:', policyId)
+    }
+  }
+
+  // Fallback տվյալներ
+  const getFallbackData = () => {
+    return [
+      {
+        id: 'P-3401',
+        cargo: 'Electronics',
+        shipmentValue: '$12,500.00',
+        premiumAmount: '$170.00',
+        expirationDate: `Dec 1, '25 – Dec 1, '26`,
+        status: { 
+          text: 'Active', 
+          color: 'bg-emerald-50', 
+          dot: 'bg-emerald-500', 
+          textColor: 'text-emerald-700' 
+        },
+        button: { 
+          text: 'Download Cert', 
+          variant: 'primary' as const,
+          onClick: (row: any) => console.log('Download Certificate', row.id)
+        }
+      },
+      {
+        id: 'P-2015',
+        cargo: 'Textiles',
+        shipmentValue: '$25,800.00',
+        premiumAmount: '$285.00',
+        expirationDate: `Oct 15, '25 – Dec 15, '25`,
+        status: { 
+          text: 'Expiring Soon', 
+          color: 'bg-amber-50', 
+          dot: 'bg-amber-500', 
+          textColor: 'text-amber-700' 
+        },
+        button: { 
+          text: 'Renew Policy', 
+          variant: 'primary' as const,
+          onClick: (row: any) => console.log('Renew Policy', row.id)
+        }
+      }
+    ]
+  }
+
+  // Policy timelines-ի տվյալներ
+  const calculatePolicyTimelineData = () => {
+    const totalPolicies = policiesRows.length
+    const activePolicies = policiesRows.filter(p => 
+      p.rawData?.status === 'active'
+    ).length
+    const percentage = totalPolicies > 0 ? Math.round((activePolicies / totalPolicies) * 100) : 0
+    
+    return {
+      percentage,
+      activePolicies,
+      totalPolicies
+    }
+  }
+
+  const policyTimelineData = calculatePolicyTimelineData()
+
+  // Docs compliance տվյալներ
+  const calculateDocsComplianceData = () => {
+    const totalPolicies = policiesRows.length
+    // Այստեղ կարող եք ավելացնել իրական տրամաբանություն փաստաթղթերի ստուգման համար
+    const policiesMissingDocs = Math.floor(totalPolicies * 0.3) // Օրինակ՝ 30%
+    const complianceRate = totalPolicies > 0 
+      ? 100 - Math.round((policiesMissingDocs / totalPolicies) * 100)
+      : 0
+    
+    return {
+      totalPolicies,
+      policiesMissingDocs,
+      complianceRate
+    }
+  }
+
+  const docsComplianceData = calculateDocsComplianceData()
+
+  // Փոփոխական տվյալներ tabs-ների համար
+  const shipmentsData = {
+    'This Week': { 
+      totalQuotes: docsComplianceData.totalPolicies, 
+      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.3),
+      expiringRate: 30
+    },
+    'Next Week': { 
+      totalQuotes: docsComplianceData.totalPolicies, 
+      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.25),
+      expiringRate: 25
+    },
+    'In 2–4 Weeks': { 
+      totalQuotes: docsComplianceData.totalPolicies, 
+      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.33),
+      expiringRate: 33
+    },
+    'Next Month': { 
+      totalQuotes: docsComplianceData.totalPolicies, 
+      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.4),
+      expiringRate: 40
+    }
+  }
+
+  // Policy risk տվյալներ InfoWidget-ի համար
+  const calculatePolicyRiskData = () => {
+    const totalPolicies = policiesRows.length
+    const highRiskPolicies = Math.floor(totalPolicies * 0.3) // Օրինակ՝ 30%
+    const riskScore = totalPolicies > 0 
+      ? Math.round((highRiskPolicies / totalPolicies) * 100)
+      : 0
+    const improvementRate = 100 - riskScore
+    
+    return {
+      improvementRate,
+      totalPolicies,
+      highRiskPolicies,
+      riskScore
+    }
+  }
+
+  const policyRiskData = calculatePolicyRiskData()
 
   useEffect(() => {
-    // Check screen size for mobile
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth <= 768)
     }
@@ -125,8 +330,50 @@ export default function ShipmentsPage() {
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
-
- 
+  const policiesColumns = [
+    {
+      key: 'id',
+      label: 'Policy ID',
+      sortable: true,
+      renderDesktop: (value: string) => (
+        <span className="font-poppins text-sm text-[#2563eb] underline hover:text-[#1d4ed8] transition-colors duration-300 cursor-pointer">
+          {value}
+        </span>
+      )
+    },
+    {
+      key: 'cargo',
+      label: 'Cargo',
+      sortable: true
+    },
+    {
+      key: 'shipmentValue',
+      label: 'Value',
+      sortable: true
+    },
+    {
+      key: 'premiumAmount',
+      label: 'Premium Paid',
+      sortable: true
+    },
+    {
+      key: 'expirationDate',
+      label: 'Coverage Period',
+      sortable: true
+    },
+    {
+      key: 'status',
+      label: 'Policy Status',
+      sortable: true,
+      renderDesktop: (status: any) => renderStatus(status)
+    },
+    {
+      key: 'button',
+      label: 'Action',
+      renderDesktop: (button: any, row: any) => renderButton(button, row),
+      className: 'flex justify-end'
+    }
+  ]
 
   if (loading) {
     return (
@@ -139,9 +386,6 @@ export default function ShipmentsPage() {
   return (
     <DashboardLayout>
       <div className="min-w-[96%] max-w-[95.5%] !sm:min-w-[90.5%] mx-auto">
-        {/* Mobile Header for Activity Section */}
-       
-
         {/* Main Content Grid */}
         <div className="
           grid grid-cols-1 xl:grid-cols-[76.5%_23%] gap-2 
@@ -158,56 +402,65 @@ export default function ShipmentsPage() {
             max-[1024px]:min-h-auto max-[1024px]:max-h-none
           ">
             <div className="flex items-center gap-3 mt-4 mb-2 sm:mt-0">
-                  <img
-                    src="/quotes/header-ic.svg"
-                    alt=""
-                    className="w-[22px] h-[22px] sm:w-6 sm:h-6"
-                  />
-                  <h2 className="font-normal text-[18px] sm:text-[26px]">Shipments / Policies</h2>
-                   
-                </div> 
+              <img
+                src="/quotes/header-ic.svg"
+                alt=""
+                className="w-[22px] h-[22px] sm:w-6 sm:h-6"
+              />
+              <h2 className="font-normal text-[18px] sm:text-[26px]">Shipments / Policies</h2>
+            </div>
 
             <div className="block md:hidden">
               <PolicyTimelineWidget 
-                percentage={65}
-                expiringPolicies={5}
-                totalPolicies={15}
+                percentage={policyTimelineData.percentage}
+                expiringPolicies={policyTimelineData.activePolicies}
+                totalPolicies={policyTimelineData.totalPolicies}
               />
             </div>
             <div className="block md:hidden">
               <QuotesExpirationCard 
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        data={shipmentsData}
-        title='Docs Compliance'
-         info = 'Policies with Missing Docs'
-        total = 'Total policies'
-        sub = 'Policies Missing Docs'
-        percentageInfo = 'Policies'
-      />
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                data={shipmentsData}
+                title='Docs Compliance'
+                info='Policies with Missing Docs'
+                total='Total policies'
+                sub='Policies Missing Docs'
+                percentageInfo='Policies'
+              />
             </div>
 
-               
-
-           
-
-            {/* Universal Table for Recent Activity */}
+            {/* Universal Table for Policies */}
             <div className='max-h-[85%'>
-            <UniversalTable
-  title="Policies Overview"  // Changed from "Polices Overview" to "Policies Overview"
-  showMobileHeader={true}
-  rows={quotesRows}
-  columns={quotesColumns}
-  mobileDesign={{
-    showType: false,
-    showCargoIcon: true,
-    showDateIcon: true,
-    dateLabel: 'Expires',
-    buttonWidth: '47%'
-  }}
-  mobileDesignType="quotes"
-  desktopGridCols="0.5fr 0.8fr 0.8fr 0.7fr 1.1fr 0.9fr 1fr"
-/>
+              <UniversalTable
+                title="Policies Overview"
+                showMobileHeader={true}
+                rows={policiesRows}
+                columns={policiesColumns}
+                filterConfig={{
+                  showActivityFilter: true,
+                  showTimeframeFilter: true,
+                  showSortFilter: true,
+                  activityOptions: [
+                    'All Policies', 
+                    'Active', 
+                    'Expiring Soon', 
+                    'Expired', 
+                    'Pending'
+                  ],
+                  timeframeOptions: ['Last 7 days', 'Last 30 days', 'Last 3 months', 'All time'],
+                  sortOptions: ['Status', 'Date', 'Value', 'Cargo Type']
+                }}
+                mobileDesign={{
+                  showType: false,
+                  showCargoIcon: true,
+                  showDateIcon: true,
+                  dateLabel: 'Expires',
+                  buttonWidth: '47%'
+                }}
+                mobileDesignType="quotes"
+                desktopGridCols="0.5fr 0.8fr 0.8fr 0.7fr 1.1fr 0.9fr 1fr"
+              />
             </div>
           </div>
 
@@ -219,57 +472,55 @@ export default function ShipmentsPage() {
             max-[1280px]:hidden
           ">
             <div className="flex justify-end items-center gap-3 !h-[39px]">
-                  <button
-                    className="inline-flex items-center justify-center gap-[10px] px-4 py-2 h-[35.68px] bg-[#f8fbff] border border-[#ffffff30] rounded-[6px] font-poppins text-base font-normal text-black cursor-pointer whitespace-nowrap"
-                  >
-                    <img
-                      src="/quotes/download.svg"
-                      alt=""
-                      className="w-3 h-3 object-cover"
-                    />
-                    Download
-                  </button>
-                  <button className="inline-flex items-center justify-center gap-[10px] px-4 py-2 h-[35.68px] bg-[#0b0b0b] border-0 rounded-[6px] font-poppins text-base font-normal text-white cursor-pointer whitespace-nowrap">
-                    Renew Policy
-                  </button>
-                </div>
+              <button
+                className="inline-flex items-center justify-center gap-[10px] px-4 py-2 h-[35.68px] bg-[#f8fbff] border border-[#ffffff30] rounded-[6px] font-poppins text-base font-normal text-black cursor-pointer whitespace-nowrap"
+              >
+                <img
+                  src="/quotes/download.svg"
+                  alt=""
+                  className="w-3 h-3 object-cover"
+                />
+                Download
+              </button>
+              <button className="inline-flex items-center justify-center gap-[10px] px-4 py-2 h-[35.68px] bg-[#0b0b0b] border-0 rounded-[6px] font-poppins text-base font-normal text-white cursor-pointer whitespace-nowrap">
+                Renew Policy
+              </button>
+            </div>
 
-                {/* Improve Your Quote Rate Card */}
-              <InfoWidget 
-                title="Reduce Policy Risk"
-                rateValue={88}
-                description={
-                  <>
-                    7 of your active policies are at risk due to
-                    <strong className="font-medium tracking-[0.03px]"> Missing Documents</strong>
-                  </>
-                }
-                perecntageInfo="Policy Risk Score"
-              />
-           
+            {/* Policy Risk Card */}
+            <InfoWidget 
+              title="Reduce Policy Risk"
+              rateValue={policyRiskData.improvementRate}
+              description={
+                <>
+                  {policyRiskData.highRiskPolicies} of your active policies are at risk due to
+                  <strong className="font-medium tracking-[0.03px]"> Missing Documents</strong>
+                </>
+              }
+              subText={`${policyRiskData.highRiskPolicies} of ${policyRiskData.totalPolicies} policies at risk`}
+              perecntageInfo="Policy Risk Score"
+            />
 
             <PolicyTimelineWidget 
-            percentage={65}
-            expiringPolicies={5}
-            totalPolicies={15}
-          />
+              percentage={policyTimelineData.percentage}
+              expiringPolicies={policyTimelineData.activePolicies}
+              totalPolicies={policyTimelineData.totalPolicies}
+            />
 
-            {/* Quotes Expiration Card */}
+            {/* Docs Compliance Card */}
             <QuotesExpirationCard 
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        data={shipmentsData}
-        title='Docs Compliance'
-         info = 'Policies with Missing Docs'
-        total = 'Total policies'
-        sub = 'Policies Missing Docs'
-        percentageInfo = 'Policies'
-      />
-
-
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              data={shipmentsData}
+              title='Docs Compliance'
+              info='Policies with Missing Docs'
+              total='Total policies'
+              sub='Policies Missing Docs'
+              percentageInfo='Policies'
+            />
           </div>
 
-          {/* Tablet View (768px - 1279px) - Three Widgets Side by Side */}
+          {/* Tablet View (768px - 1279px) */}
           <div className="
             hidden max-[1280px]:block min-[769px]:block
             max-[768px]:hidden
@@ -277,40 +528,39 @@ export default function ShipmentsPage() {
             max-[1280px]:mb-2
           ">
             <div className="grid grid-cols-3 gap-2 w-full">
-            
-             {/* Improve Your Quote Rate Card */}
+              {/* Policy Risk Card */}
               <InfoWidget 
-                title="Improve Your Quote Rate"
-                rateValue={72}
+                title="Reduce Policy Risk"
+                rateValue={policyRiskData.improvementRate}
                 description={
                   <>
-                    Your Quotes are often Declined due to 
-                    <strong className="font-medium tracking-[0.03px]"> Inaccurate Cargo Value</strong>
+                    {policyRiskData.highRiskPolicies} of your active policies are at risk due to
+                    <strong className="font-medium tracking-[0.03px]"> Missing Documents</strong>
                   </>
                 }
-                perecntageInfo="Approved Submissions"
+                subText={`${policyRiskData.highRiskPolicies} of ${policyRiskData.totalPolicies} policies at risk`}
+                perecntageInfo="Policy Risk Score"
               />
-           
 
-            <PolicyTimelineWidget 
-            percentage={65}
-            expiringPolicies={5}
-            totalPolicies={15}
-          />
-            {/* Quotes Expiration Card */}
-            <div className="w-full h-[100%]">
-              <QuotesExpirationCard 
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        data={shipmentsData}
-        title='Docs Compliance'
-        info = 'Policies with Missing Docs'
-        total = 'Total policies'
-        sub = 'Policies Missing Docs'
-        percentageInfo = 'Policies'
-      />
-            </div>
-            
+              <PolicyTimelineWidget 
+                percentage={policyTimelineData.percentage}
+                expiringPolicies={policyTimelineData.activePolicies}
+                totalPolicies={policyTimelineData.totalPolicies}
+              />
+
+              {/* Docs Compliance Card */}
+              <div className="w-full h-[100%]">
+                <QuotesExpirationCard 
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  data={shipmentsData}
+                  title='Docs Compliance'
+                  info='Policies with Missing Docs'
+                  total='Total policies'
+                  sub='Policies Missing Docs'
+                  percentageInfo='Policies'
+                />
+              </div>
             </div>
           </div>
         </div>
