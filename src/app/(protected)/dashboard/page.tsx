@@ -345,10 +345,13 @@ const calculateDaysUntilExpiry = (item: any) => {
         // Կոդի հատվածը, որը պետք է փոխարինել `loadDashboardData` ֆունկցիայում
 
 // Հաշվել ավելի ճշգրիտ performance metrics
+// Կոդի հատվածը, որը պետք է փոխարինել `loadDashboardData` ֆունկցիայում
+
 const totalInsuredAmount = (policies || []).reduce((sum, policy) => 
   sum + (parseFloat(policy.coverage_amount) || 0), 0);
 
 const activePoliciesCount = (policies || []).filter(p => p.status === 'active').length;
+const totalPoliciesCount = policies?.length || 1; // Թույլ չտալ 0-ի բաժանում
 
 // 1. Contracts Due to Expire (Մինչև 2 օր մնացած քվոտաներ/պոլիսներ)
 const contractsDueToExpireCount = formattedData.filter(item => {
@@ -400,13 +403,14 @@ setPerformanceMetrics({
   },
   activePolicies: { 
     count: activePoliciesCount, 
-    percentage: Math.round((activePoliciesCount / (policies?.length || 1)) * 100) || 33
+    // ՓՈԽՎԱԾ՝ բաժանել totalPoliciesCount-ի վրա, ոչ թե totalQuotes-ի
+    percentage: Math.round((activePoliciesCount / totalPoliciesCount) * 100) || 0
   },
-  quotesAwaiting: { // Այժմ դա կլինի Required Document Uploads
+  quotesAwaiting: {
     count: requiredDocumentUploadsCount, 
     percentage: Math.round((requiredDocumentUploadsCount / totalQuotes) * 100) || 0
   },
-  underReview: { // Այժմ դա կլինի Contracts Due to Expire
+  underReview: {
     count: contractsDueToExpireCount, 
     percentage: Math.round((contractsDueToExpireCount / totalQuotes) * 100) || 0
   },
@@ -884,7 +888,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
     {
       id: 'active-policies',
       value: performanceMetrics.activePolicies.count.toString(),
-      decimal: performanceMetrics.activePolicies.percentage.toString(),
+      decimal: '',
       suffix: '%',
       label: 'Active Policies',
       hasArrow: true,
@@ -893,7 +897,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
     {
       id: 'quotes-awaiting',
       value: performanceMetrics.quotesAwaiting.count.toString(),
-      decimal: performanceMetrics.quotesAwaiting.percentage.toString(),
+      decimal: '',
       suffix: '%',
       label: 'Required Document Uploads', // ՓՈԽՎԱԾ
       hasArrow: true,
