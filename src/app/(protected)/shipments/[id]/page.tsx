@@ -10,7 +10,7 @@ import {
   AlertCircle, Eye, Printer, FileUp, ArrowLeft,
   ChevronRight, Zap, BadgeCheck, Users, Phone, Lock,
   CreditCard, TrendingUp, FileCheck, FileWarning, CheckCircle2,
-  Loader2, Info, FileSignature, AlertTriangle
+  Loader2, Info, FileSignature, AlertTriangle, Bell
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -39,15 +39,26 @@ interface ShipmentDocument {
   policy_id: string;
   commercial_invoice_status: 'pending' | 'uploaded' | 'approved' | 'rejected';
   commercial_invoice_url: string | null;
+  commercial_invoice_rejection_reason?: string;
   packing_list_status: 'pending' | 'uploaded' | 'approved' | 'rejected';
   packing_list_url: string | null;
+  packing_list_rejection_reason?: string;
   bill_of_lading_status: 'pending' | 'uploaded' | 'approved' | 'rejected';
   bill_of_lading_url: string | null;
+  bill_of_lading_rejection_reason?: string;
   created_at: string;
   updated_at: string;
 }
 
-// Claim eligibility interface
+interface PolicyNotification {
+  id: string;
+  type: 'document_required' | 'document_rejected' | 'policy_warning' | 'document_approved';
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 interface EligibilityCheck {
   policyActive: boolean;
   paymentCompleted: boolean;
@@ -67,6 +78,7 @@ export default function ShipmentDetailPage() {
     type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading' | null;
     progress: number;
   }>({ type: null, progress: 0 });
+  const [notifications, setNotifications] = useState<PolicyNotification[]>([]);
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'information' | 'documents' | 'claim'>('information');
@@ -102,8 +114,9 @@ export default function ShipmentDetailPage() {
   }, [shipmentId]);
 
   useEffect(() => {
-    if (policy && documents) {
+    if (policy) {
       checkEligibility();
+      generateNotifications();
     }
   }, [policy, documents]);
 
@@ -126,7 +139,7 @@ export default function ShipmentDetailPage() {
       
       setPolicy(policyData);
       
-      // First, try to get existing document
+      // Load documents
       const { data: existingDocs, error: findError } = await supabase
         .from('documents')
         .select('*')
@@ -140,10 +153,8 @@ export default function ShipmentDetailPage() {
       let documentsData;
       
       if (existingDocs) {
-        // Document already exists - just use it
         documentsData = existingDocs;
       } else {
-        // No document exists - create a new one
         const { data: newDocs, error: createError } = await supabase
           .from('documents')
           .insert({
@@ -155,9 +166,7 @@ export default function ShipmentDetailPage() {
           .select()
           .single();
         
-        if (createError) {
-          console.error('Error creating document:', createError);
-        } else {
+        if (!createError) {
           documentsData = newDocs;
         }
       }
@@ -211,6 +220,91 @@ export default function ShipmentDetailPage() {
       canFileClaim,
       missingDocs
     });
+  };
+
+  const generateNotifications = () => {
+    if (!policy || !documents) return;
+
+    const newNotifications: PolicyNotification[] = [];
+    const now = new Date();
+    const createdDate = new Date(policy.created_at);
+    const daysSinceCreation = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Check for missing documents
+    const docStatuses = [
+      { type: 'commercial_invoice', status: documents.commercial_invoice_status },
+      { type: 'packing_list', status: documents.packing_list_status },
+      { type: 'bill_of_lading', status: documents.bill_of_lading_status }
+    ];
+
+    const pendingDocs = docStatuses.filter(doc => doc.status === 'pending');
+    const rejectedDocs = docStatuses.filter(doc => doc.status === 'rejected');
+    const approvedDocs = docStatuses.filter(doc => doc.status === 'approved');
+
+    // Document required notifications
+    if (pendingDocs.length > 0) {
+      newNotifications.push({
+        id: 'doc-required-1',
+        type: 'document_required',
+        title: 'Upload Required Documents',
+        message: `${pendingDocs.length} document${pendingDocs.length > 1 ? 's' : ''} pending. Upload all documents to maintain coverage.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+
+      // Grace period warning (after 3 days)
+      if (daysSinceCreation >= 3) {
+        newNotifications.push({
+          id: 'policy-warning-1',
+          type: 'policy_warning',
+          title: 'Policy at Risk',
+          message: 'Policy may be cancelled if documents are not uploaded within 7 days of purchase.',
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
+    // Document rejected notifications
+    if (rejectedDocs.length > 0) {
+      rejectedDocs.forEach((doc, index) => {
+        const docName = getDocumentName(doc.type);
+        newNotifications.push({
+          id: `doc-rejected-${index}`,
+          type: 'document_rejected',
+          title: `${docName} Rejected`,
+          message: `Your ${docName.toLowerCase()} was rejected. Please upload a corrected version.`,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+      });
+    }
+
+    // Document approved notifications
+    if (approvedDocs.length > 0 && approvedDocs.length < 3) {
+      newNotifications.push({
+        id: 'doc-approved-partial',
+        type: 'document_approved',
+        title: 'Documents Progress',
+        message: `${approvedDocs.length}/3 documents approved. ${3 - approvedDocs.length} remaining.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+    }
+
+    // All documents approved
+    if (approvedDocs.length === 3) {
+      newNotifications.push({
+        id: 'doc-all-approved',
+        type: 'document_approved',
+        title: 'All Documents Approved',
+        message: 'All required documents have been approved. Your coverage is now fully active.',
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+    }
+
+    setNotifications(newNotifications);
   };
 
   const handleFileUpload = async (
@@ -321,12 +415,15 @@ export default function ShipmentDetailPage() {
       if (type === 'commercial_invoice') {
         updateData.commercial_invoice_url = publicUrl;
         updateData.commercial_invoice_status = 'uploaded';
+        updateData.commercial_invoice_rejection_reason = null;
       } else if (type === 'packing_list') {
         updateData.packing_list_url = publicUrl;
         updateData.packing_list_status = 'uploaded';
+        updateData.packing_list_rejection_reason = null;
       } else if (type === 'bill_of_lading') {
         updateData.bill_of_lading_url = publicUrl;
         updateData.bill_of_lading_status = 'uploaded';
+        updateData.bill_of_lading_rejection_reason = null;
       }
       
       const { data: updatedDocument, error: upsertError } = await supabase
@@ -345,8 +442,10 @@ export default function ShipmentDetailPage() {
       setDocuments(updatedDocument);
       toast.success(`${getDocumentName(type)} uploaded successfully!`);
       
+      // Refresh notifications after upload
       setTimeout(() => {
         setUploading({ type: null, progress: 0 });
+        generateNotifications();
       }, 1000);
       
     } catch (error: any) {
@@ -541,6 +640,46 @@ export default function ShipmentDetailPage() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'uploaded': return 'bg-amber-100 text-amber-800';
+      case 'pending': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'document_required':
+        return <AlertCircle className="w-4 h-4 text-amber-600" />;
+      case 'document_rejected':
+        return <XCircle className="w-4 h-4 text-red-600" />;
+      case 'policy_warning':
+        return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      case 'document_approved':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      default:
+        return <Bell className="w-4 h-4 text-blue-600" />;
+    }
+  };
+
+  const getNotificationBgColor = (type: string) => {
+    switch (type) {
+      case 'document_required':
+        return 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200';
+      case 'document_rejected':
+        return 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200';
+      case 'policy_warning':
+        return 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200';
+      case 'document_approved':
+        return 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200';
+      default:
+        return 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200';
+    }
+  };
+
   const handleViewDocument = (url: string) => {
     window.open(url, '_blank');
   };
@@ -572,20 +711,12 @@ export default function ShipmentDetailPage() {
     });
   };
 
-  const getTransportationModeDisplay = (mode: string) => {
-    const modeMap: Record<string, string> = {
-      'air': 'Air Freight',
-      'sea': 'Sea Freight',
-      'road': 'Road Freight'
-    };
-    return modeMap[mode] || mode;
-  };
-
   // Calculate document statistics
   const getDocumentStats = () => {
     const totalDocs = 3;
     let uploadedDocs = 0;
     let approvedDocs = 0;
+    let rejectedDocs = 0;
     let pendingDocs = 0;
 
     if (documents) {
@@ -597,19 +728,21 @@ export default function ShipmentDetailPage() {
 
       uploadedDocs = docStatuses.filter(status => status === 'uploaded' || status === 'approved' || status === 'rejected').length;
       approvedDocs = docStatuses.filter(status => status === 'approved').length;
+      rejectedDocs = docStatuses.filter(status => status === 'rejected').length;
       pendingDocs = docStatuses.filter(status => status === 'pending').length;
     }
 
-    return { totalDocs, uploadedDocs, approvedDocs, pendingDocs };
+    return { totalDocs, uploadedDocs, approvedDocs, rejectedDocs, pendingDocs };
   };
 
-  // Render document card with upload progress
+  // Render document card with status details
   const renderDocumentCard = (
     type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
     title: string,
     description: string,
     status: string,
-    url: string | null
+    url: string | null,
+    rejectionReason?: string
   ) => {
     const isUploading = uploading.type === type;
     
@@ -619,6 +752,7 @@ export default function ShipmentDetailPage() {
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${
               status === 'approved' ? 'bg-green-100' :
+              status === 'rejected' ? 'bg-red-100' :
               status === 'uploaded' ? 'bg-amber-100' :
               'bg-gray-100'
             }`}>
@@ -639,16 +773,24 @@ export default function ShipmentDetailPage() {
                 Uploading {uploading.progress}%
               </span>
             ) : (
-              <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                status === 'approved' ? 'bg-green-100 text-green-800' :
-                status === 'uploaded' ? 'bg-amber-100 text-amber-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
+              <span className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusColor(status)}`}>
                 {getStatusText(status)}
               </span>
             )}
           </div>
         </div>
+        
+        {status === 'rejected' && rejectionReason && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason</p>
+                <p className="text-sm text-red-700">{rejectionReason}</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {isUploading ? (
           <div className="mt-4">
@@ -685,10 +827,14 @@ export default function ShipmentDetailPage() {
               <>
                 <button
                   onClick={() => document.getElementById(`${type}_upload`)?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-sm hover:shadow ${
+                    status === 'rejected' 
+                      ? 'bg-red-600 text-white hover:bg-red-700' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
                 >
                   <Upload className="w-4 h-4" />
-                  Replace
+                  {status === 'rejected' ? 'Upload Corrected' : 'Replace'}
                 </button>
                 <input
                   id={`${type}_upload`}
@@ -754,7 +900,7 @@ export default function ShipmentDetailPage() {
       id: 'claim',
       name: 'File a Claim',
       icon: <FileSignature className="w-4 h-4" />,
-      enabled: eligibility.canFileClaim // Disabled if not eligible
+      enabled: eligibility.canFileClaim
     }
   ];
 
@@ -1015,67 +1161,6 @@ export default function ShipmentDetailPage() {
             {activeTab === 'documents' && (
               <div className="space-y-6">
                 {/* Quick Upload Section */}
-                {/* Document Progress Dashboard */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Document Progress</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">Uploaded</p>
-                          <p className="text-2xl font-bold text-gray-900">{documentStats.uploadedDocs}/3</p>
-                        </div>
-                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                          <Upload className="w-5 h-5 text-emerald-600" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">Approved</p>
-                          <p className="text-2xl font-bold text-gray-900">{documentStats.approvedDocs}/3</p>
-                        </div>
-                        <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                          <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">Pending</p>
-                          <p className="text-2xl font-bold text-gray-900">{documentStats.pendingDocs}</p>
-                        </div>
-                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                          <Clock className="w-5 h-5 text-amber-600" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-gray-900">Document Completion</h4>
-                    <span className="text-sm font-medium text-blue-600">
-                      {Math.round((documentStats.uploadedDocs / 3) * 100)}% Complete
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${(documentStats.uploadedDocs / 3) * 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-3">
-                    {documentStats.pendingDocs === 0 
-                      ? 'All documents uploaded! Your shipment is ready for processing.'
-                      : `Upload ${documentStats.pendingDocs} more document${documentStats.pendingDocs > 1 ? 's' : ''} to complete your shipment setup.`
-                    }
-                  </p>
-                </div>
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -1103,7 +1188,8 @@ export default function ShipmentDetailPage() {
                       'Commercial Invoice',
                       'Shows cargo value and trade details',
                       documents?.commercial_invoice_status || 'pending',
-                      documents?.commercial_invoice_url || null
+                      documents?.commercial_invoice_url || null,
+                      documents?.commercial_invoice_rejection_reason
                     )}
                     
                     {renderDocumentCard(
@@ -1111,7 +1197,8 @@ export default function ShipmentDetailPage() {
                       'Packing List',
                       'Shows quantity, weight, and packaging details',
                       documents?.packing_list_status || 'pending',
-                      documents?.packing_list_url || null
+                      documents?.packing_list_url || null,
+                      documents?.packing_list_rejection_reason
                     )}
                     
                     {renderDocumentCard(
@@ -1119,12 +1206,87 @@ export default function ShipmentDetailPage() {
                       'Bill of Lading / Air Waybill',
                       'Carrier-issued shipment receipt',
                       documents?.bill_of_lading_status || 'pending',
-                      documents?.bill_of_lading_url || null
+                      documents?.bill_of_lading_url || null,
+                      documents?.bill_of_lading_rejection_reason
                     )}
                   </div>
                 </div>
 
-                
+                {/* Document Status Dashboard */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Document Status</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Total Required</p>
+                          <p className="text-2xl font-bold text-gray-900">{documentStats.totalDocs}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Approved</p>
+                          <p className="text-2xl font-bold text-gray-900">{documentStats.approvedDocs}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Rejected</p>
+                          <p className="text-2xl font-bold text-gray-900">{documentStats.rejectedDocs}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">Pending</p>
+                          <p className="text-2xl font-bold text-gray-900">{documentStats.pendingDocs}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-amber-600" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-gray-900">Document Completion</h4>
+                    <span className="text-sm font-medium text-blue-600">
+                      {Math.round((documentStats.approvedDocs / documentStats.totalDocs) * 100)}% Complete
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${(documentStats.approvedDocs / documentStats.totalDocs) * 100}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-3">
+                    {documentStats.approvedDocs === documentStats.totalDocs 
+                      ? 'All documents approved! Your shipment is ready for claims.'
+                      : documentStats.rejectedDocs > 0
+                      ? `${documentStats.rejectedDocs} document${documentStats.rejectedDocs > 1 ? 's' : ''} rejected. Please upload corrected versions.`
+                      : `Upload and get approval for ${documentStats.totalDocs - documentStats.approvedDocs} more document${(documentStats.totalDocs - documentStats.approvedDocs) > 1 ? 's' : ''}.`
+                    }
+                  </p>
+                </div>
               </div>
             )}
 
@@ -1427,6 +1589,42 @@ export default function ShipmentDetailPage() {
 
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
+            {/* Notifications Widget */}
+            {notifications.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-blue-600" />
+                    Policy Notifications
+                  </h3>
+                  <span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    {notifications.length} new
+                  </span>
+                </div>
+                
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {notifications.map((notification, index) => (
+                    <div
+                      key={notification.id || index}
+                      className={`p-3 rounded-lg border ${getNotificationBgColor(notification.type)}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {getNotificationIcon(notification.type)}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900 mb-1">
+                            {notification.title}
+                          </p>
+                          <p className="text-xs text-gray-700">
+                            {notification.message}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Payment Summary */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Payment Summary</h3>
@@ -1561,20 +1759,20 @@ export default function ShipmentDetailPage() {
                   
                   <div className="flex items-start gap-3">
                     <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                      documentStats.uploadedDocs === 3 ? 'bg-emerald-100' : 'bg-blue-100'
+                      documentStats.approvedDocs === 3 ? 'bg-emerald-100' : 'bg-blue-100'
                     }`}>
-                      {documentStats.uploadedDocs === 3 ? (
+                      {documentStats.approvedDocs === 3 ? (
                         <CheckCircle className="w-4 h-4 text-emerald-600" />
                       ) : (
                         <Upload className="w-4 h-4 text-blue-600" />
                       )}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Upload Documents</p>
+                      <p className="text-sm font-medium text-gray-900">Documents Status</p>
                       <p className="text-xs text-gray-500">
-                        {documentStats.uploadedDocs === 3 
-                          ? 'All documents uploaded'
-                          : `${3 - documentStats.uploadedDocs} document${documentStats.uploadedDocs < 2 ? 's' : ''} remaining`
+                        {documentStats.approvedDocs === 3 
+                          ? 'All documents approved'
+                          : `${documentStats.approvedDocs}/3 approved, ${documentStats.rejectedDocs} rejected`
                         }
                       </p>
                     </div>
