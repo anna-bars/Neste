@@ -106,13 +106,13 @@ const QuotesExpirationCard = ({
       // Quotes էջի համար - #3ff0b5-ից #00bc7d գրադիենտ
       if (isHovered) {
         // Հովեր ժամանակ - մի փոքր ավելի մուգ գույներ
-        const startR = 63;    // #3ff0b5
-        const startG = 240;
-        const startB = 181;
+        const startR = 102;    // #3ff0b5
+        const startG = 172;
+        const startB = 238;
         
-        const endR = 0;       // #00bc7d
-        const endG = 188;
-        const endB = 125;
+        const endR = 41;       // #00bc7d
+        const endG = 111;
+        const endB = 217;
         
         const r = Math.round(startR + (endR - startR) * progress);
         const g = Math.round(startG + (endG - startG) * progress);
@@ -121,13 +121,13 @@ const QuotesExpirationCard = ({
         return `rgb(${r}, ${g}, ${b})`;
       } else {
         // Նորմալ վիճակում - ավելի բաց գույներ
-        const startR = 99;    // #63f0c5 - ավելի բաց կապույտ-կանաչ
-        const startG = 240;
-        const startB = 197;
+        const startR = 102;    // #3ff0b5
+        const startG = 172;
+        const startB = 238;
         
-        const endR = 30;      // #1ed49a - ավելի բաց կանաչ
-        const endG = 212;
-        const endB = 154;
+        const endR = 41;       // #00bc7d
+        const endG = 111;
+        const endB = 217;
         
         const r = Math.round(startR + (endR - startR) * progress);
         const g = Math.round(startG + (endG - startG) * progress);
@@ -171,7 +171,7 @@ const QuotesExpirationCard = ({
 
   // Նոր ֆունկցիա գույն ստանալու համար legend-ի համար
   const getLegendColor = () => {
-    return chartType === 'quotes' ? '#00bc7d' : '#EE9F66';
+    return chartType === 'quotes' ? '#1a66e0' : '#EE9F66';
   };
 
   const handleTabSelect = (tab: string) => {
@@ -290,7 +290,7 @@ const QuotesExpirationCard = ({
         
         @keyframes glowPulse {
           0% {
-            box-shadow: 0 0 0 0 ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0.4)' : 'rgba(238, 159, 102, 0.4)'};
+            box-shadow: 0 0 0 0 ${chartType === 'quotes' ? 'rgba(40, 255, 183, 0.4)' : 'rgba(238, 159, 102, 0.4)'};
           }
           70% {
             box-shadow: 0 0 0 4px ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0)' : 'rgba(238, 159, 102, 0)'};
@@ -491,7 +491,7 @@ const QuotesExpirationCard = ({
                   style={{ 
                     backgroundColor: getLegendColor(),
                     transform: isChartHovered ? 'scale(1.3)' : 'scale(1)',
-                    boxShadow: isChartHovered ? `0 0 8px ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0.8)' : 'rgba(238, 159, 102, 0.8)'}` : 'none'
+                    boxShadow: isChartHovered ? `0 0 8px ${chartType === 'quotes' ? 'rgba(3, 0, 188, 0.8)' : 'rgba(238, 159, 102, 0.8)'}` : 'none'
                   }}
                 />
                 <span 
