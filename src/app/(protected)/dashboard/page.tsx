@@ -371,10 +371,17 @@ const { data: pendingDocuments, error: docsError } = await supabase
   .select('*')
   .eq('user_id', user.id);
 
+  console.log("🐟", pendingDocuments)
+  const { data: allDocuments, error: allDocsError } = await supabase
+  .from('documents')
+  .select('*');
+
+console.log("📄 All documents:", allDocuments);
+console.log("❌ All docs error:", allDocsError);
 let requiredDocumentUploadsCount = 0;
-if (!docsError && pendingDocuments) {
+if (!allDocsError && allDocuments) {
   // Հաշվել բոլոր pending ստատուսով փաստաթղթերը
-  requiredDocumentUploadsCount = pendingDocuments.filter(doc => {
+  requiredDocumentUploadsCount = allDocuments.filter(doc => {
     return doc.commercial_invoice_status === 'pending' ||
            doc.packing_list_status === 'pending' ||
            doc.bill_of_lading_status === 'pending';
