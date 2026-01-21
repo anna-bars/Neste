@@ -66,6 +66,7 @@ interface UniversalTableProps {
     showType?: boolean;
     showCargoIcon?: boolean;
     showDateIcon?: boolean;
+    showExpiringIcon?: boolean; // Ավելացրեք այս տողը
     dateLabel?: string;
     buttonWidth?: string;
   };
@@ -116,6 +117,7 @@ export const UniversalTable: React.FC<UniversalTableProps> = ({
     showType: true,
     showCargoIcon: true,
     showDateIcon: true,
+    showExpiringIcon: true,
     dateLabel: 'Last Update',
     buttonWidth: '47%'
   },
@@ -461,7 +463,8 @@ const renderDashboardMobileDesign = (row: TableRow) => (
       )}
     </div>
       
-      {(row.cargo || row.shipmentValue) && (
+      {/* Cargo and Value Section */}
+      {(row.cargo || row.value) && (
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
             {mobileDesign.showCargoIcon && (
@@ -472,41 +475,51 @@ const renderDashboardMobileDesign = (row: TableRow) => (
               />
             )}
             <span className="font-poppins text-sm text-gray-700">
-              {row.cargo || row.shipmentValue ? 'Cargo / Value' : 'Cargo'}
+              {row.cargo ? 'Cargo' : 'Value'}
             </span>
           </div>
           <div className="font-poppins text-sm font-normal text-black">
-            {row.value || row.shipmentValue || row.cargo}
-            {row.premiumAmount && ` / ${row.premiumAmount}`}
+            {row.cargo || `$${row.value?.toLocaleString?.() || row.value}`}
           </div>
         </div>
       )}
       
-      {row.premiumAmount && !row.value && !row.shipmentValue && (
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <img 
-              src="/table/money-bag.svg" 
-              alt="Premium" 
-              className="w-4 h-4 opacity-80"
-            />
-            <span className="font-poppins text-sm text-gray-700">Premium</span>
-          </div>
-          <div className="font-poppins text-sm font-normal text-black">{row.premiumAmount}</div>
-        </div>
-      )}
-      
-      {row.expirationDate && (
+      {/* Expiring Date Section - Ավելացրել ենք */}
+      {row.expiringDays !== undefined && row.expiringDays !== null && (
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
             <img 
               src="/table/calendar.svg" 
-              alt="Expiration" 
+              alt="Expiring" 
+              className="w-4 h-4 opacity-80 xs:w-[16px] xs:h-[16px] xs2:w-[14px] xs2:h-[14px]"
+            />
+            <span className="font-poppins text-sm text-gray-700">Expiring</span>
+          </div>
+          <div className={`font-poppins text-sm ${
+            row.expiringDays === 0 ? 'text-amber-600 font-medium' :
+            row.expiringDays > 0 ? 'text-gray-700' : 'text-rose-600'
+          }`}>
+            {row.expiringDays === 0 ? 'Today' :
+             row.expiringDays > 0 ? `${row.expiringDays} day${row.expiringDays !== 1 ? 's' : ''} left` :
+             `${Math.abs(row.expiringDays)} day${Math.abs(row.expiringDays) !== 1 ? 's' : ''} ago`}
+          </div>
+        </div>
+      )}
+      
+      {/* Value Section (եթե առանձին կա) */}
+      {row.value && !row.cargo && (
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2">
+            <img 
+              src="/table/dollar-sign.svg" 
+              alt="Value" 
               className="w-4 h-4 opacity-80"
             />
-            <span className="font-poppins text-sm text-gray-700">Expires</span>
+            <span className="font-poppins text-sm text-gray-700">Value</span>
           </div>
-          <div className="font-poppins text-sm text-gray-600">{row.expirationDate}</div>
+          <div className="font-poppins text-sm font-normal text-black">
+            ${row.value?.toLocaleString?.() || row.value}
+          </div>
         </div>
       )}
       
@@ -530,24 +543,25 @@ const renderDashboardMobileDesign = (row: TableRow) => (
         
         {row.button && (
           <div className={`${row.date || row.lastUpdate ? mobileDesign.buttonWidth : 'w-full'} xs4:w-full xs:pl-1.5`}>
-            <button className={`
-              h-[36px] px-4 w-full rounded-lg font-inter text-sm justify-center items-center gap-2 transition-colors duration-300
-              ${row.button.variant === 'primary' 
-                ? 'bg-[#2563EB] text-white border border-[rgba(255,255,255,0.22)] hover:bg-[#1d4ed8] hover:text-white hover:border-[#d1d5db]' 
-                : 'bg-transparent text-[#374151] border border-[#e3e6ea] hover:bg-[#f3f4f6] hover:text-white hover:border-[#d1d5db]'
-              }
-              xs:text-[14px] xs:font-medium xs:w-[95%] xs:min-w-0
-              xs2:text-[13px] xs2:px-1.5 xs2:py-2.5 xs2:h-[40px] xs2:max-w-[95%]
-            `}
-            onClick={() => row.button?.onClick?.(row)}>
-              {row.button.text}
-            </button>
+           <button className={`
+  h-[36px] px-4 w-full rounded-lg font-inter text-sm justify-center items-center gap-2 transition-colors duration-300
+  ${row.button.variant === 'primary' 
+    ? 'bg-[#2563EB] text-white border border-[rgba(255,255,255,0.22)] hover:bg-[#1d4ed8] hover:text-white hover:border-[#d1d5db]' 
+    : (row.button.variant as string) === 'success'
+    ? 'bg-[#10B981] text-white border border-[rgba(255,255,255,0.22)] hover:bg-[#059669]'
+    : 'bg-transparent text-[#374151] border border-[#e3e6ea] hover:bg-[#f3f4f6] hover:text-white hover:border-[#d1d5db]'
+  }
+  xs:text-[14px] xs:font-medium xs:w-[95%] xs:min-w-0
+  xs2:text-[13px] xs2:px-1.5 xs2:py-2.5 xs2:h-[40px] xs2:max-w-[95%]
+`}
+onClick={() => row.button?.onClick?.(row)}>
+  {row.button.text}
+</button>
           </div>
         )}
       </div>
     </div>
   );
-
   return (
     <>
       <section className="

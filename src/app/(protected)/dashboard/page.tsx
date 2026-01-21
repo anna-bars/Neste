@@ -62,6 +62,41 @@ const dashboardColumns = [
     renderDesktop: (status: any) => renderStatus(status)
   },
   {
+    key: 'expiring',
+    label: 'Expiring',
+    sortable: true,
+    renderDesktop: (_: any, row: any) => {
+      // Ստուգել, թե արդյոք կա expiringDays հատկությունը
+      if (row.expiringDays !== undefined) {
+        if (row.expiringDays === 0) {
+          return (
+            <span className="font-poppins text-sm text-amber-600 font-medium">
+              Today
+            </span>
+          );
+        } else if (row.expiringDays > 0) {
+          return (
+            <span className="font-poppins text-sm text-gray-700">
+              {row.expiringDays} day{row.expiringDays !== 1 ? 's' : ''} left
+            </span>
+          );
+        } else if (row.expiringDays < 0) {
+          const daysAgo = Math.abs(row.expiringDays);
+          return (
+            <span className="font-poppins text-sm text-rose-600">
+              {daysAgo} day{daysAgo !== 1 ? 's' : ''} ago
+            </span>
+          );
+        }
+      }
+      return (
+        <span className="font-poppins text-sm text-gray-400">
+          -
+        </span>
+      );
+    }
+  },
+  {
     key: 'date',
     label: 'Created',
     sortable: true
@@ -199,7 +234,44 @@ export default function DashboardPage() {
       expired: expiredCount
     };
   };
-
+// Ֆունկցիա՝ հաշվարկելու մնացած օրերը մինչև ժամկետի լրանալը
+// Ֆունկցիա՝ հաշվարկելու մնացած օրերը մինչև ժամկետի լրանալը
+const calculateDaysUntilExpiry = (item: any) => {
+  const now = new Date();
+  let expirationDate: Date | null = null;
+  
+  // Ստուգել, թե quote-ը rejected է կամ approved & paid
+  if (item.dataType === 'quote') {
+    const quote = item.rawData;
+    
+    // Եթե quote-ը rejected է, չցուցադրել expiration date
+    if (quote.status === 'rejected') {
+      return null;
+    }
+    
+    // Եթե quote-ը approved & paid է, չցուցադրել expiration date
+    if (quote.status === 'approved' && quote.payment_status === 'paid') {
+      return null;
+    }
+    
+    // Quote-ի համար օգտագործել quote_expires_at
+    if (quote.quote_expires_at) {
+      expirationDate = new Date(quote.quote_expires_at);
+    }
+  } else if (item.dataType === 'policy') {
+    // Policy-ի համար օգտագործել coverage_end
+    if (item.rawData?.coverage_end) {
+      expirationDate = new Date(item.rawData.coverage_end);
+    }
+  }
+  
+  if (!expirationDate) return null;
+  
+  const diffTime = expirationDate.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+};
   const [conversionData, setConversionData] = useState<Record<string, ConversionChartData>>({
     'This Week': { approved: 0, declined: 0, expired: 0 },
     'This Month': { approved: 0, declined: 0, expired: 0 },
@@ -526,6 +598,7 @@ useEffect(() => {
   };
 
 // formatCombinedData ֆունկցիան պետք է ուղղենք
+// formatCombinedData ֆունկցիան պետք է ուղղենք
 const formatCombinedData = (quotes: any[], policies: any[]) => {
   const allItems: any[] = [];
 
@@ -533,6 +606,10 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
   quotes.forEach(quote => {
     const statusConfig = getQuoteStatusConfig(quote);
     const createdAt = new Date(quote.created_at);
+    const expiringDays = calculateDaysUntilExpiry({ 
+      dataType: 'quote', 
+      rawData: quote 
+    });
     
     const buttonAction = { 
       text: statusConfig.buttonText, 
@@ -559,7 +636,8 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       paymentStatus: quote.payment_status,
       // Կարևոր! - պահպանել ISO ամսաթիվը sort-ի համար
       sortDate: quote.created_at, // Պահպանել ISO string-ը
-      timestamp: createdAt.getTime() // Պահպանել timestamp-ը
+      timestamp: createdAt.getTime(), // Պահպանել timestamp-ը
+      expiringDays: expiringDays // Ավելացնել expiring օրերը
     });
   });
 
@@ -567,6 +645,10 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
   policies.forEach(policy => {
     const statusConfig = getPolicyStatusConfig(policy);
     const createdAt = new Date(policy.created_at);
+    const expiringDays = calculateDaysUntilExpiry({ 
+      dataType: 'policy', 
+      rawData: policy 
+    });
     
     const buttonAction = { 
       text: statusConfig.buttonText, 
@@ -592,7 +674,8 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
       policyStatus: policy.status,
       // Կարևոր! - պահպանել ISO ամսաթիվը sort-ի համար
       sortDate: policy.created_at, // Պահպանել ISO string-ը
-      timestamp: createdAt.getTime() // Պահպանել timestamp-ը
+      timestamp: createdAt.getTime(), // Պահպանել timestamp-ը
+      expiringDays: expiringDays // Ավելացնել expiring օրերը
     });
   });
 
@@ -822,16 +905,15 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
               />
             </div>
 
-      <UniversalTable
+<UniversalTable
   title="Recent Activity"
   showMobileHeader={false}
-  rows={sortedRows} // Օգտագործել արդեն sort արված տվյալները
+  rows={sortedRows}
   columns={dashboardColumns}
-
   filterConfig={{
     showActivityFilter: true,
     showTimeframeFilter: true,
-    showSortFilter: false, // Անջատել sort filter-ը
+    showSortFilter: false,
     activityOptions: [
       'All Activity', 
       'Quotes',
@@ -845,19 +927,16 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
     ],
     timeframeOptions: ['Last 7 days', 'Last 30 days', 'Last 3 months', 'All time']
   }}
-  // Եթե ուզում եք արգելափակել sort-ի փոփոխությունը
-  onFilterChange={(filters) => {
-    // Այստեղ կարող եք վերահսկել, որ sort-ը միշտ լինի ըստ Date
-  }}
   mobileDesign={{
     showType: true,
     showCargoIcon: true,
     showDateIcon: true,
     dateLabel: 'Created',
-    buttonWidth: '47%'
+    buttonWidth: '47%',
+    showExpiringIcon: true // Ավելացնել նոր prop
   }}
   mobileDesignType="dashboard"
-  desktopGridCols="0.7fr 0.5fr 0.7fr 0.7fr 1fr 0.2fr 1fr"
+  desktopGridCols="0.7fr 0.5fr 0.7fr 0.7fr 1fr 0.8fr 0.2fr 1fr"
 />
           </div>
 
