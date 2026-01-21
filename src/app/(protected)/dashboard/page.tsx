@@ -857,7 +857,7 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
     buttonWidth: '47%'
   }}
   mobileDesignType="dashboard"
-  desktopGridCols="0.5fr 0.5fr 0.7fr 0.7fr 1.3fr 0.2fr 1fr"
+  desktopGridCols="0.7fr 0.5fr 0.7fr 0.7fr 1fr 0.2fr 1fr"
 />
           </div>
 
