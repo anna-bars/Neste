@@ -17,17 +17,20 @@ interface QuotesExpirationCardProps {
   total?: string,
   sub?: string,
   percentageInfo?: string
+  // Նոր prop chartType-ը նշելու համար, թե որ գունային սխեման օգտագործել
+  chartType?: 'default' | 'quotes'
 }
 
 const QuotesExpirationCard = ({ 
   activeTab = 'This Week', 
   onTabChange, 
-  data ,
+  data,
   title = 'Quotes Expiration',
   info = 'Total expiring quotes',
   total = 'Total quotes',
   sub = 'Expiring',
-  percentageInfo = 'Quotes'
+  percentageInfo = 'Quotes',
+  chartType = 'default'
 }: QuotesExpirationCardProps) => {
   const tabs = ['This Week', 'Next Week', 'In 2–4 Weeks', 'Next Month'];
   console.log(data)
@@ -99,37 +102,76 @@ const QuotesExpirationCard = ({
 
   // Գույների ֆունկցիան հովեր համար - միայն ակտիվ գծիկների համար
   const getActiveBarColor = (progress: number, isHovered: boolean) => {
-    if (isHovered) {
-      // Հովեր ժամանակ՝ #FFD186 դեպի #FF7C1E
-      const startR = 255;  // #FFD186
-      const startG = 209;
-      const startB = 134;
-      
-      const endR = 255;    // #FF7C1E
-      const endG = 124;
-      const endB = 30;
-      
-      const r = Math.round(startR + (endR - startR) * progress);
-      const g = Math.round(startG + (endG - startG) * progress);
-      const b = Math.round(startB + (endB - startB) * progress);
-      
-      return `rgb(${r}, ${g}, ${b})`;
+    if (chartType === 'quotes') {
+      // Quotes էջի համար - #3ff0b5-ից #00bc7d գրադիենտ
+      if (isHovered) {
+        // Հովեր ժամանակ - մի փոքր ավելի մուգ գույներ
+        const startR = 63;    // #3ff0b5
+        const startG = 240;
+        const startB = 181;
+        
+        const endR = 0;       // #00bc7d
+        const endG = 188;
+        const endB = 125;
+        
+        const r = Math.round(startR + (endR - startR) * progress);
+        const g = Math.round(startG + (endG - startG) * progress);
+        const b = Math.round(startB + (endB - startB) * progress);
+        
+        return `rgb(${r}, ${g}, ${b})`;
+      } else {
+        // Նորմալ վիճակում - ավելի բաց գույներ
+        const startR = 99;    // #63f0c5 - ավելի բաց կապույտ-կանաչ
+        const startG = 240;
+        const startB = 197;
+        
+        const endR = 30;      // #1ed49a - ավելի բաց կանաչ
+        const endG = 212;
+        const endB = 154;
+        
+        const r = Math.round(startR + (endR - startR) * progress);
+        const g = Math.round(startG + (endG - startG) * progress);
+        const b = Math.round(startB + (endB - startB) * progress);
+        
+        return `rgb(${r}, ${g}, ${b})`;
+      }
     } else {
-      // Նորմալ՝ բաց նարնջագույնից մուգ նարնջագույն
-      const startR = 255;
-      const startG = 180;
-      const startB = 120;
-      
-      const endR = 238;     // #EE9F66
-      const endG = 159;
-      const endB = 102;
-      
-      const r = Math.round(startR + (endR - startR) * progress);
-      const g = Math.round(startG + (endG - startG) * progress);
-      const b = Math.round(startB + (endB - startB) * progress);
-      
-      return `rgb(${r}, ${g}, ${b})`;
+      // Default գույներ (նարնջագույն)
+      if (isHovered) {
+        const startR = 255;
+        const startG = 209;
+        const startB = 134;
+        
+        const endR = 255;
+        const endG = 124;
+        const endB = 30;
+        
+        const r = Math.round(startR + (endR - startR) * progress);
+        const g = Math.round(startG + (endG - startG) * progress);
+        const b = Math.round(startB + (endB - startB) * progress);
+        
+        return `rgb(${r}, ${g}, ${b})`;
+      } else {
+        const startR = 255;
+        const startG = 180;
+        const startB = 120;
+        
+        const endR = 238;
+        const endG = 159;
+        const endB = 102;
+        
+        const r = Math.round(startR + (endR - startR) * progress);
+        const g = Math.round(startG + (endG - startG) * progress);
+        const b = Math.round(startB + (endB - startB) * progress);
+        
+        return `rgb(${r}, ${g}, ${b})`;
+      }
     }
+  };
+
+  // Նոր ֆունկցիա գույն ստանալու համար legend-ի համար
+  const getLegendColor = () => {
+    return chartType === 'quotes' ? '#00bc7d' : '#EE9F66';
   };
 
   const handleTabSelect = (tab: string) => {
@@ -248,13 +290,13 @@ const QuotesExpirationCard = ({
         
         @keyframes glowPulse {
           0% {
-            box-shadow: 0 0 0 0 rgba(238, 159, 102, 0.4);
+            box-shadow: 0 0 0 0 ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0.4)' : 'rgba(238, 159, 102, 0.4)'};
           }
           70% {
-            box-shadow: 0 0 0 4px rgba(238, 159, 102, 0);
+            box-shadow: 0 0 0 4px ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0)' : 'rgba(238, 159, 102, 0)'};
           }
           100% {
-            box-shadow: 0 0 0 0 rgba(238, 159, 102, 0);
+            box-shadow: 0 0 0 0 ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0)' : 'rgba(238, 159, 102, 0)'};
           }
         }
         
@@ -317,14 +359,14 @@ const QuotesExpirationCard = ({
         
         .chart-hovered .expiring-indicator {
           transform: scale(1.1);
-          background-color: rgba(238, 159, 102, 0.15);
-          border-color: #EE9F66;
+          background-color: ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0.15)' : 'rgba(238, 159, 102, 0.15)'};
+          border-color: ${chartType === 'quotes' ? '#00bc7d' : '#EE9F66'};
           animation: glowPulse 1.5s infinite;
         }
         
         .chart-hovered .expiring-dot {
           transform: scale(1.3);
-          box-shadow: 0 0 10px rgba(238, 159, 102, 0.8);
+          box-shadow: 0 0 10px ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0.8)' : 'rgba(238, 159, 102, 0.8)'};
         }
         
         .chart-hovered .expiring-text {
@@ -440,16 +482,16 @@ const QuotesExpirationCard = ({
               <div 
                 className="expiring-indicator-wrapper flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-300"
                 style={{
-                  backgroundColor: isChartHovered ? 'rgba(238, 159, 102, 0.1)' : 'transparent',
-                  border: isChartHovered ? '1px solid rgba(238, 159, 102, 0.3)' : '1px solid transparent'
+                  backgroundColor: isChartHovered ? (chartType === 'quotes' ? 'rgba(0, 188, 125, 0.1)' : 'rgba(238, 159, 102, 0.1)') : 'transparent',
+                  border: isChartHovered ? `1px solid ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0.3)' : 'rgba(238, 159, 102, 0.3)'}` : '1px solid transparent'
                 }}
               >
                 <div 
                   className="expiring-dot w-2 h-2 rounded-full transition-all duration-300"
                   style={{ 
-                    backgroundColor: '#EE9F66',
+                    backgroundColor: getLegendColor(),
                     transform: isChartHovered ? 'scale(1.3)' : 'scale(1)',
-                    boxShadow: isChartHovered ? '0 0 8px rgba(238, 159, 102, 0.8)' : 'none'
+                    boxShadow: isChartHovered ? `0 0 8px ${chartType === 'quotes' ? 'rgba(0, 188, 125, 0.8)' : 'rgba(238, 159, 102, 0.8)'}` : 'none'
                   }}
                 />
                 <span 
@@ -458,7 +500,7 @@ const QuotesExpirationCard = ({
                     color: isChartHovered ? '#000' : '#6f6f6f'
                   }}
                 >
-                  Expiring: {expiringQuotes}
+                  {sub}: {expiringQuotes}
                 </span>
               </div>
             </div>

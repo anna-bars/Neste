@@ -442,102 +442,49 @@ export default function QuotesPage() {
       expired: quotesRows.filter(q => q.quoteStatus === 'approved' && q.paymentStatus === 'paid').length
     }
   };
-
-  const quotesData2 = {
-    'This Week': { 
-      totalQuotes: quotesRows.length, 
-      expiringQuotes: quotesRows.filter(q => {
-        // Ստուգել expiration date-ը
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 7 && diffDays >= 0;
-        }
-        return false;
-      }).length, 
-      expiringRate: Math.round((quotesRows.filter(q => {
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 7 && diffDays >= 0;
-        }
-        return false;
-      }).length / quotesRows.length) * 100) || 0 
-    },
-    'Next Week': { 
-      totalQuotes: quotesRows.length, 
-      expiringQuotes: quotesRows.filter(q => {
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 14 && diffDays > 7;
-        }
-        return false;
-      }).length, 
-      expiringRate: Math.round((quotesRows.filter(q => {
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 14 && diffDays > 7;
-        }
-        return false;
-      }).length / quotesRows.length) * 100) || 0 
-    },
-    'In 2–4 Weeks': { 
-      totalQuotes: quotesRows.length, 
-      expiringQuotes: quotesRows.filter(q => {
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 28 && diffDays > 14;
-        }
-        return false;
-      }).length, 
-      expiringRate: Math.round((quotesRows.filter(q => {
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 28 && diffDays > 14;
-        }
-        return false;
-      }).length / quotesRows.length) * 100) || 0 
-    },
-    'Next Month': { 
-      totalQuotes: quotesRows.length, 
-      expiringQuotes: quotesRows.filter(q => {
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays > 28;
-        }
-        return false;
-      }).length, 
-      expiringRate: Math.round((quotesRows.filter(q => {
-        if (q.rawData?.quote_expires_at) {
-          const expiresAt = new Date(q.rawData.quote_expires_at);
-          const now = new Date();
-          const diffTime = expiresAt.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays > 28;
-        }
-        return false;
-      }).length / quotesRows.length) * 100) || 0 
-    }
-  };
+// Փոփոխենք quotesData2 օբյեկտը:
+const quotesData2 = {
+  'This Week': { 
+    totalQuotes: quotesRows.length, 
+    expiringQuotes: quotesRows.filter(q => {
+      // Հաշվել քանի quote-ներ են approved և paid (converted to policy)
+      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
+    }).length, 
+    expiringRate: Math.round((quotesRows.filter(q => {
+      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
+    }).length / quotesRows.length) * 100) || 0 
+  },
+  'Next Week': { 
+    totalQuotes: quotesRows.length, 
+    expiringQuotes: quotesRows.filter(q => {
+      // Հաշվել բոլոր quote-ները որոնք ներկայումս under review են (converting)
+      return q.quoteStatus === 'submitted' || q.quoteStatus === 'under_review';
+    }).length, 
+    expiringRate: Math.round((quotesRows.filter(q => {
+      return q.quoteStatus === 'submitted' || q.quoteStatus === 'under_review';
+    }).length / quotesRows.length) * 100) || 0 
+  },
+  'In 2–4 Weeks': { 
+    totalQuotes: quotesRows.length, 
+    expiringQuotes: quotesRows.filter(q => {
+      // Հաշվել quote-ները որոնք approved են բայց not yet paid
+      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
+    }).length, 
+    expiringRate: Math.round((quotesRows.filter(q => {
+      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
+    }).length / quotesRows.length) * 100) || 0 
+  },
+  'Next Month': { 
+    totalQuotes: quotesRows.length, 
+    expiringQuotes: quotesRows.filter(q => {
+      // Հաշվել draft quote-ները
+      return q.quoteStatus === 'draft';
+    }).length, 
+    expiringRate: Math.round((quotesRows.filter(q => {
+      return q.quoteStatus === 'draft';
+    }).length / quotesRows.length) * 100) || 0 
+  }
+};
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -641,10 +588,16 @@ export default function QuotesPage() {
             </div>
             <div className="block md:hidden">
               <QuotesExpirationCard 
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                data={quotesData2}
-              />
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  data={quotesData2}
+  title="Conversion Rate"
+  info="Total converting quotes"
+  total="Total quotes"
+  sub="Converting"
+  percentageInfo="Converting"
+  chartType="quotes"
+/>
             </div>
 
             {/* Universal Table for Recent Activity */}
@@ -737,10 +690,16 @@ export default function QuotesPage() {
 
             {/* Quotes Expiration Card */}
             <QuotesExpirationCard 
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              data={quotesData2}
-            />
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  data={quotesData2}
+  title="Conversion Rate"
+  info="Total converting quotes"
+  total="Total quotes"
+  sub="Converting"
+  percentageInfo="Converting"
+  chartType="quotes"
+/>
           </div>
 
           {/* Tablet View (768px - 1279px) - Three Widgets Side by Side */}
@@ -777,10 +736,16 @@ export default function QuotesPage() {
               {/* Quotes Expiration Card */}
               <div className="w-full">
                 <QuotesExpirationCard 
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                  data={quotesData2}
-                />
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  data={quotesData2}
+  title="Conversion Rate"
+  info="Total converting quotes"
+  total="Total quotes"
+  sub="Converting"
+  percentageInfo="Converting"
+  chartType="quotes"
+/>
               </div>
             </div>
           </div>
