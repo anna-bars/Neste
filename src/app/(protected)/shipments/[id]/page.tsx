@@ -37,15 +37,23 @@ interface PolicyData {
 interface ShipmentDocument {
   id: string;
   policy_id: string;
+  quote_id?: string;
+  
   commercial_invoice_status: 'pending' | 'uploaded' | 'approved' | 'rejected';
   commercial_invoice_url: string | null;
-  commercial_invoice_rejection_reason?: string;
+  commercial_invoice_rejected_reason?: string;
+  commercial_invoice_rejected_message?: string;
+  
   packing_list_status: 'pending' | 'uploaded' | 'approved' | 'rejected';
   packing_list_url: string | null;
-  packing_list_rejection_reason?: string;
+  packing_list_rejected_reason?: string;
+  packing_list_rejected_message?: string;
+  
   bill_of_lading_status: 'pending' | 'uploaded' | 'approved' | 'rejected';
   bill_of_lading_url: string | null;
-  bill_of_lading_rejection_reason?: string;
+  bill_of_lading_rejected_reason?: string;
+  bill_of_lading_rejected_message?: string;
+  
   created_at: string;
   updated_at: string;
 }
@@ -80,10 +88,8 @@ export default function ShipmentDetailPage() {
   }>({ type: null, progress: 0 });
   const [notifications, setNotifications] = useState<PolicyNotification[]>([]);
   
-  // Tab state
   const [activeTab, setActiveTab] = useState<'information' | 'documents' | 'claim'>('information');
   
-  // Claim form state
   const [claimForm, setClaimForm] = useState({
     claim_type: 'loss',
     incident_date: '',
@@ -93,11 +99,9 @@ export default function ShipmentDetailPage() {
     claimed_amount: '',
   });
   
-  // Supporting documents for claim
   const [supportingDocs, setSupportingDocs] = useState<File[]>([]);
   const [submittingClaim, setSubmittingClaim] = useState(false);
   
-  // Eligibility
   const [eligibility, setEligibility] = useState<EligibilityCheck>({
     policyActive: false,
     paymentCompleted: false,
@@ -120,87 +124,112 @@ export default function ShipmentDetailPage() {
     }
   }, [policy, documents]);
 
-const loadData = async () => {
-  const supabase = createClient();
-  
-  try {
-    // Load policy data
-    const { data: policyData, error: policyError } = await supabase
-      .from('policies')
-      .select('*')
-      .eq('id', shipmentId)
-      .single();
+  const loadData = async () => {
+    const supabase = createClient();
     
-    if (policyError || !policyData) {
-      toast.error('Shipment not found');
-      router.push('/dashboard');
-      return;
-    }
-    
-    setPolicy(policyData);
-    
-    // Load documents - use maybeSingle() to handle case when no documents exist
-    const { data: existingDocs, error: findError } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('policy_id', shipmentId)
-      .maybeSingle(); // This returns null instead of throwing error when no rows found
-    
-    // The error object will be empty {} when no documents are found
-    // This is expected behavior for maybeSingle()
-    if (findError && Object.keys(findError).length > 0) {
-      console.error('Error finding documents:', findError);
-    }
-    
-    let documentsData;
-    
-    if (existingDocs) {
-      documentsData = existingDocs;
-    } else {
-      // Create initial document record if it doesn't exist
-      const { data: newDocs, error: createError } = await supabase
-        .from('documents')
-        .insert({
-          policy_id: shipmentId,
-          commercial_invoice_status: 'pending',
-          packing_list_status: 'pending',
-          bill_of_lading_status: 'pending',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
+    try {
+      const { data: policyData, error: policyError } = await supabase
+        .from('policies')
+        .select('*')
+        .eq('id', shipmentId)
         .single();
       
-      if (createError) {
-        console.error('Error creating documents record:', createError);
-        // Create a fallback documents object
-        documentsData = {
-          policy_id: shipmentId,
-          commercial_invoice_status: 'pending',
-          packing_list_status: 'pending',
-          bill_of_lading_status: 'pending',
-          commercial_invoice_url: null,
-          packing_list_url: null,
-          bill_of_lading_url: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      } else {
-        documentsData = newDocs;
+      if (policyError || !policyData) {
+        toast.error('Shipment not found');
+        router.push('/dashboard');
+        return;
       }
+      
+      setPolicy(policyData);
+      
+      const { data: existingDocs, error: findError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('policy_id', shipmentId)
+        .single();
+      
+      if (findError || !existingDocs) {
+        const { data: newDocs, error: createError } = await supabase
+          .from('documents')
+          .insert({
+            policy_id: shipmentId,
+            commercial_invoice_status: 'pending',
+            packing_list_status: 'pending',
+            bill_of_lading_status: 'pending',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('Error creating documents record:', createError);
+          const fallbackDocument: ShipmentDocument = {
+            id: `${shipmentId}_temp`,
+            policy_id: shipmentId,
+            commercial_invoice_status: 'pending',
+            packing_list_status: 'pending',
+            bill_of_lading_status: 'pending',
+            commercial_invoice_url: null,
+            packing_list_url: null,
+            bill_of_lading_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          setDocuments(fallbackDocument);
+        } else {
+          const completeDocumentData: ShipmentDocument = {
+            id: newDocs.id,
+            policy_id: newDocs.policy_id || shipmentId,
+            quote_id: newDocs.quote_id,
+            commercial_invoice_status: newDocs.commercial_invoice_status || 'pending',
+            commercial_invoice_url: newDocs.commercial_invoice_url || null,
+            commercial_invoice_rejected_reason: newDocs.commercial_invoice_rejected_reason,
+            commercial_invoice_rejected_message: newDocs.commercial_invoice_rejected_message,
+            packing_list_status: newDocs.packing_list_status || 'pending',
+            packing_list_url: newDocs.packing_list_url || null,
+            packing_list_rejected_reason: newDocs.packing_list_rejected_reason,
+            packing_list_rejected_message: newDocs.packing_list_rejected_message,
+            bill_of_lading_status: newDocs.bill_of_lading_status || 'pending',
+            bill_of_lading_url: newDocs.bill_of_lading_url || null,
+            bill_of_lading_rejected_reason: newDocs.bill_of_lading_rejected_reason,
+            bill_of_lading_rejected_message: newDocs.bill_of_lading_rejected_message,
+            created_at: newDocs.created_at || new Date().toISOString(),
+            updated_at: newDocs.updated_at || new Date().toISOString()
+          };
+          setDocuments(completeDocumentData);
+        }
+      } else {
+        const completeDocumentData: ShipmentDocument = {
+          id: existingDocs.id,
+          policy_id: existingDocs.policy_id || shipmentId,
+          quote_id: existingDocs.quote_id,
+          commercial_invoice_status: existingDocs.commercial_invoice_status || 'pending',
+          commercial_invoice_url: existingDocs.commercial_invoice_url || null,
+          commercial_invoice_rejected_reason: existingDocs.commercial_invoice_rejected_reason,
+          commercial_invoice_rejected_message: existingDocs.commercial_invoice_rejected_message,
+          packing_list_status: existingDocs.packing_list_status || 'pending',
+          packing_list_url: existingDocs.packing_list_url || null,
+          packing_list_rejected_reason: existingDocs.packing_list_rejected_reason,
+          packing_list_rejected_message: existingDocs.packing_list_rejected_message,
+          bill_of_lading_status: existingDocs.bill_of_lading_status || 'pending',
+          bill_of_lading_url: existingDocs.bill_of_lading_url || null,
+          bill_of_lading_rejected_reason: existingDocs.bill_of_lading_rejected_reason,
+          bill_of_lading_rejected_message: existingDocs.bill_of_lading_rejected_message,
+          created_at: existingDocs.created_at || new Date().toISOString(),
+          updated_at: existingDocs.updated_at || new Date().toISOString()
+        };
+        setDocuments(completeDocumentData);
+      }
+      
+    } catch (error) {
+      console.error('Error loading shipment:', error);
+      toast.error('Failed to load shipment details');
+    } finally {
+      setLoading(false);
     }
-    
-    if (documentsData) {
-      setDocuments(documentsData);
-    }
-    
-  } catch (error) {
-    console.error('Error loading shipment:', error);
-    toast.error('Failed to load shipment details');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const checkEligibility = () => {
     if (!policy || !documents) return;
 
@@ -214,7 +243,6 @@ const loadData = async () => {
       coverageValid: now >= startDate && now <= endDate,
     };
 
-    // Check documents
     const requiredDocs = [
       { type: 'Commercial Invoice', status: documents.commercial_invoice_status },
       { type: 'Packing List', status: documents.packing_list_status },
@@ -248,7 +276,6 @@ const loadData = async () => {
     const createdDate = new Date(policy.created_at);
     const daysSinceCreation = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Check for missing documents
     const docStatuses = [
       { type: 'commercial_invoice', status: documents.commercial_invoice_status },
       { type: 'packing_list', status: documents.packing_list_status },
@@ -259,7 +286,6 @@ const loadData = async () => {
     const rejectedDocs = docStatuses.filter(doc => doc.status === 'rejected');
     const approvedDocs = docStatuses.filter(doc => doc.status === 'approved');
 
-    // Document required notifications
     if (pendingDocs.length > 0) {
       newNotifications.push({
         id: 'doc-required-1',
@@ -270,7 +296,6 @@ const loadData = async () => {
         created_at: new Date().toISOString()
       });
 
-      // Grace period warning (after 3 days)
       if (daysSinceCreation >= 3) {
         newNotifications.push({
           id: 'policy-warning-1',
@@ -283,7 +308,6 @@ const loadData = async () => {
       }
     }
 
-    // Document rejected notifications
     if (rejectedDocs.length > 0) {
       rejectedDocs.forEach((doc, index) => {
         const docName = getDocumentName(doc.type);
@@ -298,7 +322,6 @@ const loadData = async () => {
       });
     }
 
-    // Document approved notifications
     if (approvedDocs.length > 0 && approvedDocs.length < 3) {
       newNotifications.push({
         id: 'doc-approved-partial',
@@ -310,7 +333,6 @@ const loadData = async () => {
       });
     }
 
-    // All documents approved
     if (approvedDocs.length === 3) {
       newNotifications.push({
         id: 'doc-all-approved',
@@ -362,7 +384,6 @@ const loadData = async () => {
       
       let finalFilePath = `documents/${policy.policy_number}/${type}/${safeFileName}`;
       
-      // Check/create bucket
       try {
         const { data: buckets } = await supabase.storage.listBuckets();
         const bucketExists = buckets?.some(bucket => bucket.name === 'shipment-documents');
@@ -378,7 +399,6 @@ const loadData = async () => {
         console.warn('Bucket check failed:', bucketError);
       }
       
-      // Upload file with progress simulation
       let currentProgress = 0;
       const progressInterval = setInterval(() => {
         currentProgress += 10;
@@ -419,48 +439,89 @@ const loadData = async () => {
       
       setUploading({ type, progress: 100 });
       
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('shipment-documents')
         .getPublicUrl(finalFilePath);
       
-      // Prepare update data
       const updateData: any = {
-        policy_id: policy.id,
         updated_at: new Date().toISOString()
       };
       
       if (type === 'commercial_invoice') {
         updateData.commercial_invoice_url = publicUrl;
         updateData.commercial_invoice_status = 'uploaded';
-        updateData.commercial_invoice_rejection_reason = null;
+        updateData.commercial_invoice_rejected_reason = null;
+        updateData.commercial_invoice_rejected_message = null;
       } else if (type === 'packing_list') {
         updateData.packing_list_url = publicUrl;
         updateData.packing_list_status = 'uploaded';
-        updateData.packing_list_rejection_reason = null;
+        updateData.packing_list_rejected_reason = null;
+        updateData.packing_list_rejected_message = null;
       } else if (type === 'bill_of_lading') {
         updateData.bill_of_lading_url = publicUrl;
         updateData.bill_of_lading_status = 'uploaded';
-        updateData.bill_of_lading_rejection_reason = null;
+        updateData.bill_of_lading_rejected_reason = null;
+        updateData.bill_of_lading_rejected_message = null;
       }
       
-      const { data: updatedDocument, error: upsertError } = await supabase
+      const { data: existingDoc, error: findDocError } = await supabase
         .from('documents')
-        .update({
-          ...updateData
-        })
+        .select('id')
         .eq('policy_id', policy.id)
-        .select()
         .single();
       
-      if (upsertError) {
-        throw upsertError;
+      let updateResult;
+      
+      if (findDocError || !existingDoc) {
+        updateResult = await supabase
+          .from('documents')
+          .insert({
+            policy_id: policy.id,
+            ...updateData
+          })
+          .select()
+          .single();
+      } else {
+        updateResult = await supabase
+          .from('documents')
+          .update(updateData)
+          .eq('policy_id', policy.id)
+          .select()
+          .single();
       }
       
-      setDocuments(updatedDocument);
+      const { data: updatedDocument, error: updateError } = updateResult;
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      if (updatedDocument) {
+        const completeUpdatedDocument: ShipmentDocument = {
+          id: updatedDocument.id,
+          policy_id: updatedDocument.policy_id || policy.id,
+          quote_id: updatedDocument.quote_id,
+          commercial_invoice_status: updatedDocument.commercial_invoice_status || 'pending',
+          commercial_invoice_url: updatedDocument.commercial_invoice_url || null,
+          commercial_invoice_rejected_reason: updatedDocument.commercial_invoice_rejected_reason,
+          commercial_invoice_rejected_message: updatedDocument.commercial_invoice_rejected_message,
+          packing_list_status: updatedDocument.packing_list_status || 'pending',
+          packing_list_url: updatedDocument.packing_list_url || null,
+          packing_list_rejected_reason: updatedDocument.packing_list_rejected_reason,
+          packing_list_rejected_message: updatedDocument.packing_list_rejected_message,
+          bill_of_lading_status: updatedDocument.bill_of_lading_status || 'pending',
+          bill_of_lading_url: updatedDocument.bill_of_lading_url || null,
+          bill_of_lading_rejected_reason: updatedDocument.bill_of_lading_rejected_reason,
+          bill_of_lading_rejected_message: updatedDocument.bill_of_lading_rejected_message,
+          created_at: updatedDocument.created_at || new Date().toISOString(),
+          updated_at: updatedDocument.updated_at || new Date().toISOString()
+        };
+        
+        setDocuments(completeUpdatedDocument);
+      }
+      
       toast.success(`${getDocumentName(type)} uploaded successfully!`);
       
-      // Refresh notifications after upload
       setTimeout(() => {
         setUploading({ type: null, progress: 0 });
         generateNotifications();
@@ -476,6 +537,8 @@ const loadData = async () => {
         errorMessage = 'File size exceeds 5MB limit';
       } else if (error.message?.includes('Invalid file type')) {
         errorMessage = 'Invalid file type. Please upload PDF, JPEG, or PNG only.';
+      } else if (error.code === '23505') {
+        errorMessage = 'Document record already exists for this policy. Please try again.';
       }
       
       toast.error(errorMessage);
@@ -509,7 +572,6 @@ const loadData = async () => {
   const handleSubmitClaim = async () => {
     if (!policy || !eligibility.canFileClaim) return;
 
-    // Validate form
     if (!claimForm.incident_date) {
       toast.error('Please select incident date');
       return;
@@ -556,7 +618,6 @@ const loadData = async () => {
         return;
       }
 
-      // Upload supporting documents if any
       let supportingDocUrls: string[] = [];
       if (supportingDocs.length > 0) {
         const uploadPromises = supportingDocs.map(async (file, index) => {
@@ -581,7 +642,6 @@ const loadData = async () => {
         supportingDocUrls = await Promise.all(uploadPromises);
       }
 
-      // Create claim record
       const { data: claim, error: claimError } = await supabase
         .from('claims')
         .insert({
@@ -601,7 +661,6 @@ const loadData = async () => {
 
       if (claimError) throw claimError;
 
-      // Reset form
       setClaimForm({
         claim_type: 'loss',
         incident_date: '',
@@ -614,7 +673,6 @@ const loadData = async () => {
 
       toast.success(`Claim ${claim.claim_number || '#'} submitted successfully! We will review it within 5-7 business days.`);
       
-      // Switch back to documents tab
       setActiveTab('documents');
 
     } catch (error: any) {
@@ -729,7 +787,6 @@ const loadData = async () => {
     });
   };
 
-  // Calculate document statistics
   const getDocumentStats = () => {
     const totalDocs = 3;
     let uploadedDocs = 0;
@@ -753,7 +810,6 @@ const loadData = async () => {
     return { totalDocs, uploadedDocs, approvedDocs, rejectedDocs, pendingDocs };
   };
 
-  // Render document card with status details
   const renderDocumentCard = (
     type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
     title: string,
@@ -840,7 +896,6 @@ const loadData = async () => {
               Download
             </button>
             
-            {/* Միայն եթե approved չէ, ցույց տալ Replace կոճակը */}
             {status !== 'approved' && (
               <>
                 <button
@@ -867,7 +922,6 @@ const loadData = async () => {
               </>
             )}
             
-            {/* Եթե approved է, ցույց տալ մեկնաբանություն */}
             {status === 'approved' && (
               <div className="ml-2 text-sm text-green-600 font-medium">
                 ✓ Approved
@@ -900,7 +954,6 @@ const loadData = async () => {
     );
   };
 
-  // Tab navigation
   const tabs = [
     {
       id: 'information',
@@ -969,7 +1022,6 @@ const loadData = async () => {
       <DashboardHeader />
       
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -1022,7 +1074,6 @@ const loadData = async () => {
             </div>
           </div>
 
-          {/* Tab Navigation */}
           <div className="mb-8">
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-8">
@@ -1052,13 +1103,10 @@ const loadData = async () => {
           </div>
         </div>
 
-        {/* Tab Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Content */}
           <div className="lg:col-span-2">
             {activeTab === 'information' && (
               <div className="space-y-6">
-                {/* Shipment Details Card */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Shipment Details</h3>
                   
@@ -1113,7 +1161,6 @@ const loadData = async () => {
                   </div>
                 </div>
 
-                {/* Policy Documents */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Policy Documents</h3>
                   
@@ -1178,7 +1225,6 @@ const loadData = async () => {
 
             {activeTab === 'documents' && (
               <div className="space-y-6">
-                {/* Quick Upload Section */}
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -1207,7 +1253,7 @@ const loadData = async () => {
                       'Shows cargo value and trade details',
                       documents?.commercial_invoice_status || 'pending',
                       documents?.commercial_invoice_url || null,
-                      documents?.commercial_invoice_rejection_reason
+                      documents?.commercial_invoice_rejected_reason
                     )}
                     
                     {renderDocumentCard(
@@ -1216,7 +1262,7 @@ const loadData = async () => {
                       'Shows quantity, weight, and packaging details',
                       documents?.packing_list_status || 'pending',
                       documents?.packing_list_url || null,
-                      documents?.packing_list_rejection_reason
+                      documents?.packing_list_rejected_reason
                     )}
                     
                     {renderDocumentCard(
@@ -1225,12 +1271,11 @@ const loadData = async () => {
                       'Carrier-issued shipment receipt',
                       documents?.bill_of_lading_status || 'pending',
                       documents?.bill_of_lading_url || null,
-                      documents?.bill_of_lading_rejection_reason
+                      documents?.bill_of_lading_rejected_reason
                     )}
                   </div>
                 </div>
 
-                {/* Document Status Dashboard */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Document Status</h3>
                   
@@ -1310,7 +1355,6 @@ const loadData = async () => {
 
             {activeTab === 'claim' && (
               <div className="space-y-6">
-                {/* Eligibility Check */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Eligibility Check</h3>
                   
@@ -1434,7 +1478,6 @@ const loadData = async () => {
                   )}
                 </div>
 
-                {/* Claim Form */}
                 {eligibility.canFileClaim && (
                   <>
                     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
@@ -1543,7 +1586,6 @@ const loadData = async () => {
                       </div>
                     </div>
 
-                    {/* Supporting Documents */}
                     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                       <h3 className="text-lg font-semibold text-gray-900 mb-6">Supporting Evidence</h3>
                       <p className="text-gray-600 mb-4">
@@ -1605,9 +1647,7 @@ const loadData = async () => {
             )}
           </div>
 
-          {/* Right Column - Sidebar */}
           <div className="space-y-6">
-            {/* Notifications Widget */}
             {notifications.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -1643,7 +1683,6 @@ const loadData = async () => {
               </div>
             )}
 
-            {/* Payment Summary */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Payment Summary</h3>
               
@@ -1690,7 +1729,6 @@ const loadData = async () => {
                 </div>
               </div>
 
-              {/* Submit Claim Button for claim tab */}
               {activeTab === 'claim' && eligibility.canFileClaim && (
                 <button 
                   onClick={handleSubmitClaim}
@@ -1712,7 +1750,6 @@ const loadData = async () => {
               )}
             </div>
 
-            {/* Claim Process Info (only shown in claim tab) */}
             {activeTab === 'claim' && (
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                 <h4 className="font-semibold text-gray-900 mb-4">Claim Process</h4>
@@ -1760,7 +1797,6 @@ const loadData = async () => {
               </div>
             )}
 
-            {/* Next Steps (for information tab) */}
             {activeTab === 'information' && (
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                 <h4 className="font-semibold text-gray-900 mb-4">Next Steps</h4>
@@ -1809,7 +1845,6 @@ const loadData = async () => {
               </div>
             )}
 
-            {/* Help Card */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
