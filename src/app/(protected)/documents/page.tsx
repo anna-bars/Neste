@@ -391,7 +391,7 @@ export default function DocumentsPage() {
       </div>
 
       {/* Փաստաթղթերի ցուցադրում */}
-      <div className="overflow-y-scroll max-h-[82vh]  sm:max-h-[63.5%] rounded sm:max-h-max-content flex justify-start flex-wrap gap-y-3 sm:gap-2.5">
+      <div className="overflow-y-scroll max-h-[82vh]  sm:max-h-[84%] pb-12 rounded sm:max-h-max-content flex justify-start flex-wrap gap-y-3 sm:gap-2.5">
         {filteredDocuments.map((doc, index) => (
           <DocumentItem
             key={index}

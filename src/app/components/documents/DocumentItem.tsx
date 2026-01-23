@@ -46,7 +46,6 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
       dotColor: '#FAEDBC',
       hoverDotColor: '#e8d9a4',
       buttons: [
-        { text: 'View All Docs', variant: 'default' as const },
         { text: 'Upload Missing Docs', variant: 'primary' as const }
       ]
     },
@@ -61,7 +60,6 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
       dotColor: '#ECB9BA',
       hoverDotColor: '#daa7a8',
       buttons: [
-        { text: 'View All Docs', variant: 'default' as const },
         { text: 'Replace Document', variant: 'rejected' as const }
       ]
     },
@@ -100,7 +98,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
 
   return (
     <div 
-      className="w-full max-w-[100%] sm:max-w-[32.3%] group"
+      className="w-full max-w-[100%] sm:max-w-[24.3%] group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -114,12 +112,11 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
             backgroundPosition: 'left'
           }}
         >
-          <p className="text-sm text-gray-800">{type}</p>
-          <p className="text-sm text-[#7E7E7E] border-b border-[#7E7E7E]">{id}</p>
+          <p className="text-[14px] text-[#7E7E7E]">{id}</p>
         </div>
         
         {/* Bottom part */}
-        <div className="bg-[#fdfdf8cf] p-3 rounded-b-2xl rounded-tr-2xl flex flex-col gap-3">
+        <div className=" bg-[#fdfdf8cf] p-3 rounded-b-2xl rounded-tr-2xl flex flex-col gap-3">
           {/* Status with custom hover colors */}
           <div className="flex justify-end">
             <div className="relative">
