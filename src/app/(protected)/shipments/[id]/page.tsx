@@ -120,69 +120,87 @@ export default function ShipmentDetailPage() {
     }
   }, [policy, documents]);
 
-  const loadData = async () => {
-    const supabase = createClient();
+const loadData = async () => {
+  const supabase = createClient();
+  
+  try {
+    // Load policy data
+    const { data: policyData, error: policyError } = await supabase
+      .from('policies')
+      .select('*')
+      .eq('id', shipmentId)
+      .single();
     
-    try {
-      // Load policy data
-      const { data: policyData, error: policyError } = await supabase
-        .from('policies')
-        .select('*')
-        .eq('id', shipmentId)
+    if (policyError || !policyData) {
+      toast.error('Shipment not found');
+      router.push('/dashboard');
+      return;
+    }
+    
+    setPolicy(policyData);
+    
+    // Load documents - use maybeSingle() to handle case when no documents exist
+    const { data: existingDocs, error: findError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('policy_id', shipmentId)
+      .maybeSingle(); // This returns null instead of throwing error when no rows found
+    
+    // The error object will be empty {} when no documents are found
+    // This is expected behavior for maybeSingle()
+    if (findError && Object.keys(findError).length > 0) {
+      console.error('Error finding documents:', findError);
+    }
+    
+    let documentsData;
+    
+    if (existingDocs) {
+      documentsData = existingDocs;
+    } else {
+      // Create initial document record if it doesn't exist
+      const { data: newDocs, error: createError } = await supabase
+        .from('documents')
+        .insert({
+          policy_id: shipmentId,
+          commercial_invoice_status: 'pending',
+          packing_list_status: 'pending',
+          bill_of_lading_status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
         .single();
       
-      if (policyError || !policyData) {
-        toast.error('Shipment not found');
-        router.push('/dashboard');
-        return;
-      }
-      
-      setPolicy(policyData);
-      
-      // Load documents
-      const { data: existingDocs, error: findError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('policy_id', shipmentId)
-        .maybeSingle();
-      
-      if (findError) {
-        console.error('Error finding documents:', findError);
-      }
-      
-      let documentsData;
-      
-      if (existingDocs) {
-        documentsData = existingDocs;
+      if (createError) {
+        console.error('Error creating documents record:', createError);
+        // Create a fallback documents object
+        documentsData = {
+          policy_id: shipmentId,
+          commercial_invoice_status: 'pending',
+          packing_list_status: 'pending',
+          bill_of_lading_status: 'pending',
+          commercial_invoice_url: null,
+          packing_list_url: null,
+          bill_of_lading_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
       } else {
-        const { data: newDocs, error: createError } = await supabase
-          .from('documents')
-          .insert({
-            policy_id: shipmentId,
-            commercial_invoice_status: 'pending',
-            packing_list_status: 'pending',
-            bill_of_lading_status: 'pending'
-          })
-          .select()
-          .single();
-        
-        if (!createError) {
-          documentsData = newDocs;
-        }
+        documentsData = newDocs;
       }
-      
-      if (documentsData) {
-        setDocuments(documentsData);
-      }
-      
-    } catch (error) {
-      console.error('Error loading shipment:', error);
-      toast.error('Failed to load shipment details');
-    } finally {
-      setLoading(false);
     }
-  };
-
+    
+    if (documentsData) {
+      setDocuments(documentsData);
+    }
+    
+  } catch (error) {
+    console.error('Error loading shipment:', error);
+    toast.error('Failed to load shipment details');
+  } finally {
+    setLoading(false);
+  }
+};
   const checkEligibility = () => {
     if (!policy || !documents) return;
 
