@@ -24,7 +24,6 @@ export default function ShipmentsPage() {
       if (!user) return
       
       try {
-        // Ստանալ բոլոր policies-ը օգտատիրոջ համար
         const { data: policies, error } = await supabase
           .from('policies')
           .select('*')
@@ -34,7 +33,6 @@ export default function ShipmentsPage() {
 
         if (error) {
           console.error('Error loading policies:', error)
-          // Օգտագործել fallback տվյալները
           setPoliciesRows(getFallbackData())
           return
         }
@@ -43,7 +41,6 @@ export default function ShipmentsPage() {
           const formattedData = formatPoliciesData(policies)
           setPoliciesRows(formattedData)
         } else {
-          // Օգտագործել fallback տվյալները
           setPoliciesRows(getFallbackData())
         }
 
@@ -101,6 +98,7 @@ export default function ShipmentsPage() {
     
     const isActive = policy.status === 'active'
     const isExpiringSoon = isActive && daysUntilExpiry <= 30 && daysUntilExpiry > 0
+    const isExpiringIn3Days = isActive && daysUntilExpiry <= 3 && daysUntilExpiry > 0
     const isExpired = isActive && daysUntilExpiry <= 0
     const isPending = policy.status === 'pending'
 
@@ -115,6 +113,18 @@ export default function ShipmentsPage() {
       }
     }
 
+    if (isExpiringIn3Days) {
+      return {
+        text: `Expiring in ${daysUntilExpiry} days`,
+        color: 'bg-red-50',
+        dot: 'bg-red-500',
+        textColor: 'text-red-700',
+        buttonText: 'Renew Now',
+        buttonVariant: 'danger' as const,
+        isExpiringCritical: true
+      }
+    }
+
     if (isExpiringSoon) {
       return {
         text: `Expiring in ${daysUntilExpiry} days`,
@@ -122,7 +132,8 @@ export default function ShipmentsPage() {
         dot: 'bg-amber-500',
         textColor: 'text-amber-700',
         buttonText: 'Renew Policy',
-        buttonVariant: 'primary' as const
+        buttonVariant: 'primary' as const,
+        isExpiringSoon: true
       }
     }
 
@@ -184,11 +195,9 @@ export default function ShipmentsPage() {
     switch (policy.status) {
       case 'active':
         if (policy.insurance_certificate_url) {
-          // Բացել certificate-ը նոր tab-ում
           window.open(policy.insurance_certificate_url, '_blank')
         } else {
           console.log('Download certificate for:', policyId)
-          // Այստեղ կարող եք ավելացնել certificate ներբեռնման լոգիկա
         }
         break
       case 'pending':
@@ -218,6 +227,10 @@ export default function ShipmentsPage() {
           text: 'Download Cert', 
           variant: 'primary' as const,
           onClick: (row: any) => console.log('Download Certificate', row.id)
+        },
+        rawData: {
+          status: 'active',
+          coverage_end: '2026-12-01T00:00:00Z'
         }
       },
       {
@@ -227,31 +240,57 @@ export default function ShipmentsPage() {
         premiumAmount: '$285.00',
         expirationDate: `Oct 15, '25 – Dec 15, '25`,
         status: { 
-          text: 'Expiring Soon', 
-          color: 'bg-amber-50', 
-          dot: 'bg-amber-500', 
-          textColor: 'text-amber-700' 
+          text: 'Expiring in 2 days', 
+          color: 'bg-red-50', 
+          dot: 'bg-red-500', 
+          textColor: 'text-red-700' 
         },
         button: { 
-          text: 'Renew Policy', 
-          variant: 'primary' as const,
+          text: 'Renew Now', 
+          variant: 'danger' as const,
           onClick: (row: any) => console.log('Renew Policy', row.id)
+        },
+        rawData: {
+          status: 'active',
+          coverage_end: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
         }
       }
     ]
   }
 
-  // Policy timelines-ի տվյալներ
+  // Հաշվել 3 օրվա ընթացքում ավարտվող պոլիսիների թիվը
+  const calculateExpiringIn3Days = () => {
+    const now = new Date()
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+    
+    const expiringIn3Days = policiesRows.filter(policy => {
+      const rawData = policy.rawData
+      if (!rawData || rawData.status !== 'active') return false
+      
+      const coverageEnd = new Date(rawData.coverage_end)
+      const daysUntilExpiry = Math.ceil((coverageEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      
+      return daysUntilExpiry <= 3 && daysUntilExpiry > 0
+    }).length
+    
+    return expiringIn3Days
+  }
+
+  // Policy timelines-ի տվյալներ (փոխված լոգիկա)
   const calculatePolicyTimelineData = () => {
     const totalPolicies = policiesRows.length
-    const activePolicies = policiesRows.filter(p => 
-      p.rawData?.status === 'active'
-    ).length
-    const percentage = totalPolicies > 0 ? Math.round((activePolicies / totalPolicies) * 100) : 0
+    
+    // Հաշվել միայն 3 օրվա ընթացքում ավարտվող պոլիսիները
+    const expiringIn3Days = calculateExpiringIn3Days()
+    
+    // Հաշվել տոկոսը
+    const percentage = totalPolicies > 0 
+      ? Math.round((expiringIn3Days / totalPolicies) * 100)
+      : 0
     
     return {
       percentage,
-      activePolicies,
+      expiringPolicies: expiringIn3Days, // 3 օրում ավարտվող պոլիսիների թիվը
       totalPolicies
     }
   }
@@ -261,8 +300,7 @@ export default function ShipmentsPage() {
   // Docs compliance տվյալներ
   const calculateDocsComplianceData = () => {
     const totalPolicies = policiesRows.length
-    // Այստեղ կարող եք ավելացնել իրական տրամաբանություն փաստաթղթերի ստուգման համար
-    const policiesMissingDocs = Math.floor(totalPolicies * 0.3) // Օրինակ՝ 30%
+    const policiesMissingDocs = Math.floor(totalPolicies * 0.3)
     const complianceRate = totalPolicies > 0 
       ? 100 - Math.round((policiesMissingDocs / totalPolicies) * 100)
       : 0
@@ -280,8 +318,10 @@ export default function ShipmentsPage() {
   const shipmentsData = {
     'This Week': { 
       totalQuotes: docsComplianceData.totalPolicies, 
-      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.3),
-      expiringRate: 30
+      expiringQuotes: calculateExpiringIn3Days(),
+      expiringRate: docsComplianceData.totalPolicies > 0 
+        ? Math.round((calculateExpiringIn3Days() / docsComplianceData.totalPolicies) * 100)
+        : 0
     },
     'Next Week': { 
       totalQuotes: docsComplianceData.totalPolicies, 
@@ -303,16 +343,16 @@ export default function ShipmentsPage() {
   // Policy risk տվյալներ InfoWidget-ի համար
   const calculatePolicyRiskData = () => {
     const totalPolicies = policiesRows.length
-    const highRiskPolicies = Math.floor(totalPolicies * 0.3) // Օրինակ՝ 30%
+    const expiringIn3Days = calculateExpiringIn3Days()
     const riskScore = totalPolicies > 0 
-      ? Math.round((highRiskPolicies / totalPolicies) * 100)
+      ? Math.round((expiringIn3Days / totalPolicies) * 100)
       : 0
     const improvementRate = 100 - riskScore
     
     return {
       improvementRate,
       totalPolicies,
-      highRiskPolicies,
+      expiringIn3Days,
       riskScore
     }
   }
@@ -413,7 +453,7 @@ export default function ShipmentsPage() {
             <div className="block md:hidden">
               <PolicyTimelineWidget 
                 percentage={policyTimelineData.percentage}
-                expiringPolicies={policyTimelineData.activePolicies}
+                expiringPolicies={policyTimelineData.expiringPolicies}
                 totalPolicies={policyTimelineData.totalPolicies}
               />
             </div>
@@ -444,6 +484,7 @@ export default function ShipmentsPage() {
                   activityOptions: [
                     'All Policies', 
                     'Active', 
+                    'Expiring in 3 Days', 
                     'Expiring Soon', 
                     'Expired', 
                     'Pending'
@@ -489,21 +530,22 @@ export default function ShipmentsPage() {
 
             {/* Policy Risk Card */}
             <InfoWidget 
-              title="Reduce Policy Risk"
+              title="Policy Expiration Risk"
               rateValue={policyRiskData.improvementRate}
               description={
                 <>
-                  {policyRiskData.highRiskPolicies} of your active policies are at risk due to
-                  <strong className="font-medium tracking-[0.03px]"> Missing Documents</strong>
+                  {policyRiskData.expiringIn3Days} of your active policies are expiring in 
+                  <strong className="font-medium tracking-[0.03px]"> 3 days or less</strong>
                 </>
               }
-              subText={`${policyRiskData.highRiskPolicies} of ${policyRiskData.totalPolicies} policies at risk`}
-              perecntageInfo="Policy Risk Score"
+              subText={`${policyRiskData.expiringIn3Days} of ${policyRiskData.totalPolicies} policies expiring soon`}
+              perecntageInfo="Expiration Risk"
             />
 
+            {/* Updated Policy Timeline Widget */}
             <PolicyTimelineWidget 
               percentage={policyTimelineData.percentage}
-              expiringPolicies={policyTimelineData.activePolicies}
+              expiringPolicies={policyTimelineData.expiringPolicies}
               totalPolicies={policyTimelineData.totalPolicies}
             />
 
@@ -530,21 +572,21 @@ export default function ShipmentsPage() {
             <div className="grid grid-cols-3 gap-2 w-full">
               {/* Policy Risk Card */}
               <InfoWidget 
-                title="Reduce Policy Risk"
+                title="Policy Expiration Risk"
                 rateValue={policyRiskData.improvementRate}
                 description={
                   <>
-                    {policyRiskData.highRiskPolicies} of your active policies are at risk due to
-                    <strong className="font-medium tracking-[0.03px]"> Missing Documents</strong>
+                    {policyRiskData.expiringIn3Days} of your active policies are expiring in 
+                    <strong className="font-medium tracking-[0.03px]"> 3 days or less</strong>
                   </>
                 }
-                subText={`${policyRiskData.highRiskPolicies} of ${policyRiskData.totalPolicies} policies at risk`}
-                perecntageInfo="Policy Risk Score"
+                subText={`${policyRiskData.expiringIn3Days} of ${policyRiskData.totalPolicies} policies expiring soon`}
+                perecntageInfo="Expiration Risk"
               />
 
               <PolicyTimelineWidget 
                 percentage={policyTimelineData.percentage}
-                expiringPolicies={policyTimelineData.activePolicies}
+                expiringPolicies={policyTimelineData.expiringPolicies}
                 totalPolicies={policyTimelineData.totalPolicies}
               />
 
