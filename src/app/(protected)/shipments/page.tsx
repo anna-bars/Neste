@@ -551,12 +551,12 @@ export default function ShipmentsPage() {
     'Next Week': { 
       totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
       expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.8),
-      expiringRate: 80
+      expiringRate: docsComplianceData.complianceRate
     },
     'In 2–4 Weeks': { 
       totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
       expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.6),
-      expiringRate: 60
+      expiringRate: docsComplianceData.complianceRate
     },
     'Next Month': { 
       totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
