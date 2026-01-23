@@ -604,7 +604,7 @@ onClick={() => row.button?.onClick?.(row)}>
           
           {/* Desktop Table Header */}
           <div className="mt-4 px-4 sm:px-4 py-2 mb-0 hidden md:grid gap-2 pb-2 mb-0 table-header w-[97%] bg-[#ededed7a] mx-auto my-3.5 rounded-[4px]" 
-               style={{ gridTemplateColumns: computedDesktopGridCols }}>
+               style={{ gridTemplateColumns: computedDesktopGridCols, gap: "16px" }}>
             {visibleDesktopColumns.map((column, idx) => (
               <div key={idx} className={`max-w-[80%] flex items-center gap-2 font-poppins text-sm font-normal text-[#606068] ${getColumnVisibilityClass(column)} ${column.label === 'Action' ? 'justify-end' : ''}`}>
                 <span>{column.label}</span>
@@ -659,7 +659,8 @@ onClick={() => row.button?.onClick?.(row)}>
                   style={{ 
                     gridTemplateColumns: computedDesktopGridCols,
                     // Apply status-specific border color on hover
-                    '--status-border-color': getStatusBorderColor(row.status) 
+                    '--status-border-color': getStatusBorderColor(row.status),
+                    gap: "16px"
                   } as React.CSSProperties}
                 >
                   {/* Status colored left border (desktop only) */}
@@ -722,7 +723,7 @@ const buttonClasses: Record<string, string> = {
 
 export const renderButton = (button: TableButton | undefined, row: any) => {
   const variant = button?.variant || 'primary';
-  const baseClasses = 'w-[65%] flex justify-center px-4 py-1.5 rounded-[8px] text-[13px] font-semibold transition-all duration-300 flex items-center gap-1 whitespace-nowrap';
+  const baseClasses = 'w-[100%] flex justify-center px-4 py-1.5 rounded-[8px] text-[13px] font-semibold transition-all duration-300 flex items-center gap-1 whitespace-nowrap';
   
   return (
     <button

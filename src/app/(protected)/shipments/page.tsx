@@ -14,31 +14,57 @@ export default function ShipmentsPage() {
   const [loading, setLoading] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [policiesRows, setPoliciesRows] = useState<any[]>([])
+  const [documentsData, setDocumentsData] = useState<any>({})
   
   const { user } = useUser()
   const supabase = createClient()
 
-  // Ստանալ policies տվյալները Supabase-ից
+  // Ստանալ policies և documents տվյալները Supabase-ից
   useEffect(() => {
     const loadPoliciesData = async () => {
       if (!user) return
       
       try {
-        const { data: policies, error } = await supabase
+        // Ստանալ բոլոր policies-ը
+        const { data: policies, error: policiesError } = await supabase
           .from('policies')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(50)
 
-        if (error) {
-          console.error('Error loading policies:', error)
+        if (policiesError) {
+          console.error('Error loading policies:', policiesError)
           setPoliciesRows(getFallbackData())
           return
         }
 
         if (policies && policies.length > 0) {
-          const formattedData = formatPoliciesData(policies)
+          // Ստանալ բոլոր documents-ը այս օգտատիրոջ պոլիսիների համար
+          const policyIds = policies.map(policy => policy.id)
+          const { data: documents, error: docsError } = await supabase
+            .from('documents')
+            .select('*')
+            .in('policy_id', policyIds)
+
+          if (docsError) {
+            console.error('Error loading documents:', docsError)
+          }
+
+          // Group documents by policy_id
+          const documentsByPolicy: any = {}
+          if (documents) {
+            documents.forEach(doc => {
+              if (!documentsByPolicy[doc.policy_id]) {
+                documentsByPolicy[doc.policy_id] = []
+              }
+              documentsByPolicy[doc.policy_id].push(doc)
+            })
+          }
+
+          setDocumentsData(documentsByPolicy)
+
+          const formattedData = formatPoliciesData(policies, documentsByPolicy)
           setPoliciesRows(formattedData)
         } else {
           setPoliciesRows(getFallbackData())
@@ -56,11 +82,15 @@ export default function ShipmentsPage() {
   }, [user])
 
   // Ֆորմատավորել policies տվյալները UniversalTable-ի համար
-  const formatPoliciesData = (policies: any[]) => {
+  const formatPoliciesData = (policies: any[], documentsByPolicy: any) => {
     const formattedData: any[] = []
 
     policies.forEach(policy => {
       const statusConfig = getStatusConfig(policy)
+      
+      // Գտնել փաստաթղթերի տվյալները այս պոլիսիի համար
+      const policyDocuments = documentsByPolicy[policy.id] || []
+      const docsStatus = calculateDocsStatus(policyDocuments)
       
       const buttonAction = { 
         text: statusConfig.buttonText, 
@@ -80,6 +110,11 @@ export default function ShipmentsPage() {
           dot: statusConfig.dot,
           textColor: statusConfig.textColor
         },
+        missingDocs: {
+          text: docsStatus.text,
+          color: docsStatus.color,
+          textColor: docsStatus.textColor
+        },
         button: buttonAction,
         rawData: policy
       })
@@ -88,6 +123,93 @@ export default function ShipmentsPage() {
     return formattedData.sort((a, b) => 
       new Date(b.rawData.created_at).getTime() - new Date(a.rawData.created_at).getTime()
     )
+  }
+
+  // Հաշվել փաստաթղթերի կարգավիճակը
+  const calculateDocsStatus = (documents: any[]) => {
+    if (!documents || documents.length === 0) {
+      return {
+        text: 'No Docs',
+        color: 'bg-red-100',
+        textColor: 'text-red-700'
+      }
+    }
+
+    // Վերցնել վերջին փաստաթղթի գրառումը (ամենավերջինը)
+    const latestDocument = documents[documents.length - 1]
+    
+    const requiredDocs = [
+      { key: 'commercial_invoice_status', label: 'Commercial Invoice' },
+      { key: 'packing_list_status', label: 'Packing List' },
+      { key: 'bill_of_lading_status', label: 'Bill of Lading' }
+    ]
+
+    let missingCount = 0
+    let uploadedCount = 0
+    let approvedCount = 0
+    let rejectedCount = 0
+
+    requiredDocs.forEach(doc => {
+      const status = latestDocument[doc.key]
+      
+      if (status === 'pending' || !status) {
+        missingCount++
+      } else if (status === 'uploaded') {
+        uploadedCount++
+      } else if (status === 'approved') {
+        approvedCount++
+      } else if (status === 'rejected') {
+        rejectedCount++
+      }
+    })
+
+    // Ստեղծել տեքստային նկարագրություն
+    if (approvedCount === 3) {
+      return {
+        text: 'Approved',
+        color: 'bg-green-100',
+        textColor: 'text-green-700'
+      }
+    } else if (missingCount === 3) {
+      return {
+        text: '3 Missing Docs',
+        color: 'bg-red-100',
+        textColor: 'text-red-700'
+      }
+    } else if (missingCount === 2) {
+      return {
+        text: '2 Missing Docs',
+        color: 'bg-red-50',
+        textColor: 'text-red-600'
+      }
+    } else if (missingCount === 1) {
+      return {
+        text: '1 Missing Doc',
+        color: 'bg-amber-100',
+        textColor: 'text-amber-700'
+      }
+    } else if (uploadedCount > 0 && missingCount === 0) {
+      return {
+        text: `${uploadedCount} Under Review`,
+        color: 'bg-blue-100',
+        textColor: 'text-blue-700'
+      }
+    } else if (rejectedCount > 0) {
+      return {
+        text: `${rejectedCount} Rejected`,
+        color: 'bg-red-100',
+        textColor: 'text-red-700'
+      }
+    } else {
+      // Mixed status
+      const totalDocs = 3
+      const completedDocs = approvedCount + uploadedCount
+      return {
+        text: `${completedDocs}/${totalDocs} Docs`,
+        color: 'bg-gray-100',
+        textColor: 'text-gray-700'
+      }
+    }
   }
 
   // Ստատուսի կոնֆիգուրացիան policy-ի համար
@@ -223,6 +345,11 @@ export default function ShipmentsPage() {
           dot: 'bg-emerald-500', 
           textColor: 'text-emerald-700' 
         },
+        missingDocs: {
+          text: 'All Docs Approved',
+          color: 'bg-green-100',
+          textColor: 'text-green-700'
+        },
         button: { 
           text: 'Download Cert', 
           variant: 'primary' as const,
@@ -245,6 +372,11 @@ export default function ShipmentsPage() {
           dot: 'bg-red-500', 
           textColor: 'text-red-700' 
         },
+        missingDocs: {
+          text: '2 Missing Docs',
+          color: 'bg-red-50',
+          textColor: 'text-red-600'
+        },
         button: { 
           text: 'Renew Now', 
           variant: 'danger' as const,
@@ -253,6 +385,33 @@ export default function ShipmentsPage() {
         rawData: {
           status: 'active',
           coverage_end: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+        }
+      },
+      {
+        id: 'P-2016',
+        cargo: 'Machinery',
+        shipmentValue: '$45,000.00',
+        premiumAmount: '$420.00',
+        expirationDate: `Nov 20, '25 – Jan 20, '26`,
+        status: { 
+          text: 'Active', 
+          color: 'bg-emerald-50', 
+          dot: 'bg-emerald-500', 
+          textColor: 'text-emerald-700' 
+        },
+        missingDocs: {
+          text: '1 Missing Doc',
+          color: 'bg-amber-100',
+          textColor: 'text-amber-700'
+        },
+        button: { 
+          text: 'Download Cert', 
+          variant: 'primary' as const,
+          onClick: (row: any) => console.log('Download Certificate', row.id)
+        },
+        rawData: {
+          status: 'active',
+          coverage_end: '2026-01-20T00:00:00Z'
         }
       }
     ]
@@ -276,38 +435,47 @@ export default function ShipmentsPage() {
     return expiringIn3Days
   }
 
-  // Policy timelines-ի տվյալներ (փոխված լոգիկա)
+  // Policy timelines-ի տվյալներ
   const calculatePolicyTimelineData = () => {
     const totalPolicies = policiesRows.length
-    
-    // Հաշվել միայն 3 օրվա ընթացքում ավարտվող պոլիսիները
     const expiringIn3Days = calculateExpiringIn3Days()
-    
-    // Հաշվել տոկոսը
     const percentage = totalPolicies > 0 
       ? Math.round((expiringIn3Days / totalPolicies) * 100)
       : 0
     
     return {
       percentage,
-      expiringPolicies: expiringIn3Days, // 3 օրում ավարտվող պոլիսիների թիվը
+      expiringPolicies: expiringIn3Days,
       totalPolicies
     }
   }
 
   const policyTimelineData = calculatePolicyTimelineData()
 
-  // Docs compliance տվյալներ
+  // Docs compliance տվյալներ (իրական տվյալների հիման վրա)
   const calculateDocsComplianceData = () => {
     const totalPolicies = policiesRows.length
-    const policiesMissingDocs = Math.floor(totalPolicies * 0.3)
+    
+    // Հաշվել փաստաթղթերի կարգավիճակը
+    let policiesWithMissingDocs = 0
+    let policiesWithAllDocs = 0
+    
+    policiesRows.forEach(policy => {
+      if (policy.missingDocs && policy.missingDocs.text.includes('Missing')) {
+        policiesWithMissingDocs++
+      } else if (policy.missingDocs && policy.missingDocs.text.includes('All Docs Approved')) {
+        policiesWithAllDocs++
+      }
+    })
+    
     const complianceRate = totalPolicies > 0 
-      ? 100 - Math.round((policiesMissingDocs / totalPolicies) * 100)
+      ? Math.round((policiesWithAllDocs / totalPolicies) * 100)
       : 0
     
     return {
       totalPolicies,
-      policiesMissingDocs,
+      policiesMissingDocs: policiesWithMissingDocs,
+      policiesWithAllDocs,
       complianceRate
     }
   }
@@ -370,6 +538,17 @@ export default function ShipmentsPage() {
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
+  // Missing Docs-ի ստատուսի ցուցադրման ֆունկցիա
+  const renderDocsStatus = (missingDocs: any) => {
+    return (
+      <span className={`
+        text-xs font-medium px-2 py-1 rounded-full ${missingDocs.color} ${missingDocs.textColor}
+      `}>
+        {missingDocs.text}
+      </span>
+    )
+  }
+
   const policiesColumns = [
     {
       key: 'id',
@@ -406,6 +585,12 @@ export default function ShipmentsPage() {
       label: 'Policy Status',
       sortable: true,
       renderDesktop: (status: any) => renderStatus(status)
+    },
+    {
+      key: 'missingDocs',
+      label: 'Docs Status',
+      sortable: true,
+      renderDesktop: (missingDocs: any) => renderDocsStatus(missingDocs)
     },
     {
       key: 'button',
@@ -490,17 +675,19 @@ export default function ShipmentsPage() {
                     'Pending'
                   ],
                   timeframeOptions: ['Last 7 days', 'Last 30 days', 'Last 3 months', 'All time'],
-                  sortOptions: ['Status', 'Date', 'Value', 'Cargo Type']
+                  sortOptions: ['Status', 'Date', 'Value', 'Cargo Type', 'Docs Status']
                 }}
                 mobileDesign={{
                   showType: false,
                   showCargoIcon: true,
                   showDateIcon: true,
                   dateLabel: 'Expires',
-                  buttonWidth: '47%'
+                  buttonWidth: '47%',
+                  // Mobile-ի համար ավելացնել Docs Status-ի ցուցադրում
+                 
                 }}
                 mobileDesignType="quotes"
-                desktopGridCols="0.5fr 0.8fr 0.8fr 0.7fr 1.1fr 0.9fr 1fr"
+                desktopGridCols="0.7fr 0.7fr 0.6fr 0.7fr 1.2fr 0.9fr 0.8fr 0.7fr"
               />
             </div>
           </div>
