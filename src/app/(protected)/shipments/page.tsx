@@ -454,22 +454,23 @@ export default function ShipmentsPage() {
   }
 
   // Հաշվել 3 օրվա ընթացքում ավարտվող պոլիսիների թիվը
-  const calculateExpiringIn3Days = () => {
-    const now = new Date()
-    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+const calculateExpiringIn3Days = () => {
+  const now = new Date()
+  
+  const expiringIn3Days = policiesRows.filter(policy => {
+    const rawData = policy.rawData
+    if (!rawData || rawData.status !== 'active') return false
     
-    const expiringIn3Days = policiesRows.filter(policy => {
-      const rawData = policy.rawData
-      if (!rawData || rawData.status !== 'active') return false
-      
-      const coverageEnd = new Date(rawData.coverage_end)
-      const daysUntilExpiry = Math.ceil((coverageEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      
-      return daysUntilExpiry <= 3 && daysUntilExpiry > 0
-    }).length
+    const coverageEnd = new Date(rawData.coverage_end)
+    const daysUntilExpiry = Math.ceil((coverageEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     
-    return expiringIn3Days
-  }
+    // Ստուգել միայն 1-3 օրվա ընթացքում ավարտվող պոլիսիները
+    return daysUntilExpiry >= 1 && daysUntilExpiry <= 3
+  }).length
+  
+  return expiringIn3Days
+}
+
 
   // Policy timelines-ի տվյալներ
   const calculatePolicyTimelineData = () => {
@@ -566,23 +567,34 @@ export default function ShipmentsPage() {
   }
 
   // Policy risk տվյալներ InfoWidget-ի համար
-  const calculatePolicyRiskData = () => {
-    const totalPolicies = policiesRows.length
-    const expiringIn3Days = calculateExpiringIn3Days()
-    const riskScore = totalPolicies > 0 
-      ? Math.round((expiringIn3Days / totalPolicies) * 100)
-      : 0
-    const improvementRate = 100 - riskScore
-    
-    return {
-      improvementRate,
-      totalPolicies,
-      expiringIn3Days,
-      riskScore
-    }
+// Policy risk տվյալներ InfoWidget-ի համար
+const calculatePolicyRiskData = () => {
+  const totalPolicies = policiesRows.length
+  
+  // Միայն ակտիվ պոլիսիները
+  const activePolicies = policiesRows.filter(policy => 
+    policy.rawData?.status === 'active'
+  ).length
+  
+  const expiringIn3Days = calculateExpiringIn3Days()
+  
+  // Expiration Risk (1-3 օրում ավարտվող պոլիսիների տոկոս)
+  const expirationRisk = activePolicies > 0 
+    ? Math.round((expiringIn3Days / activePolicies) * 100)
+    : 0
+  
+  // Improvement Rate (ինչքան է բարելավվել/փոքր է ռիսկը)
+  const improvementRate = 100 - expirationRisk
+  
+  return {
+    expirationRisk, // Սա է իրական ռիսկը (25%)
+    improvementRate, // Սա է բարելավումը (75%)
+    totalPolicies: activePolicies,
+    expiringIn3Days
   }
+}
 
-  const policyRiskData = calculatePolicyRiskData()
+const policyRiskData = calculatePolicyRiskData()
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -773,7 +785,7 @@ export default function ShipmentsPage() {
             {/* Policy Risk Card */}
             <InfoWidget 
               title="Policy Expiration Risk"
-              rateValue={policyRiskData.improvementRate}
+              rateValue={policyRiskData.expirationRisk}
               description={
                 <>
                   {policyRiskData.expiringIn3Days} of your active policies are expiring in 
@@ -815,7 +827,7 @@ export default function ShipmentsPage() {
               {/* Policy Risk Card */}
               <InfoWidget 
                 title="Policy Expiration Risk"
-                rateValue={policyRiskData.improvementRate}
+                rateValue={policyRiskData.expirationRisk}
                 description={
                   <>
                     {policyRiskData.expiringIn3Days} of your active policies are expiring in 
