@@ -346,205 +346,282 @@ export default function ShipmentDetailPage() {
 
     setNotifications(newNotifications);
   };
-
-  const handleFileUpload = async (
-    type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
-    file: File
-  ) => {
-    if (!policy) return;
+const handleFileUpload = async (
+  type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
+  file: File
+) => {
+  if (!policy) return;
+  
+  const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+  if (!validTypes.includes(file.type)) {
+    toast.error('Please upload PDF, JPEG, or PNG files only');
+    return;
+  }
+  
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('File size must be less than 5MB');
+    return;
+  }
+  
+  setUploading({ type, progress: 0 });
+  
+  // Declare variables outside try block so they're accessible in catch
+  let finalFilePath = '';
+  
+  try {
+    const supabase = createClient();
     
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Please upload PDF, JPEG, or PNG files only');
-      return;
-    }
+    const sanitizeFileName = (fileName: string): string => {
+      return fileName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    };
     
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
-      return;
-    }
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+    const safeFileName = `${timestamp}_${sanitizeFileName(file.name.slice(0, -fileExtension.length - 1))}.${fileExtension}`;
     
-    setUploading({ type, progress: 0 });
+    finalFilePath = `documents/${policy.policy_number}/${type}/${safeFileName}`;
     
+    // Ստուգեք բաքեթի առկայությունը
     try {
-      const supabase = createClient();
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(bucket => bucket.name === 'shipment-documents');
       
-      const sanitizeFileName = (fileName: string): string => {
-        return fileName
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-zA-Z0-9._-]/g, '_')
-          .replace(/_+/g, '_')
-          .replace(/^_+|_+$/g, '');
-      };
-      
-      const timestamp = Date.now();
-      const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-      const safeFileName = `${timestamp}_${sanitizeFileName(file.name.slice(0, -fileExtension.length - 1))}.${fileExtension}`;
-      
-      let finalFilePath = `documents/${policy.policy_number}/${type}/${safeFileName}`;
-      
-      try {
-        const { data: buckets } = await supabase.storage.listBuckets();
-        const bucketExists = buckets?.some(bucket => bucket.name === 'shipment-documents');
-        
-        if (!bucketExists) {
-          await supabase.storage.createBucket('shipment-documents', {
-            public: true,
-            fileSizeLimit: 5242880,
-            allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
-          });
-        }
-      } catch (bucketError) {
-        console.warn('Bucket check failed:', bucketError);
-      }
-      
-      let currentProgress = 0;
-      const progressInterval = setInterval(() => {
-        currentProgress += 10;
-        if (currentProgress >= 90) clearInterval(progressInterval);
-        setUploading({ type, progress: currentProgress });
-      }, 200);
-      
-      const { error: uploadError } = await supabase.storage
-        .from('shipment-documents')
-        .upload(finalFilePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
+      if (!bucketExists) {
+        await supabase.storage.createBucket('shipment-documents', {
+          public: true,
+          fileSizeLimit: 5242880,
+          allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
         });
-      
-      clearInterval(progressInterval);
-      
-      if (uploadError) {
-        if (uploadError.message?.includes('already exists') || uploadError.message?.includes('duplicate')) {
-          const uniqueFileName = `${timestamp}_${Math.random().toString(36).substring(2, 9)}_${type}.${fileExtension}`;
-          finalFilePath = `documents/${policy.policy_number}/${type}/${uniqueFileName}`;
-          
-          const { error: retryError } = await supabase.storage
-            .from('shipment-documents')
-            .upload(finalFilePath, file, {
-              cacheControl: '3600',
-              upsert: false,
-              contentType: file.type
-            });
-          
-          if (retryError) {
-            throw retryError;
-          }
-        } else {
-          throw uploadError;
-        }
       }
-      
-      setUploading({ type, progress: 100 });
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('shipment-documents')
-        .getPublicUrl(finalFilePath);
-      
-      const updateData: any = {
-        updated_at: new Date().toISOString()
+    } catch (bucketError) {
+      console.warn('Bucket check failed:', bucketError);
+    }
+    
+    // Սիմուլացրեք upload progress
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+      currentProgress += 10;
+      if (currentProgress >= 90) clearInterval(progressInterval);
+      setUploading({ type, progress: currentProgress });
+    }, 200);
+    
+    // Upload ֆայլը storage-ում
+    const { error: uploadError } = await supabase.storage
+      .from('shipment-documents')
+      .upload(finalFilePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
+    
+    clearInterval(progressInterval);
+    
+    if (uploadError) {
+      if (uploadError.message?.includes('already exists') || uploadError.message?.includes('duplicate')) {
+        const uniqueFileName = `${timestamp}_${Math.random().toString(36).substring(2, 9)}_${type}.${fileExtension}`;
+        finalFilePath = `documents/${policy.policy_number}/${type}/${uniqueFileName}`;
+        
+        const { error: retryError } = await supabase.storage
+          .from('shipment-documents')
+          .upload(finalFilePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type
+          });
+        
+        if (retryError) {
+          throw retryError;
+        }
+      } else {
+        throw uploadError;
+      }
+    }
+    
+    setUploading({ type, progress: 100 });
+    
+    // Ստացեք public URL-ը
+    const { data: { publicUrl } } = supabase.storage
+      .from('shipment-documents')
+      .getPublicUrl(finalFilePath);
+    
+    // Պատրաստեք update տվյալները
+    const updateData: any = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (type === 'commercial_invoice') {
+      updateData.commercial_invoice_url = publicUrl;
+      updateData.commercial_invoice_status = 'uploaded';
+      updateData.commercial_invoice_rejected_reason = null;
+      updateData.commercial_invoice_rejected_message = null;
+    } else if (type === 'packing_list') {
+      updateData.packing_list_url = publicUrl;
+      updateData.packing_list_status = 'uploaded';
+      updateData.packing_list_rejected_reason = null;
+      updateData.packing_list_rejected_message = null;
+    } else if (type === 'bill_of_lading') {
+      updateData.bill_of_lading_url = publicUrl;
+      updateData.bill_of_lading_status = 'uploaded';
+      updateData.bill_of_lading_rejected_reason = null;
+      updateData.bill_of_lading_rejected_message = null;
+    }
+    
+    // 1. Ստուգեք արդյոք document գոյություն ունի
+    const { data: existingDoc, error: findDocError } = await supabase
+      .from('documents')
+      .select('id')
+      .eq('policy_id', policy.id)
+      .maybeSingle(); // Օգտագործեք maybeSingle()-ը
+    
+    if (findDocError) {
+      console.error('Error checking existing document:', findDocError);
+      throw findDocError;
+    }
+    
+    let updateResult;
+    
+    if (!existingDoc) {
+      // Document գոյություն չունի - ստեղծեք նորը
+      console.log('Creating new document record for policy:', policy.id);
+      updateResult = await supabase
+        .from('documents')
+        .insert({
+          policy_id: policy.id,
+          ...updateData,
+          // Ավելացրեք բացակայող դաշտերը
+          commercial_invoice_status: updateData.commercial_invoice_status || 'pending',
+          packing_list_status: updateData.packing_list_status || 'pending',
+          bill_of_lading_status: updateData.bill_of_lading_status || 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+    } else {
+      // Document գոյություն ունի - թարմացրեք այն
+      console.log('Updating existing document record:', existingDoc.id);
+      updateResult = await supabase
+        .from('documents')
+        .update(updateData)
+        .eq('policy_id', policy.id)
+        .select()
+        .single();
+    }
+    
+    const { data: updatedDocument, error: updateError } = updateResult;
+    
+    if (updateError) {
+      throw updateError;
+    }
+    
+    if (updatedDocument) {
+      const completeUpdatedDocument: ShipmentDocument = {
+        id: updatedDocument.id,
+        policy_id: updatedDocument.policy_id || policy.id,
+        quote_id: updatedDocument.quote_id,
+        commercial_invoice_status: updatedDocument.commercial_invoice_status || 'pending',
+        commercial_invoice_url: updatedDocument.commercial_invoice_url || null,
+        commercial_invoice_rejected_reason: updatedDocument.commercial_invoice_rejected_reason,
+        commercial_invoice_rejected_message: updatedDocument.commercial_invoice_rejected_message,
+        packing_list_status: updatedDocument.packing_list_status || 'pending',
+        packing_list_url: updatedDocument.packing_list_url || null,
+        packing_list_rejected_reason: updatedDocument.packing_list_rejected_reason,
+        packing_list_rejected_message: updatedDocument.packing_list_rejected_message,
+        bill_of_lading_status: updatedDocument.bill_of_lading_status || 'pending',
+        bill_of_lading_url: updatedDocument.bill_of_lading_url || null,
+        bill_of_lading_rejected_reason: updatedDocument.bill_of_lading_rejected_reason,
+        bill_of_lading_rejected_message: updatedDocument.bill_of_lading_rejected_message,
+        created_at: updatedDocument.created_at || new Date().toISOString(),
+        updated_at: updatedDocument.updated_at || new Date().toISOString()
       };
       
-      if (type === 'commercial_invoice') {
-        updateData.commercial_invoice_url = publicUrl;
-        updateData.commercial_invoice_status = 'uploaded';
-        updateData.commercial_invoice_rejected_reason = null;
-        updateData.commercial_invoice_rejected_message = null;
-      } else if (type === 'packing_list') {
-        updateData.packing_list_url = publicUrl;
-        updateData.packing_list_status = 'uploaded';
-        updateData.packing_list_rejected_reason = null;
-        updateData.packing_list_rejected_message = null;
-      } else if (type === 'bill_of_lading') {
-        updateData.bill_of_lading_url = publicUrl;
-        updateData.bill_of_lading_status = 'uploaded';
-        updateData.bill_of_lading_rejected_reason = null;
-        updateData.bill_of_lading_rejected_message = null;
-      }
-      
-      const { data: existingDoc, error: findDocError } = await supabase
-        .from('documents')
-        .select('id')
-        .eq('policy_id', policy.id)
-        .single();
-      
-      let updateResult;
-      
-      if (findDocError || !existingDoc) {
-        updateResult = await supabase
-          .from('documents')
-          .insert({
-            policy_id: policy.id,
-            ...updateData
-          })
-          .select()
-          .single();
-      } else {
-        updateResult = await supabase
-          .from('documents')
-          .update(updateData)
-          .eq('policy_id', policy.id)
-          .select()
-          .single();
-      }
-      
-      const { data: updatedDocument, error: updateError } = updateResult;
-      
-      if (updateError) {
-        throw updateError;
-      }
-      
-      if (updatedDocument) {
-        const completeUpdatedDocument: ShipmentDocument = {
-          id: updatedDocument.id,
-          policy_id: updatedDocument.policy_id || policy.id,
-          quote_id: updatedDocument.quote_id,
-          commercial_invoice_status: updatedDocument.commercial_invoice_status || 'pending',
-          commercial_invoice_url: updatedDocument.commercial_invoice_url || null,
-          commercial_invoice_rejected_reason: updatedDocument.commercial_invoice_rejected_reason,
-          commercial_invoice_rejected_message: updatedDocument.commercial_invoice_rejected_message,
-          packing_list_status: updatedDocument.packing_list_status || 'pending',
-          packing_list_url: updatedDocument.packing_list_url || null,
-          packing_list_rejected_reason: updatedDocument.packing_list_rejected_reason,
-          packing_list_rejected_message: updatedDocument.packing_list_rejected_message,
-          bill_of_lading_status: updatedDocument.bill_of_lading_status || 'pending',
-          bill_of_lading_url: updatedDocument.bill_of_lading_url || null,
-          bill_of_lading_rejected_reason: updatedDocument.bill_of_lading_rejected_reason,
-          bill_of_lading_rejected_message: updatedDocument.bill_of_lading_rejected_message,
-          created_at: updatedDocument.created_at || new Date().toISOString(),
-          updated_at: updatedDocument.updated_at || new Date().toISOString()
-        };
-        
-        setDocuments(completeUpdatedDocument);
-      }
-      
-      toast.success(`${getDocumentName(type)} uploaded successfully!`);
-      
-      setTimeout(() => {
-        setUploading({ type: null, progress: 0 });
-        generateNotifications();
-      }, 1000);
-      
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      
-      let errorMessage = 'Failed to upload document';
-      if (error.message?.includes('Invalid key') || error.message?.includes('invalid character')) {
-        errorMessage = 'File name contains invalid characters. Please use a simpler file name.';
-      } else if (error.message?.includes('File size limit exceeded')) {
-        errorMessage = 'File size exceeds 5MB limit';
-      } else if (error.message?.includes('Invalid file type')) {
-        errorMessage = 'Invalid file type. Please upload PDF, JPEG, or PNG only.';
-      } else if (error.code === '23505') {
-        errorMessage = 'Document record already exists for this policy. Please try again.';
-      }
-      
-      toast.error(errorMessage);
-      setUploading({ type: null, progress: 0 });
+      setDocuments(completeUpdatedDocument);
     }
-  };
+    
+    toast.success(`${getDocumentName(type)} uploaded successfully!`);
+    
+    // Reset upload state և թարմացրեք notifications
+    setTimeout(() => {
+      setUploading({ type: null, progress: 0 });
+      generateNotifications();
+    }, 1000);
+    
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    
+    let errorMessage = 'Failed to upload document';
+    if (error.message?.includes('Invalid key') || error.message?.includes('invalid character')) {
+      errorMessage = 'File name contains invalid characters. Please use a simpler file name.';
+    } else if (error.message?.includes('File size limit exceeded')) {
+      errorMessage = 'File size exceeds 5MB limit';
+    } else if (error.message?.includes('Invalid file type')) {
+      errorMessage = 'Invalid file type. Please upload PDF, JPEG, or PNG only.';
+    } else if (error.code === '23505') {
+      // Unique constraint violation - policy_id-ն արդեն գոյություն ունի
+      errorMessage = 'Document record already exists for this policy. Please try again.';
+      
+      // Փորձեք update անել գոյություն ունեցող record-ը
+      try {
+        const supabase = createClient();
+        
+        // Ստուգեք արդյոք finalFilePath գոյություն ունի
+        if (finalFilePath && policy) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('shipment-documents')
+            .getPublicUrl(finalFilePath);
+          
+          const updateData: any = {
+            updated_at: new Date().toISOString()
+          };
+          
+          if (type === 'commercial_invoice') {
+            updateData.commercial_invoice_url = publicUrl;
+            updateData.commercial_invoice_status = 'uploaded';
+          } else if (type === 'packing_list') {
+            updateData.packing_list_url = publicUrl;
+            updateData.packing_list_status = 'uploaded';
+          } else if (type === 'bill_of_lading') {
+            updateData.bill_of_lading_url = publicUrl;
+            updateData.bill_of_lading_status = 'uploaded';
+          }
+          
+          const { error: updateError } = await supabase
+            .from('documents')
+            .update(updateData)
+            .eq('policy_id', policy.id);
+          
+          if (!updateError) {
+            errorMessage = 'Document uploaded successfully after conflict resolution!';
+            toast.success(errorMessage);
+            
+            // Վերալիցքավորեք տվյալները
+            loadData();
+            
+            setTimeout(() => {
+              setUploading({ type: null, progress: 0 });
+              generateNotifications();
+            }, 1000);
+            
+            return;
+          }
+        }
+      } catch (retryError) {
+        console.error('Retry failed:', retryError);
+      }
+    } else if (error.code === '42501') {
+      errorMessage = 'Permission denied. Please contact support.';
+    } else if (error.code === '404') {
+      errorMessage = 'Storage bucket not found. Please contact support.';
+    }
+    
+    toast.error(errorMessage);
+    setUploading({ type: null, progress: 0 });
+  }
+};
 
   const handleClaimFileUpload = (files: FileList) => {
     const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
@@ -1225,58 +1302,7 @@ export default function ShipmentDetailPage() {
 
             {activeTab === 'documents' && (
               <div className="space-y-6">
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                          <Upload className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h2 className="text-xl font-bold text-gray-900">Upload Documents</h2>
-                          <p className="text-gray-600">Required for claim processing and shipment verification</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="hidden lg:block">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">Priority</p>
-                        <p className="text-lg font-bold text-blue-600">High</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {renderDocumentCard(
-                      'commercial_invoice',
-                      'Commercial Invoice',
-                      'Shows cargo value and trade details',
-                      documents?.commercial_invoice_status || 'pending',
-                      documents?.commercial_invoice_url || null,
-                      documents?.commercial_invoice_rejected_reason
-                    )}
-                    
-                    {renderDocumentCard(
-                      'packing_list',
-                      'Packing List',
-                      'Shows quantity, weight, and packaging details',
-                      documents?.packing_list_status || 'pending',
-                      documents?.packing_list_url || null,
-                      documents?.packing_list_rejected_reason
-                    )}
-                    
-                    {renderDocumentCard(
-                      'bill_of_lading',
-                      'Bill of Lading / Air Waybill',
-                      'Carrier-issued shipment receipt',
-                      documents?.bill_of_lading_status || 'pending',
-                      documents?.bill_of_lading_url || null,
-                      documents?.bill_of_lading_rejected_reason
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Document Status</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1350,6 +1376,58 @@ export default function ShipmentDetailPage() {
                     }
                   </p>
                 </div>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                          <Upload className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-bold text-gray-900">Upload Documents</h2>
+                          <p className="text-gray-600">Required for claim processing and shipment verification</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="hidden lg:block">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">Priority</p>
+                        <p className="text-lg font-bold text-blue-600">High</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {renderDocumentCard(
+                      'commercial_invoice',
+                      'Commercial Invoice',
+                      'Shows cargo value and trade details',
+                      documents?.commercial_invoice_status || 'pending',
+                      documents?.commercial_invoice_url || null,
+                      documents?.commercial_invoice_rejected_reason
+                    )}
+                    
+                    {renderDocumentCard(
+                      'packing_list',
+                      'Packing List',
+                      'Shows quantity, weight, and packaging details',
+                      documents?.packing_list_status || 'pending',
+                      documents?.packing_list_url || null,
+                      documents?.packing_list_rejected_reason
+                    )}
+                    
+                    {renderDocumentCard(
+                      'bill_of_lading',
+                      'Bill of Lading / Air Waybill',
+                      'Carrier-issued shipment receipt',
+                      documents?.bill_of_lading_status || 'pending',
+                      documents?.bill_of_lading_url || null,
+                      documents?.bill_of_lading_rejected_reason
+                    )}
+                  </div>
+                </div>
+
+               
               </div>
             )}
 
