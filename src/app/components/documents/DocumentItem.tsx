@@ -7,6 +7,7 @@ interface DocumentItemProps {
   cargoType?: string;
   summary?: string;
   buttonText?: string;
+  onClick?: () => void;
 }
 
 const DocumentItem: React.FC<DocumentItemProps> = ({
@@ -15,7 +16,9 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   status = 'Pending Review',
   cargoType = 'Electronics',
   summary = '1 Document Pending Review',
-  buttonText = 'View All Docs'
+  buttonText = 'View All Docs',
+  onClick 
+  
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -180,7 +183,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
               <button
                 key={index}
                 className={`
-                  px-4 py-1 rounded text-sm transition-colors
+                  cursor-pointer px-4 py-1 rounded text-sm transition-colors
                   ${button.variant === 'default' 
                     ? 'bg-transparent border border-[#E3E6EA] text-[#374151] hover:bg-gray-50' 
                     : ''}
@@ -191,6 +194,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
                     ? 'bg-transparent border border-[#D03C3C] text-[#D03C3C] hover:bg-[#fef2f2]' 
                     : ''}
                 `}
+                onClick={onClick}
                 style={
                   button.variant === 'rejected' 
                     ? { borderWidth: '1px' } 
