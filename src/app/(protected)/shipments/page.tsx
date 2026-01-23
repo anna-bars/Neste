@@ -292,6 +292,42 @@ export default function ShipmentsPage() {
     }
   }
 
+  // Հաշվել փաստաթղթերի կոմպլայենսը policy-ի համար
+  const calculateDocsComplianceForPolicy = (policyId: string) => {
+    const policyDocuments = documentsData[policyId] || [];
+    
+    if (!policyDocuments || policyDocuments.length === 0) {
+      return { isCompliant: false, approvedDocs: 0, totalDocs: 3 };
+    }
+
+    // Վերցնել վերջին փաստաթղթի գրառումը
+    const latestDocument = policyDocuments[policyDocuments.length - 1];
+    
+    const requiredDocs = [
+      { key: 'commercial_invoice_status', label: 'Commercial Invoice' },
+      { key: 'packing_list_status', label: 'Packing List' },
+      { key: 'bill_of_lading_status', label: 'Bill of Lading' }
+    ];
+
+    let approvedCount = 0;
+    let totalDocs = 0;
+
+    requiredDocs.forEach(doc => {
+      const status = latestDocument[doc.key];
+      
+      if (status) {
+        totalDocs++;
+        if (status === 'approved') {
+          approvedCount++;
+        }
+      }
+    });
+
+    const isCompliant = approvedCount === 3 && totalDocs === 3;
+    
+    return { isCompliant, approvedDocs: approvedCount, totalDocs };
+  };
+
   // Ֆորմատավորել ծածկույթի ժամանակահատվածը
   const formatCoveragePeriod = (startDate: string, endDate: string) => {
     if (!startDate || !endDate) return 'N/A'
@@ -346,7 +382,7 @@ export default function ShipmentsPage() {
           textColor: 'text-emerald-700' 
         },
         missingDocs: {
-          text: 'All Docs Approved',
+          text: 'Approved',
           color: 'bg-green-100',
           textColor: 'text-green-700'
         },
@@ -456,54 +492,75 @@ export default function ShipmentsPage() {
   const calculateDocsComplianceData = () => {
     const totalPolicies = policiesRows.length
     
-    // Հաշվել փաստաթղթերի կարգավիճակը
+    if (totalPolicies === 0) {
+      return {
+        totalPoliciesRequiringDocs: 0,
+        policiesWithAllDocsApproved: 0,
+        policiesWithMissingDocs: 0,
+        complianceRate: 0
+      };
+    }
+
+    // Հաշվել այն պոլիսիները, որոնք ունեն բոլոր 3 փաստաթղթերը approved
+    let policiesWithAllDocsApproved = 0
     let policiesWithMissingDocs = 0
-    let policiesWithAllDocs = 0
     
     policiesRows.forEach(policy => {
-      if (policy.missingDocs && policy.missingDocs.text.includes('Missing')) {
+      // Ստուգել, թե արդյոք պոլիսին պահանջում է փաստաթղթեր (Active կամ Expired)
+      const isActiveOrExpired = policy.rawData?.status === 'active' || policy.rawData?.status === 'expired'
+      
+      if (!isActiveOrExpired) {
+        return // Մի հաշվիր Pending կամ այլ status-ներ
+      }
+      
+      // Ստուգել docs status-ը
+      if (policy.missingDocs?.text === 'Approved') {
+        policiesWithAllDocsApproved++
+      } else if (policy.missingDocs?.text?.includes('Missing')) {
         policiesWithMissingDocs++
-      } else if (policy.missingDocs && policy.missingDocs.text.includes('All Docs Approved')) {
-        policiesWithAllDocs++
       }
     })
     
-    const complianceRate = totalPolicies > 0 
-      ? Math.round((policiesWithAllDocs / totalPolicies) * 100)
+    // Հաշվել ընդհանուր պոլիսիների թիվը, որոնք պահանջում են փաստաթղթեր
+    const totalPoliciesRequiringDocs = policiesRows.filter(policy => {
+      return policy.rawData?.status === 'active' || policy.rawData?.status === 'expired'
+    }).length
+    
+    // Հաշվել compliance rate
+    const complianceRate = totalPoliciesRequiringDocs > 0 
+      ? Math.round((policiesWithAllDocsApproved / totalPoliciesRequiringDocs) * 100)
       : 0
     
     return {
-      totalPolicies,
-      policiesMissingDocs: policiesWithMissingDocs,
-      policiesWithAllDocs,
+      totalPoliciesRequiringDocs,
+      policiesWithAllDocsApproved,
+      policiesWithMissingDocs,
       complianceRate
     }
   }
 
   const docsComplianceData = calculateDocsComplianceData()
 
-  // Փոփոխական տվյալներ tabs-ների համար
+  // Փոփոխական տվյալներ tabs-ների համար - թարմացված
   const shipmentsData = {
     'This Week': { 
-      totalQuotes: docsComplianceData.totalPolicies, 
-      expiringQuotes: calculateExpiringIn3Days(),
-      expiringRate: docsComplianceData.totalPolicies > 0 
-        ? Math.round((calculateExpiringIn3Days() / docsComplianceData.totalPolicies) * 100)
-        : 0
+      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
+      expiringQuotes: docsComplianceData.policiesWithAllDocsApproved,
+      expiringRate: docsComplianceData.complianceRate
     },
     'Next Week': { 
-      totalQuotes: docsComplianceData.totalPolicies, 
-      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.25),
-      expiringRate: 25
+      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
+      expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.8),
+      expiringRate: 80
     },
     'In 2–4 Weeks': { 
-      totalQuotes: docsComplianceData.totalPolicies, 
-      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.33),
-      expiringRate: 33
+      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
+      expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.6),
+      expiringRate: 60
     },
     'Next Month': { 
-      totalQuotes: docsComplianceData.totalPolicies, 
-      expiringQuotes: Math.floor(docsComplianceData.totalPolicies * 0.4),
+      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
+      expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.4),
       expiringRate: 40
     }
   }
@@ -538,7 +595,7 @@ export default function ShipmentsPage() {
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
-  // Missing Docs-ի ստատուսի ցուցադրման ֆունկցիա
+  // Docs compliance տեքստերի թարմացում
   const renderDocsStatus = (missingDocs: any) => {
     return (
       <span className={`
@@ -648,10 +705,10 @@ export default function ShipmentsPage() {
                 onTabChange={setActiveTab}
                 data={shipmentsData}
                 title='Docs Compliance'
-                info='Policies with Missing Docs'
+                info='Policies with ALL docs approved'
                 total='Total policies'
-                sub='Policies Missing Docs'
-                percentageInfo='Policies'
+                sub='Policies with ALL docs approved'
+                percentageInfo='Docs Compliance'
               />
             </div>
 
@@ -683,8 +740,6 @@ export default function ShipmentsPage() {
                   showDateIcon: true,
                   dateLabel: 'Expires',
                   buttonWidth: '47%',
-                  // Mobile-ի համար ավելացնել Docs Status-ի ցուցադրում
-                 
                 }}
                 mobileDesignType="quotes"
                 desktopGridCols="0.7fr 0.7fr 0.6fr 0.7fr 1.2fr 0.9fr 0.8fr 0.7fr"
@@ -742,10 +797,10 @@ export default function ShipmentsPage() {
               onTabChange={setActiveTab}
               data={shipmentsData}
               title='Docs Compliance'
-              info='Policies with Missing Docs'
+              info='Policies with ALL docs approved'
               total='Total policies'
-              sub='Policies Missing Docs'
-              percentageInfo='Policies'
+              sub='Policies with ALL docs approved'
+              percentageInfo='Docs Compliance'
             />
           </div>
 
@@ -784,10 +839,10 @@ export default function ShipmentsPage() {
                   onTabChange={setActiveTab}
                   data={shipmentsData}
                   title='Docs Compliance'
-                  info='Policies with Missing Docs'
+                  info='Policies with ALL docs approved'
                   total='Total policies'
-                  sub='Policies Missing Docs'
-                  percentageInfo='Policies'
+                  sub='Policies with ALL docs approved'
+                  percentageInfo='Docs Compliance'
                 />
               </div>
             </div>

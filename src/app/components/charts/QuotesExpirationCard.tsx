@@ -24,11 +24,11 @@ const QuotesExpirationCard = ({
   activeTab = 'This Week', 
   onTabChange, 
   data,
-  title = 'Quotes Expiration',
-  info = 'Total expiring quotes',
-  total = 'Total quotes',
-  sub = 'Expiring',
-  percentageInfo = 'Quotes',
+  title = 'Docs Compliance',
+  info = 'Policies with ALL docs approved',
+  total = 'Total policies requiring docs',
+  sub = 'Policies with ALL docs approved',
+  percentageInfo = 'Docs Compliance',
   chartType = 'default'
 }: QuotesExpirationCardProps) => {
   const tabs = ['This Week', 'Next Week', 'In 2–4 Weeks', 'Next Month'];
@@ -99,42 +99,25 @@ const QuotesExpirationCard = ({
 
   // Գույների ֆունկցիան հովեր համար
   const getActiveBarColor = (progress: number) => {
-    if (chartType === 'quotes') {
-      // Quotes էջի համար - #66ACEE-ից #1a66e0 գրադիենտ
-      const startR = 102;    // #66ACEE
-      const startG = 172;
-      const startB = 238;
-      
-      const endR = 26;       // #1a66e0
-      const endG = 102;
-      const endB = 224;
-      
-      const r = Math.round(startR + (endR - startR) * progress);
-      const g = Math.round(startG + (endG - startG) * progress);
-      const b = Math.round(startB + (endB - startB) * progress);
-      
-      return `rgb(${r}, ${g}, ${b})`;
-    } else {
-      // Default գույներ (նարնջագույն)
-      const startR = 255;
-      const startG = 180;
-      const startB = 120;
-      
-      const endR = 238;
-      const endG = 159;
-      const endB = 102;
-      
-      const r = Math.round(startR + (endR - startR) * progress);
-      const g = Math.round(startG + (endG - startG) * progress);
-      const b = Math.round(startB + (endB - startB) * progress);
-      
-      return `rgb(${r}, ${g}, ${b})`;
-    }
+    // Docs Compliance-ի համար կանաչ գույների գրադիենտ
+    const startR = 102;    // #66EE66 (բաց կանաչ)
+    const startG = 238;
+    const startB = 102;
+    
+    const endR = 34;       // #22AA22 (մուգ կանաչ)
+    const endG = 170;
+    const endB = 34;
+    
+    const r = Math.round(startR + (endR - startR) * progress);
+    const g = Math.round(startG + (endG - startG) * progress);
+    const b = Math.round(startB + (endB - startB) * progress);
+    
+    return `rgb(${r}, ${g}, ${b})`;
   };
 
   // Նոր ֆունկցիա գույն ստանալու համար legend-ի համար
   const getLegendColor = () => {
-    return chartType === 'quotes' ? '#1a66e0' : '#EE9F66';
+    return '#22AA22'; // Docs Compliance-ի համար կանաչ գույն
   };
 
   const handleTabSelect = (tab: string) => {
@@ -146,7 +129,7 @@ const QuotesExpirationCard = ({
   const renderBars = () => {
     const bars = [];
     
-    // Ակտիվ գծիկներ
+    // Ակտիվ գծիկներ (կոմպլայենտ պոլիսիներ)
     for (let i = 0; i < activeBars; i++) {
       const progress = activeBars > 1 ? i / (activeBars - 1) : 0.5;
       const normalHeight = 18;
@@ -185,7 +168,7 @@ const QuotesExpirationCard = ({
       );
     }
     
-    // Ոչ ակտիվ գծիկներ
+    // Ոչ ակտիվ գծիկներ (ոչ կոմպլայենտ պոլիսիներ)
     for (let i = 0; i < inactiveBars; i++) {
       const normalHeight = 24;
       const hoverHeight = 18;
@@ -208,7 +191,7 @@ const QuotesExpirationCard = ({
             opacity: isAnimating ? 0 : 1,
             transition: `height 0.3s ease ${animationDelay}ms, opacity 0.3s ease`
           }}
-          title={`Non-expiring quotes: ${totalQuotes - expiringQuotes}`}
+          title={`Non-compliant policies: ${totalQuotes - expiringQuotes}`}
         />
       );
     }
@@ -262,22 +245,22 @@ const QuotesExpirationCard = ({
             color: #6f6f6f;
           }
           100% {
-            color: ${chartType === 'quotes' ? '#1a66e0' : '#EE9F66'};
+            color: #22AA22;
           }
         }
         
         @keyframes dotPulse {
           0% {
             transform: scale(1);
-            box-shadow: 0 0 0 0 ${chartType === 'quotes' ? 'rgba(26, 102, 224, 0.4)' : 'rgba(238, 159, 102, 0.4)'};
+            box-shadow: 0 0 0 0 rgba(34, 170, 34, 0.4);
           }
           70% {
             transform: scale(1.2);
-            box-shadow: 0 0 0 6px ${chartType === 'quotes' ? 'rgba(26, 102, 224, 0)' : 'rgba(238, 159, 102, 0)'};
+            box-shadow: 0 0 0 6px rgba(34, 170, 34, 0);
           }
           100% {
             transform: scale(1);
-            box-shadow: 0 0 0 0 ${chartType === 'quotes' ? 'rgba(26, 102, 224, 0)' : 'rgba(238, 159, 102, 0)'};
+            box-shadow: 0 0 0 0 rgba(34, 170, 34, 0);
           }
         }
         
@@ -346,8 +329,8 @@ const QuotesExpirationCard = ({
         }
         
         .card-hovered .expiring-indicator-wrapper {
-          background-color: ${chartType === 'quotes' ? 'rgba(26, 102, 224, 0.1)' : 'rgba(238, 159, 102, 0.1)'};
-          border: 1px solid ${chartType === 'quotes' ? 'rgba(26, 102, 224, 0.2)' : 'rgba(238, 159, 102, 0.2)'};
+          background-color: rgba(34, 170, 34, 0.1);
+          border: 1px solid rgba(34, 170, 34, 0.2);
           transform: scale(1.02);
         }
         
@@ -357,8 +340,32 @@ const QuotesExpirationCard = ({
         
         /* Dropdown հովեր էֆեկտ */
         .card-hovered .dropdown-button {
-          border-color: ${chartType === 'quotes' ? '#1a66e0' : '#EE9F66'};
-          color: ${chartType === 'quotes' ? '#1a66e0' : '#EE9F66'};
+          border-color: #22AA22;
+          color: #22AA22;
+        }
+        
+        /* Active tab indicator */
+        .active-tab-indicator {
+          position: relative;
+        }
+        
+        .active-tab-indicator::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 20px;
+          height: 3px;
+          background-color: #22AA22;
+          border-radius: 2px;
+          transition: all 0.3s ease;
+        }
+        
+        .card-hovered .active-tab-indicator::after {
+          width: 30px;
+          height: 4px;
+          background-color: #66EE66;
         }
       `}</style>
 
@@ -375,7 +382,7 @@ const QuotesExpirationCard = ({
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className={`dropdown-button flex items-center gap-1 font-montserrat text-xs font-medium tracking-[0.24px] cursor-pointer whitespace-nowrap px-3 py-1 border rounded-lg hover:bg-gray-50 transition-all duration-300 ${isCardHovered ? 'border-[#1a66e0] text-[#1a66e0]' : 'border-[#e2e3e4] text-[#6f6f6f]'}`}
+              className={`dropdown-button flex items-center gap-1 font-montserrat text-xs font-medium tracking-[0.24px] cursor-pointer whitespace-nowrap px-3 py-1 border rounded-lg hover:bg-gray-50 transition-all duration-300 ${isCardHovered ? 'border-[#22AA22] text-[#22AA22]' : 'border-[#e2e3e4] text-[#6f6f6f]'}`}
             >
               {activeTab}
               <svg 
@@ -404,10 +411,10 @@ const QuotesExpirationCard = ({
                     onClick={() => handleTabSelect(tab)}
                     className={`
                       px-4 py-2 cursor-pointer font-montserrat text-xs font-medium tracking-[0.24px]
-                      hover:bg-gray-50 transition-all duration-200
+                      hover:bg-gray-50 transition-all duration-200 relative
                       ${activeTab === tab 
-                        ? 'text-[#ee9f66] underline font-semibold bg-orange-50' 
-                        : 'text-[#6f6f6f] hover:text-[#ee9f66]'
+                        ? 'text-[#22AA22] font-semibold bg-green-50 active-tab-indicator' 
+                        : 'text-[#6f6f6f] hover:text-[#22AA22]'
                       }
                     `}
                     style={{
@@ -447,7 +454,7 @@ const QuotesExpirationCard = ({
           </div>
           <div className="expiration-right absolute top-14 left-0">
             <span className="expiration-total font-montserrat text-xs font-medium text-[#c7c7c7] tracking-[0.24px] whitespace-nowrap">
-              {info} : {expiringQuotes}
+              {info}: {expiringQuotes}
             </span>
           </div>
         </div>
@@ -469,8 +476,8 @@ const QuotesExpirationCard = ({
               <div 
                 className="expiring-indicator-wrapper flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-300"
                 style={{
-                  backgroundColor: isCardHovered ? (chartType === 'quotes' ? 'rgba(26, 102, 224, 0.1)' : 'rgba(238, 159, 102, 0.1)') : 'transparent',
-                  border: isCardHovered ? `1px solid ${chartType === 'quotes' ? 'rgba(26, 102, 224, 0.2)' : 'rgba(238, 159, 102, 0.2)'}` : '1px solid transparent'
+                  backgroundColor: isCardHovered ? 'rgba(34, 170, 34, 0.1)' : 'transparent',
+                  border: isCardHovered ? '1px solid rgba(34, 170, 34, 0.2)' : '1px solid transparent'
                 }}
               >
                 <div 
@@ -482,7 +489,7 @@ const QuotesExpirationCard = ({
                 <span 
                   className="expiring-text font-montserrat text-xs font-medium transition-all duration-300"
                   style={{ 
-                    color: isCardHovered ? (chartType === 'quotes' ? '#1a66e0' : '#EE9F66') : '#6f6f6f',
+                    color: isCardHovered ? '#22AA22' : '#6f6f6f',
                     fontWeight: isCardHovered ? 600 : 500
                   }}
                 >
