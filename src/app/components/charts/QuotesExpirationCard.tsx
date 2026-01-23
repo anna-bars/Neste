@@ -24,11 +24,11 @@ const QuotesExpirationCard = ({
   activeTab = 'This Week', 
   onTabChange, 
   data,
-  title = 'Docs Compliance',
-  info = 'Policies with ALL docs approved',
-  total = 'Total policies requiring docs',
-  sub = 'Policies with ALL docs approved',
-  percentageInfo = 'Docs Compliance',
+  title = 'Document Compliance',
+  info = 'Policies with missing docs',
+  total = 'Total policies',
+  sub = 'Policies with missing docs',
+  percentageInfo = 'Missing Docs %',
   chartType = 'default'
 }: QuotesExpirationCardProps) => {
   const tabs = ['This Week', 'Next Week', 'In 2–4 Weeks', 'Next Month'];
@@ -48,11 +48,16 @@ const QuotesExpirationCard = ({
   const [barsCount, setBarsCount] = useState(60);
   const [isAnimating, setIsAnimating] = useState(false);
   
+  // Վերահաշվել տվյալները՝ ցույց տալու համար missing docs
   const { totalQuotes, expiringQuotes, expiringRate } = expirationData[activeTab] || { 
     totalQuotes: 0, 
     expiringQuotes: 0, 
     expiringRate: 0 
   };
+  
+  // Missing docs-ի համար հաշվել հակառակ տոկոսը
+  const missingDocsRate = 100 - expiringRate;
+  const missingDocsCount = totalQuotes - expiringQuotes;
   
   const calculateBarsCount = useCallback((width: number) => {
     if (width <= 200) return 40;
@@ -88,25 +93,26 @@ const QuotesExpirationCard = ({
   }, [activeTab]);
 
   const calculateBarDistribution = () => {
-    const activePercentage = expiringRate / 100;
-    const activeBars = Math.max(1, Math.round(activePercentage * barsCount));
-    const inactiveBars = Math.max(1, barsCount - activeBars);
+    // Missing docs-ի համար օգտագործենք missingDocsRate
+    const missingPercentage = missingDocsRate / 100;
+    const missingBars = Math.max(1, Math.round(missingPercentage * barsCount));
+    const compliantBars = Math.max(1, barsCount - missingBars);
     
-    return { activeBars, inactiveBars };
+    return { missingBars, compliantBars };
   };
 
-  const { activeBars, inactiveBars } = calculateBarDistribution();
+  const { missingBars, compliantBars } = calculateBarDistribution();
 
-  // Գույների ֆունկցիան հովեր համար
-  const getActiveBarColor = (progress: number) => {
-    // Docs Compliance-ի համար կանաչ գույների գրադիենտ
-    const startR = 102;    // #66EE66 (բաց կանաչ)
-    const startG = 238;
-    const startB = 102;
+  // Գույների ֆունկցիան Missing Docs-ի համար (կարմիր գրադիենտ)
+  const getMissingBarColor = (progress: number) => {
+    // Missing Docs-ի համար կարմիր գույների գրադիենտ
+    const startR = 255;    // #FF8888 (բաց կարմիր)
+    const startG = 136;
+    const startB = 136;
     
-    const endR = 34;       // #22AA22 (մուգ կանաչ)
-    const endG = 170;
-    const endB = 34;
+    const endR = 220;       // #DC3545 (մուգ կարմիր)
+    const endG = 53;
+    const endB = 69;
     
     const r = Math.round(startR + (endR - startR) * progress);
     const g = Math.round(startG + (endG - startG) * progress);
@@ -117,7 +123,7 @@ const QuotesExpirationCard = ({
 
   // Նոր ֆունկցիա գույն ստանալու համար legend-ի համար
   const getLegendColor = () => {
-    return '#22AA22'; // Docs Compliance-ի համար կանաչ գույն
+    return '#DC3545'; // Missing Docs-ի համար կարմիր գույն
   };
 
   const handleTabSelect = (tab: string) => {
@@ -129,9 +135,9 @@ const QuotesExpirationCard = ({
   const renderBars = () => {
     const bars = [];
     
-    // Ակտիվ գծիկներ (կոմպլայենտ պոլիսիներ)
-    for (let i = 0; i < activeBars; i++) {
-      const progress = activeBars > 1 ? i / (activeBars - 1) : 0.5;
+    // Missing docs գծիկներ (ոչ կոմպլայենտ պոլիսիներ)
+    for (let i = 0; i < missingBars; i++) {
+      const progress = missingBars > 1 ? i / (missingBars - 1) : 0.5;
       const normalHeight = 18;
       const hoverHeight = 24;
       
@@ -150,36 +156,36 @@ const QuotesExpirationCard = ({
       
       bars.push(
         <div
-          key={`${activeTab}-active-${i}`}
-          className="chart-bar active-bar"
+          key={`${activeTab}-missing-${i}`}
+          className="chart-bar missing-bar"
           style={{
             width: '1px',
             transform: transform,
             transformOrigin: 'left',
             height: `${height}px`,
-            backgroundColor: getActiveBarColor(progress),
+            backgroundColor: getMissingBarColor(progress),
             borderRadius: '1px',
             cursor: 'pointer',
             opacity: isAnimating ? 0 : 1,
             transition: `height 0.3s ease ${animationDelay}ms, background-color 0.3s ease, transform 0.3s ease ${animationDelay}ms`
           }}
-          title={`${sub}: ${expiringQuotes} (${expiringRate}%)`}
+          title={`${sub}: ${missingDocsCount} (${missingDocsRate}%)`}
         />
       );
     }
     
-    // Ոչ ակտիվ գծիկներ (ոչ կոմպլայենտ պոլիսիներ)
-    for (let i = 0; i < inactiveBars; i++) {
+    // Կոմպլայենտ գծիկներ (բոլոր փաստաթղթերով պոլիսիներ)
+    for (let i = 0; i < compliantBars; i++) {
       const normalHeight = 24;
       const hoverHeight = 18;
-      const baseDelay = (activeBars + i) * 8; // 8ms delay
+      const baseDelay = (missingBars + i) * 8; // 8ms delay
       const animationDelay = isCardHovered ? baseDelay : 0;
       const height = isCardHovered ? hoverHeight : normalHeight;
       
       bars.push(
         <div
-          key={`${activeTab}-inactive-${i}`}
-          className="chart-bar inactive-bar"
+          key={`${activeTab}-compliant-${i}`}
+          className="chart-bar compliant-bar"
           style={{
             width: '1px',
             transform: 'scaleX(2.7)',
@@ -191,7 +197,7 @@ const QuotesExpirationCard = ({
             opacity: isAnimating ? 0 : 1,
             transition: `height 0.3s ease ${animationDelay}ms, opacity 0.3s ease`
           }}
-          title={`Non-compliant policies: ${totalQuotes - expiringQuotes}`}
+          title={`Compliant policies: ${expiringQuotes}`}
         />
       );
     }
@@ -245,22 +251,22 @@ const QuotesExpirationCard = ({
             color: #6f6f6f;
           }
           100% {
-            color: #22AA22;
+            color: #DC3545;
           }
         }
         
         @keyframes dotPulse {
           0% {
             transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(34, 170, 34, 0.4);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4);
           }
           70% {
             transform: scale(1.2);
-            box-shadow: 0 0 0 6px rgba(34, 170, 34, 0);
+            box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
           }
           100% {
             transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(34, 170, 34, 0);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
           }
         }
         
@@ -309,12 +315,12 @@ const QuotesExpirationCard = ({
           transition: height 0.3s ease, background-color 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
         }
         
-        .active-bar:hover {
+        .missing-bar:hover {
           transform: scaleX(2.7) scaleY(1.3) !important;
           transition: transform 0.2s ease;
         }
         
-        .inactive-bar:hover {
+        .compliant-bar:hover {
           transform: scaleX(2.7) scaleY(0.7) !important;
           transition: transform 0.2s ease;
         }
@@ -329,8 +335,8 @@ const QuotesExpirationCard = ({
         }
         
         .card-hovered .expiring-indicator-wrapper {
-          background-color: rgba(34, 170, 34, 0.1);
-          border: 1px solid rgba(34, 170, 34, 0.2);
+          background-color: rgba(220, 53, 69, 0.1);
+          border: 1px solid rgba(220, 53, 69, 0.2);
           transform: scale(1.02);
         }
         
@@ -340,8 +346,8 @@ const QuotesExpirationCard = ({
         
         /* Dropdown հովեր էֆեկտ */
         .card-hovered .dropdown-button {
-          border-color: #22AA22;
-          color: #22AA22;
+          border-color: #DC3545;
+          color: #DC3545;
         }
         
         /* Active tab indicator */
@@ -357,7 +363,7 @@ const QuotesExpirationCard = ({
           transform: translateX(-50%);
           width: 20px;
           height: 3px;
-          background-color: #22AA22;
+          background-color: #DC3545;
           border-radius: 2px;
           transition: all 0.3s ease;
         }
@@ -365,7 +371,7 @@ const QuotesExpirationCard = ({
         .card-hovered .active-tab-indicator::after {
           width: 30px;
           height: 4px;
-          background-color: #66EE66;
+          background-color: #FF8888;
         }
       `}</style>
 
@@ -382,7 +388,7 @@ const QuotesExpirationCard = ({
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className={`dropdown-button flex items-center gap-1 font-montserrat text-xs font-medium tracking-[0.24px] cursor-pointer whitespace-nowrap px-3 py-1 border rounded-lg hover:bg-gray-50 transition-all duration-300 ${isCardHovered ? 'border-[#22AA22] text-[#22AA22]' : 'border-[#e2e3e4] text-[#6f6f6f]'}`}
+              className={`dropdown-button flex items-center gap-1 font-montserrat text-xs font-medium tracking-[0.24px] cursor-pointer whitespace-nowrap px-3 py-1 border rounded-lg hover:bg-gray-50 transition-all duration-300 ${isCardHovered ? 'border-[#DC3545] text-[#DC3545]' : 'border-[#e2e3e4] text-[#6f6f6f]'}`}
             >
               {activeTab}
               <svg 
@@ -413,8 +419,8 @@ const QuotesExpirationCard = ({
                       px-4 py-2 cursor-pointer font-montserrat text-xs font-medium tracking-[0.24px]
                       hover:bg-gray-50 transition-all duration-200 relative
                       ${activeTab === tab 
-                        ? 'text-[#22AA22] font-semibold bg-green-50 active-tab-indicator' 
-                        : 'text-[#6f6f6f] hover:text-[#22AA22]'
+                        ? 'text-[#DC3545] font-semibold bg-red-50 active-tab-indicator' 
+                        : 'text-[#6f6f6f] hover:text-[#DC3545]'
                       }
                     `}
                     style={{
@@ -444,7 +450,7 @@ const QuotesExpirationCard = ({
                   animationTimingFunction: 'ease'
                 }}
               >
-                {expiringRate}
+                {missingDocsRate}
               </span>
               <span className="absolute top-[-2px] left-0 rate-symbol font-montserrat text-xs text-black font-normal tracking-[0.20px] w-2">
                 %
@@ -454,7 +460,7 @@ const QuotesExpirationCard = ({
           </div>
           <div className="expiration-right absolute top-14 left-0">
             <span className="expiration-total font-montserrat text-xs font-medium text-[#c7c7c7] tracking-[0.24px] whitespace-nowrap">
-              {info}: {expiringQuotes}
+              {info}: {missingDocsCount}
             </span>
           </div>
         </div>
@@ -476,8 +482,8 @@ const QuotesExpirationCard = ({
               <div 
                 className="expiring-indicator-wrapper flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-300"
                 style={{
-                  backgroundColor: isCardHovered ? 'rgba(34, 170, 34, 0.1)' : 'transparent',
-                  border: isCardHovered ? '1px solid rgba(34, 170, 34, 0.2)' : '1px solid transparent'
+                  backgroundColor: isCardHovered ? 'rgba(220, 53, 69, 0.1)' : 'transparent',
+                  border: isCardHovered ? '1px solid rgba(220, 53, 69, 0.2)' : '1px solid transparent'
                 }}
               >
                 <div 
@@ -489,11 +495,11 @@ const QuotesExpirationCard = ({
                 <span 
                   className="expiring-text font-montserrat text-xs font-medium transition-all duration-300"
                   style={{ 
-                    color: isCardHovered ? '#22AA22' : '#6f6f6f',
+                    color: isCardHovered ? '#DC3545' : '#6f6f6f',
                     fontWeight: isCardHovered ? 600 : 500
                   }}
                 >
-                  {sub}: {expiringQuotes}
+                  {sub}: {missingDocsCount}
                 </span>
               </div>
             </div>

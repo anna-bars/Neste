@@ -705,9 +705,9 @@ export default function ShipmentsPage() {
                 onTabChange={setActiveTab}
                 data={shipmentsData}
                 title='Docs Compliance'
-                info='Policies with ALL docs approved'
+                info='Policies w/ missing docs'
                 total='Total policies'
-                sub='Policies with ALL docs approved'
+                sub='Policies w/ missing docs'
                 percentageInfo='Docs Compliance'
               />
             </div>
@@ -797,9 +797,9 @@ export default function ShipmentsPage() {
               onTabChange={setActiveTab}
               data={shipmentsData}
               title='Docs Compliance'
-              info='Policies with ALL docs approved'
+              info='Policies w/ missing docs'
               total='Total policies'
-              sub='Policies with ALL docs approved'
+              sub='Policies w/ missing docs'
               percentageInfo='Docs Compliance'
             />
           </div>
@@ -839,9 +839,9 @@ export default function ShipmentsPage() {
                   onTabChange={setActiveTab}
                   data={shipmentsData}
                   title='Docs Compliance'
-                  info='Policies with ALL docs approved'
+                  info='Policies w/ missing docs'
                   total='Total policies'
-                  sub='Policies with ALL docs approved'
+                  sub='Policies w/ missing docs'
                   percentageInfo='Docs Compliance'
                 />
               </div>
