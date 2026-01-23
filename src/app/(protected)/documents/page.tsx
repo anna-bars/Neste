@@ -416,32 +416,10 @@ export default function DocumentsPage() {
             max-[1280px]:min-h-auto max-[1280px]:max-h-none max-[1280px]:row-start-1
             max-[1280px]:hidden
           ">
-            <div className="flex justify-end items-center gap-3 !h-[39px]">
-                  <button
-                    className="inline-flex items-center justify-center gap-[10px] px-4 py-2 h-[35.68px] bg-[#f8fbff] border border-[#ffffff30] rounded-[6px] font-poppins text-base font-normal text-black cursor-pointer whitespace-nowrap"
-                  >
-                    <img
-                      src="/quotes/download.svg"
-                      alt=""
-                      className="w-3 h-3 object-cover"
-                    />
-                    Download All Certificates
-                  </button>
-                </div>
+            
 
                 {/* Improve Your Quote Rate Card */}
-              <InfoWidget 
-                title="Improve Submission Quality"
-                rateValue={92}
-                description={
-                  <>
-                    Your documents are often Rejected due to
-                    <strong className="font-medium tracking-[0.03px]"> Low-Resolution Scans</strong>
-                  </>
-                }
-                perecntageInfo="Approved Submissions"
-              />
-           
+              
 
             
 
@@ -475,6 +453,19 @@ export default function DocumentsPage() {
                 typeLabels={quotesTypeLabels}
               />
             </div>
+
+            <InfoWidget 
+                title="Improve Submission Quality"
+                rateValue={92}
+                description={
+                  <>
+                    Your documents are often Rejected due to
+                    <strong className="font-medium tracking-[0.03px]"> Low-Resolution Scans</strong>
+                  </>
+                }
+                perecntageInfo="Approved Submissions"
+              />
+           
           </div>
 
           {/* Tablet View (768px - 1279px) - Three Widgets Side by Side */}
