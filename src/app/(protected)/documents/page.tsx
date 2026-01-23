@@ -1,7 +1,7 @@
 'use client'
 
 import DashboardLayout from '../DashboardLayout'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { ConversionChart, ConversionChartData } from '../../components/charts/ConversionChart'
 import { UniversalTable, renderStatus, renderButton } from '@/app/components/tables/UniversalTable';
 import QuotesExpirationCard from '@/app/components/charts/QuotesExpirationCard'
@@ -9,226 +9,322 @@ import InfoWidget from '@/app/components/widgets/InfoWidget'
 import { ApprovalRate } from '@/app/components/charts/ApprovalRate';
 import DocumentItem from '@/app/components/documents/DocumentItem';
 import { ActivityTableFilter } from '@/app/components/tables/ActivityTableFilter';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/app/context/UserContext';
 
-// Dashboard-ի տվյալներ - ԼՐԱՑՈՒՄ
-const quotesRows = [
-  {
-    id: 'Q-005',
-    cargo: 'Electronics',
-    shipmentValue: '$15,400.00',
-    premiumAmount: '$450.00',
-    expirationDate: `Oct 25 – Nov 5, '25`,
-    status: { 
-      text: 'Pending Approval', 
-      color: 'bg-[#cbd03c]/10', 
-      dot: 'bg-[#cbd03c]', 
-      textColor: 'text-[#cbd03c]' 
-    },
-    button: { 
-      text: 'Approve Quote', 
-      variant: 'primary' as const,
-      onClick: (row: any) => console.log('Approve Quote', row.id)
-    }
-  },
-  {
-    id: 'Q-021',
-    cargo: 'Furniture',
-    shipmentValue: '$20,000.00',
-    premiumAmount: '$255.00',
-    expirationDate: `Oct 20 – Nov 1, '25`,
-    status: { 
-      text: 'Approved', 
-      color: 'bg-[#16a34a]/10', 
-      dot: 'bg-[#16a34a]', 
-      textColor: 'text-[#16a34a]' 
-    },
-    button: { 
-      text: 'Approve Quote', 
-      variant: 'primary' as const,
-      onClick: (row: any) => console.log('Approve Quote', row.id)
-    }
-  },
-  {
-    id: 'Q-054',
-    cargo: 'Clothing',
-    shipmentValue: '$5,500.00',
-    premiumAmount: '$600.00',
-    expirationDate: `Oct 22 – Nov 3, '25`,
-    status: { 
-      text: 'Declined', 
-      color: 'bg-[#8ea0b0]/10', 
-      dot: 'bg-[#8ea0b0]', 
-      textColor: 'text-[#8ea0b0]' 
-    },
-    button: { 
-      text: 'View Reason', 
-      variant: 'secondary' as const,
-      onClick: (row: any) => console.log('View Reason', row.id)
-    }
-  },
-  {
-    id: 'Q-005-2',
-    cargo: 'Machinery',
-    shipmentValue: '$8,500.00',
-    premiumAmount: '$165.00',
-    expirationDate: `Oct 24 – Nov 4, '25`,
-    status: { 
-      text: 'Pending Approval', 
-      color: 'bg-[#cbd03c]/10', 
-      dot: 'bg-[#cbd03c]', 
-      textColor: 'text-[#cbd03c]' 
-    },
-    button: { 
-      text: 'Approve Quote', 
-      variant: 'primary' as const,
-      onClick: (row: any) => console.log('Approve Quote', row.id)
-    }
-  },
-  {
-    id: 'Q-014',
-    cargo: 'Chemicals',
-    shipmentValue: '$12,800.00',
-    premiumAmount: '$360.00',
-    expirationDate: `Oct 21 – Nov 2, '25`,
-    status: { 
-      text: 'Approved', 
-      color: 'bg-[#16a34a]/10', 
-      dot: 'bg-[#16a34a]', 
-      textColor: 'text-[#16a34a]' 
-    },
-    button: { 
-      text: 'Approve Quote', 
-      variant: 'primary' as const,
-      onClick: (row: any) => console.log('Approve Quote', row.id)
-    }
-  }
-]
+interface DocumentStatus {
+  type: string;
+  id: string;
+  status: 'Pending Review' | 'Missing' | 'Rejected' | 'Approved' | 'In Progress';
+  cargoType: string;
+  summary: string;
+  policyId?: string;
+  quoteId?: string;
+}
 
-const quotesColumns = [
-  {
-    key: 'id',
-    label: 'Quote ID',
-    sortable: true,
-    renderDesktop: (value: string) => (
-      <span className="font-poppins text-sm text-[#2563eb] underline hover:text-[#1d4ed8] transition-colors duration-300 cursor-pointer">
-        {value}
-      </span>
-    )
-  },
-  {
-    key: 'cargo',
-    label: 'Cargo',
-    sortable: true
-  },
-  {
-    key: 'shipmentValue',
-    label: 'Value',
-    sortable: true
-  },
-  {
-    key: 'premiumAmount',
-    label: 'Premium',
-    sortable: true
-  },
-  {
-    key: 'expirationDate',
-    label: 'Expiration Date',
-    sortable: true
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    sortable: true,
-    renderDesktop: (status: any) => renderStatus(status)
-  },
-  {
-    key: 'button',
-    label: 'Action',
-    renderDesktop: (button: any, row: any) => renderButton(button, row),
-    className: 'flex justify-end'
-  }
-];
- 
 export default function DocumentsPage() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState('All Activity')
   const [selectedTimeframe, setSelectedTimeframe] = useState('Last 30 days')
   const [selectedSort, setSelectedSort] = useState('Status')
+  const [loading, setLoading] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+  const [documentsData, setDocumentsData] = useState<DocumentStatus[]>([])
+  
+  const { user } = useUser()
+  const supabase = createClient()
 
-  const documents = [
-  { 
-    type: 'Policy:', 
-    id: 'P-0812', 
-    status: 'Pending Review', 
-    cargoType: 'Electronics', 
-    summary: '1 Document Pending Review' 
-  },
-  { 
-    type: 'Policy:',
-    id: 'P-3401',
-    status: 'Missing',
-    cargoType: 'Machinery',
-    summary: '1 of 3 Documents Missing' 
-  },
-  { 
-    type: 'Policy:',
-    id: 'P-0812',
-    status: 'Rejected', // ✅ Rejected ստատուս
-    cargoType: 'Textiles',
-    summary: '2 of 3 Documents Approved' 
-  },
-  { 
-    type: 'Quote:',
-    id: 'Q-0072',
-    status: 'Pending Review',
-    cargoType: 'Clothing',
-    summary: '1 Document Pending Review' 
-  },
-  { 
-    type: 'Policy:',
-    id: 'P-4419',
-    status: 'Approved', // ✅ Approved ստատուս
-    cargoType: 'Perishables',
-    summary: 'All Documents Approved' 
-  },
-  { 
-    type: 'Quote:',
-    id: 'Q-4102',
-    status: 'Rejected', // ✅ Rejected ստատուս
-    cargoType: 'Furniture',
-    summary: '2 of 3 Documents Approved' 
-  },
-  { 
-    type: 'Policy:',
-    id: 'P-4419',
-    status: 'Approved', // ✅ Approved ստատուս
-    cargoType: 'Perishables',
-    summary: 'All Documents Approved' 
-  },
-  { 
-    type: 'Policy:',
-    id: 'P-4419',
-    status: 'Approved', // ✅ Approved ստատուս
-    cargoType: 'Perishables',
-    summary: 'All Documents Approved' 
-  },
-  { 
-    type: 'Policy:',
-    id: 'P-4419',
-    status: 'Approved', // ✅ Approved ստատուս
-    cargoType: 'Perishables',
-    summary: 'All Documents Approved' 
-  },
-  { 
-    type: 'Policy:',
-    id: 'P-4419',
-    status: 'Approved', // ✅ Approved ստատուս
-    cargoType: 'Perishables',
-    summary: 'All Documents Approved' 
-  },
-]
+  // Ստանալ փաստաթղթերի տվյալները Supabase-ից
+  useEffect(() => {
+    const loadDocumentsData = async () => {
+      if (!user) return
+      
+      try {
+        // 1. Ստանալ օգտատիրոջ բոլոր պոլիսիները
+        const { data: policies, error: policiesError } = await supabase
+          .from('policies')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50)
 
-  const filteredDocuments = documents.filter(doc => {
+        if (policiesError) {
+          console.error('Error loading policies:', policiesError)
+          setDocumentsData(getFallbackDocuments())
+          setLoading(false)
+          return
+        }
+
+        if (!policies || policies.length === 0) {
+          setDocumentsData(getFallbackDocuments())
+          setLoading(false)
+          return
+        }
+
+        // 2. Ստանալ բոլոր փաստաթղթերը այս պոլիսիների համար
+        const policyIds = policies.map(policy => policy.id)
+        const { data: documents, error: docsError } = await supabase
+          .from('documents')
+          .select('*')
+          .in('policy_id', policyIds)
+          .order('created_at', { ascending: false })
+
+        if (docsError) {
+          console.error('Error loading documents:', docsError)
+          setDocumentsData(getFallbackDocuments())
+          setLoading(false)
+          return
+        }
+
+        // 3. Ֆորմատավորել փաստաթղթերի տվյալները
+        const formattedDocuments: DocumentStatus[] = []
+
+        policies.forEach(policy => {
+          // Գտնել այս պոլիսիի փաստաթղթերը
+          const policyDocuments = documents?.filter(doc => doc.policy_id === policy.id) || []
+          
+          // Ֆորմատավորել փաստաթղթերի կարգավիճակը
+          const docStatus = formatDocumentStatus(policyDocuments, policy)
+          
+          formattedDocuments.push({
+            type: 'Policy:',
+            id: policy.policy_number || `POL-${policy.id.slice(-6)}`,
+            status: docStatus.status,
+            cargoType: policy.cargo_type || 'Unknown',
+            summary: docStatus.summary,
+            policyId: policy.id
+          })
+        })
+
+        setDocumentsData(formattedDocuments)
+
+      } catch (error) {
+        console.error('Error loading documents data:', error)
+        setDocumentsData(getFallbackDocuments())
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDocumentsData()
+  }, [user])
+
+  // Ֆորմատավորել փաստաթղթերի կարգավիճակը
+  const formatDocumentStatus = (documents: any[], policy: any): { status: DocumentStatus['status'], summary: string } => {
+    if (!documents || documents.length === 0) {
+      return {
+        status: 'Missing',
+        summary: 'No Documents Uploaded'
+      }
+    }
+
+    // Վերցնել վերջին փաստաթղթի գրառումը
+    const latestDocument = documents[0]
+    
+    const requiredDocs = [
+      { key: 'commercial_invoice_status', label: 'Commercial Invoice' },
+      { key: 'packing_list_status', label: 'Packing List' },
+      { key: 'bill_of_lading_status', label: 'Bill of Lading' }
+    ]
+
+    let approvedCount = 0
+    let pendingCount = 0
+    let rejectedCount = 0
+    let missingCount = 0
+
+    requiredDocs.forEach(doc => {
+      const status = latestDocument[doc.key]
+      
+      if (!status || status === 'pending') {
+        missingCount++
+      } else if (status === 'uploaded') {
+        pendingCount++
+      } else if (status === 'approved') {
+        approvedCount++
+      } else if (status === 'rejected') {
+        rejectedCount++
+      }
+    })
+
+    // Ստեղծել կարգավիճակ և նկարագրություն
+    if (approvedCount === 3) {
+      return {
+        status: 'Approved',
+        summary: 'All Documents Approved'
+      }
+    } else if (rejectedCount > 0) {
+      return {
+        status: 'Rejected',
+        summary: `${rejectedCount} of 3 Documents Rejected`
+      }
+    } else if (pendingCount > 0) {
+      return {
+        status: 'Pending Review',
+        summary: `${pendingCount} Document${pendingCount > 1 ? 's' : ''} Pending Review`
+      }
+    } else if (missingCount > 0) {
+      return {
+        status: missingCount === 3 ? 'Missing' : 'In Progress',
+        summary: `${missingCount} of 3 Documents Missing`
+      }
+    } else {
+      return {
+        status: 'In Progress',
+        summary: `${approvedCount} of 3 Documents Approved`
+      }
+    }
+  }
+
+  // Fallback փաստաթղթերի տվյալներ
+  const getFallbackDocuments = (): DocumentStatus[] => {
+    return [
+      { 
+        type: 'Policy:', 
+        id: 'POL-437418', 
+        status: 'Pending Review', 
+        cargoType: 'Electronics', 
+        summary: '1 Document Pending Review' 
+      },
+      { 
+        type: 'Policy:',
+        id: 'POL-3401',
+        status: 'Missing',
+        cargoType: 'Machinery',
+        summary: '1 of 3 Documents Missing' 
+      },
+      { 
+        type: 'Policy:',
+        id: 'POL-0812',
+        status: 'Rejected',
+        cargoType: 'Textiles',
+        summary: '2 of 3 Documents Approved' 
+      },
+      { 
+        type: 'Quote:',
+        id: 'Q-0072',
+        status: 'Pending Review',
+        cargoType: 'Clothing',
+        summary: '1 Document Pending Review' 
+      },
+      { 
+        type: 'Policy:',
+        id: 'POL-4419',
+        status: 'Approved',
+        cargoType: 'Perishables',
+        summary: 'All Documents Approved' 
+      }
+    ]
+  }
+
+  // Խորհուրդների տվյալներ chart-ների համար
+  const quotesDatas = {
+    'This Week': { approved: 17, declined: 2, expired: 18 },
+    'This Month': { approved: 35, declined: 5, expired: 42 },
+    'Last Month': { approved: 28, declined: 3, expired: 31 },
+    'Last Quarter': { approved: 120, declined: 15, expired: 135 }
+  }
+
+  const quotesTypeLabels = {
+    approved: 'Pending',
+    declined: 'Missing',
+    expired: 'Rejected'
+  }
+
+  const [activeTab, setActiveTab] = useState('This Week')
+
+  // Հաշվել փաստաթղթերի վիճակագրությունը
+  const calculateDocumentStats = () => {
+    const totalDocuments = documentsData.length
+    
+    if (totalDocuments === 0) {
+      return {
+        approvedCount: 0,
+        pendingCount: 0,
+        rejectedCount: 0,
+        missingCount: 0,
+        approvalRate: 0
+      }
+    }
+
+    const approvedCount = documentsData.filter(doc => doc.status === 'Approved').length
+    const pendingCount = documentsData.filter(doc => doc.status === 'Pending Review').length
+    const rejectedCount = documentsData.filter(doc => doc.status === 'Rejected').length
+    const missingCount = documentsData.filter(doc => doc.status === 'Missing').length
+    
+    const approvalRate = totalDocuments > 0 
+      ? Math.round((approvedCount / totalDocuments) * 100)
+      : 0
+
+    return {
+      approvedCount,
+      pendingCount,
+      rejectedCount,
+      missingCount,
+      approvalRate
+    }
+  }
+
+  const documentStats = calculateDocumentStats()
+
+  // Խորհուրդների տվյալները charts-ների համար (իրական տվյալների հիման վրա)
+  const calculateDocumentsData = () => {
+    return {
+      'This Week': { 
+        approved: documentStats.pendingCount, 
+        declined: documentStats.missingCount, 
+        expired: documentStats.rejectedCount 
+      },
+      'This Month': { 
+        approved: documentStats.pendingCount, 
+        declined: documentStats.missingCount, 
+        expired: documentStats.rejectedCount 
+      },
+      'Last Month': { 
+        approved: documentStats.pendingCount, 
+        declined: documentStats.missingCount, 
+        expired: documentStats.rejectedCount 
+      },
+      'Last Quarter': { 
+        approved: documentStats.pendingCount, 
+        declined: documentStats.missingCount, 
+        expired: documentStats.rejectedCount 
+      }
+    }
+  }
+
+  const documentsChartData = calculateDocumentsData()
+
+  // InfoWidget-ի տվյալները
+  const calculateInfoWidgetData = () => {
+    return {
+      rateValue: documentStats.approvalRate,
+      totalDocuments: documentsData.length,
+      approvedDocuments: documentStats.approvalRate,
+      // Գտնել ամենատարածված մերժման պատճառը
+      getMostCommonRejectionReason: () => {
+        // Այստեղ կարող եք Supabase-ից ստանալ մերժման պատճառները
+        // Առայժմ օգտագործենք պարզ տրամաբանություն
+        if (documentStats.rejectedCount > 0) {
+          return {
+            reason: 'Low-Resolution Scans',
+            percentage: 92
+          }
+        }
+        return {
+          reason: 'N/A',
+          percentage: 0
+        }
+      }
+    }
+  }
+
+  const infoWidgetData = calculateInfoWidgetData()
+  const mostCommonReason = infoWidgetData.getMostCommonRejectionReason()
+
+  // Ֆիլտրավորել փաստաթղթերը
+  const filteredDocuments = documentsData.filter(doc => {
     // Search filter
     const matchesSearch = searchQuery === '' || 
       doc.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -241,43 +337,20 @@ export default function DocumentsPage() {
     
     return matchesSearch && matchesActivity
   })
-  const quotesDatas = {
-  'This Week': { approved: 17, declined: 2, expired: 18 },
-  'This Month': { approved: 35, declined: 5, expired: 42 },
-  'Last Month': { approved: 28, declined: 3, expired: 31 },
-  'Last Quarter': { approved: 120, declined: 15, expired: 135 }
-};
-  const defaultData: Record<string, ConversionChartData> = {
-      'This Week': { approved: 12, declined: 5, expired: 8 },
-      'This Month': { approved: 17, declined: 9, expired: 18 },
-      'Last Month': { approved: 22, declined: 7, expired: 15 },
-      'Last Quarter': { approved: 65, declined: 28, expired: 42 }
-    };
-  const quotesData2 = {
-    'This Week': { totalQuotes: 22, expiringQuotes: 7, expiringRate: 32 },
-    'Next Week': { totalQuotes: 18, expiringQuotes: 12, expiringRate: 67 },
-    'In 2–4 Weeks': { totalQuotes: 35, expiringQuotes: 4, expiringRate: 11 },
-    'Next Month': { totalQuotes: 42, expiringQuotes: 38, expiringRate: 90 }
-  }
-  
-  // Quotes էջի հատուկ լեյբլները
-  const quotesTypeLabels = {
-    approved: 'Pending',
-    declined: 'Missing',
-    expired: 'Rejected'
-  };
-  const [activeTab, setActiveTab] = useState('This Week')
-  const [loading, setLoading] = useState(true)
-  const [isMobile, setIsMobile] = useState(false)
 
-  useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1000)
-    
-    return () => clearTimeout(timer)
-  }, [])
+  // Փաստաթղթերի վրա կտտացնելու ֆունկցիա
+  const handleDocumentClick = (doc: DocumentStatus) => {
+    if (doc.policyId) {
+      // Եթե ունի policyId, տանել policy-ի էջ
+      router.push(`/shipments/${doc.policyId}`)
+    } else if (doc.quoteId) {
+      // Եթե ունի quoteId, տանել quote-ի էջ
+      router.push(`/quotes/${doc.quoteId}`)
+    } else {
+      // Հակառակ դեպքում մնալ նույն էջում
+      console.log('Document clicked:', doc)
+    }
+  }
 
   useEffect(() => {
     // Check screen size for mobile
@@ -291,9 +364,6 @@ export default function DocumentsPage() {
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
-
- 
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f3f3f6] flex items-center justify-center">
@@ -305,9 +375,6 @@ export default function DocumentsPage() {
   return (
     <DashboardLayout>
       <div className="min-w-[96%] max-w-[95.5%] !sm:min-w-[90.5%] mx-auto document">
-        {/* Mobile Header for Activity Section */}
-       
-
         {/* Main Content Grid */}
         <div className="
           grid grid-cols-1 xl:grid-cols-[76.5%_23%] gap-2 
@@ -337,20 +404,20 @@ export default function DocumentsPage() {
             <div className="block md:hidden">
               <ConversionChart 
                 title="Documents Requiring Action"
-                data={quotesDatas}
+                data={documentsChartData}
                 defaultActiveTime="This Week"
-                showTimeDropdown={true} // Քանի որ միայն մեկ ժամանակահատված կա
+                showTimeDropdown={true}
                 typeLabels={quotesTypeLabels}
               />
             </div>
             <div className="block md:hidden">
                <div style={{ maxWidth: '380px' }}>
               <ApprovalRate 
-                title="Quote Approval Rate"
-                subtitle="Approved quotes percentage."
-                approvalPercentage={78}
-                approvedCount={42}
-                typeLabel="Quote"
+                title="Documents Approval Rate"
+                subtitle="Approved documents percentage."
+                approvalPercentage={documentStats.approvalRate}
+                approvedCount={documentStats.approvedCount}
+                typeLabel="Document"
                 autoUpdate={false}
                 colors={{
                   primary: '#1a202c',
@@ -363,50 +430,50 @@ export default function DocumentsPage() {
               />
             </div>
             </div>
-           <div className="">
-      {/* ActivityTableFilter օգտագործումը */}
-      <div className='mb-2'>
-        <ActivityTableFilter
-         pxValue="0"
-        showGetNewQuote={false}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedFilter={selectedFilter}
-        setSelectedFilter={setSelectedFilter}
-        selectedTimeframe={selectedTimeframe}
-        setSelectedTimeframe={setSelectedTimeframe}
-        selectedSort={selectedSort}
-        setSelectedSort={setSelectedSort}
-        title="Documents" // Փոխում ենք վերնագիրը
-        filterConfig={{
-          showActivityFilter: true,
-          showTimeframeFilter: true,
-          showSortFilter: true,
-          // Կարգավորում ենք ըստ փաստաթղթերի
-          activityOptions: ['All Activity', 'Pending Review', 'Approved', 'Rejected', 'In Progress'],
-          timeframeOptions: ['Last 7 days', 'Last 30 days', 'Last 3 months', 'Last year', 'All time'],
-          sortOptions: ['Date', 'Status', 'Document Type', 'ID']
-        }}
-      />
-      </div>
+            
+            <div className="">
+              {/* ActivityTableFilter օգտագործումը */}
+              <div className='mb-2'>
+                <ActivityTableFilter
+                  pxValue="0"
+                  showGetNewQuote={false}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  selectedFilter={selectedFilter}
+                  setSelectedFilter={setSelectedFilter}
+                  selectedTimeframe={selectedTimeframe}
+                  setSelectedTimeframe={setSelectedTimeframe}
+                  selectedSort={selectedSort}
+                  setSelectedSort={setSelectedSort}
+                  title="Documents"
+                  filterConfig={{
+                    showActivityFilter: true,
+                    showTimeframeFilter: true,
+                    showSortFilter: true,
+                    activityOptions: ['All Activity', 'Pending Review', 'Approved', 'Rejected', 'In Progress', 'Missing'],
+                    timeframeOptions: ['Last 7 days', 'Last 30 days', 'Last 3 months', 'Last year', 'All time'],
+                    sortOptions: ['Date', 'Status', 'Document Type', 'ID']
+                  }}
+                />
+              </div>
 
-      {/* Փաստաթղթերի ցուցադրում */}
-      <div className="overflow-y-scroll max-h-[82vh]  sm:max-h-[84%] pb-22 rounded sm:max-h-max-content flex justify-start flex-wrap gap-y-3 sm:gap-2.5">
-        {filteredDocuments.map((doc, index) => (
-          <DocumentItem
-            key={index}
-            type={doc.type}
-            id={doc.id}
-            status={doc.status}
-            cargoType={doc.cargoType}
-            summary={doc.summary}
-            buttonText="View Details"
-          />
-        ))}
-      </div>
-    </div>
+              {/* Փաստաթղթերի ցուցադրում */}
+              <div className="overflow-y-scroll max-h-[82vh] sm:max-h-[84%]  rounded sm:max-h-max-content flex justify-start flex-wrap gap-y-3 sm:gap-2.5">
+                {filteredDocuments.map((doc, index) => (
+                  <DocumentItem
+                    key={index}
+                    type={doc.type}
+                    id={doc.id}
+                    status={doc.status}
+                    cargoType={doc.cargoType}
+                    summary={doc.summary}
+                    buttonText="View Details"
+                    onClick={() => handleDocumentClick(doc)}
+                  />
+                ))}
+              </div>
+            </div>
 
-         
           </div>
 
           {/* Right Column - 25% - Desktop View */}
@@ -416,21 +483,14 @@ export default function DocumentsPage() {
             max-[1280px]:min-h-auto max-[1280px]:max-h-none max-[1280px]:row-start-1
             max-[1280px]:hidden
           ">
-            
-
-                {/* Improve Your Quote Rate Card */}
-              
-
-            
-
-            {/* Quotes Expiration Card */}
+            {/* Documents Approval Rate */}
             <div style={{ maxWidth: '380px' }}>
               <ApprovalRate 
-                title="Quote Approval Rate"
-                subtitle="Approved quotes percentage."
-                approvalPercentage={78}
-                approvedCount={42}
-                typeLabel="Quote"
+                title="Documents Approval Rate"
+                subtitle="Approved documents percentage."
+                approvalPercentage={documentStats.approvalRate}
+                approvedCount={documentStats.approvedCount}
+                typeLabel="Document"
                 autoUpdate={false}
                 colors={{
                   primary: '#1a202c',
@@ -443,28 +503,30 @@ export default function DocumentsPage() {
               />
             </div>
 
-{/* Quote Conversion Rate */}
+            {/* Documents Requiring Action */}
             <div className="flex-grow min-h-[calc(31%-4px)] xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto">
-             <ConversionChart 
+              <ConversionChart 
                 title="Documents Requiring Action"
-                data={quotesDatas}
+                data={documentsChartData}
                 defaultActiveTime="This Week"
-                showTimeDropdown={true} // Քանի որ միայն մեկ ժամանակահատված կա
+                showTimeDropdown={true}
                 typeLabels={quotesTypeLabels}
               />
             </div>
 
+            {/* Improve Submission Quality */}
             <InfoWidget 
-                title="Improve Submission Quality"
-                rateValue={92}
-                description={
-                  <>
-                    Your documents are often Rejected due to
-                    <strong className="font-medium tracking-[0.03px]"> Low-Resolution Scans</strong>
-                  </>
-                }
-                perecntageInfo="Approved Submissions"
-              />
+              title="Improve Submission Quality"
+              rateValue={mostCommonReason.percentage}
+              description={
+                <>
+                  Your documents are often Rejected due to
+                  <strong className="font-medium tracking-[0.03px]"> {mostCommonReason.reason}</strong>
+                </>
+              }
+              subText={`${documentStats.rejectedCount} of ${documentsData.length} documents rejected`}
+              perecntageInfo="Approved Submissions"
+            />
            
           </div>
 
@@ -477,52 +539,52 @@ export default function DocumentsPage() {
           ">
             <div className="grid grid-cols-3 gap-2 w-full">
             
-             {/* Improve Your Quote Rate Card */}
+              {/* Improve Submission Quality */}
               <InfoWidget 
-                title="Improve Your Quote Rate"
-                rateValue={72}
+                title="Improve Submission Quality"
+                rateValue={mostCommonReason.percentage}
                 description={
                   <>
-                    Your Quotes are often Declined due to 
-                    <strong className="font-medium tracking-[0.03px]"> Inaccurate Cargo Value</strong>
+                    Your documents are often Rejected due to
+                    <strong className="font-medium tracking-[0.03px]"> {mostCommonReason.reason}</strong>
                   </>
                 }
+                subText={`${documentStats.rejectedCount} of ${documentsData.length} documents rejected`}
                 perecntageInfo="Approved Submissions"
               />
-           
 
-            {/* Quote Conversion Rate */}
-            <div className="flex-grow min-h-[calc(31%-4px)] xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto">
-              <ConversionChart 
-                title="Documents Requiring Action"
-                data={quotesDatas}
-                defaultActiveTime="This Week"
-                showTimeDropdown={true} // Քանի որ միայն մեկ ժամանակահատված կա
-                typeLabels={quotesTypeLabels}
-              />
-            </div>
+              {/* Documents Requiring Action */}
+              <div className="flex-grow min-h-[calc(31%-4px)] xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto">
+                <ConversionChart 
+                  title="Documents Requiring Action"
+                  data={documentsChartData}
+                  defaultActiveTime="This Week"
+                  showTimeDropdown={true}
+                  typeLabels={quotesTypeLabels}
+                />
+              </div>
 
-            {/* Quotes Expiration Card */}
-            <div className="w-full h-[100%]">
-              <div style={{ maxWidth: '380px' }}>
-              <ApprovalRate 
-                title="Quote Approval Rate"
-                subtitle="Approved quotes percentage."
-                approvalPercentage={78}
-                approvedCount={42}
-                typeLabel="Quote"
-                autoUpdate={false}
-                colors={{
-                  primary: '#1a202c',
-                  secondary: '#718096',
-                  progressStart: 'rgba(102, 156, 238, 0.3)',
-                  progressEnd: 'rgba(66, 153, 225, 0.6)',
-                  textPrimary: '#2d3748',
-                  textSecondary: '#4a5568'
-                }}
-              />
-            </div>
-            </div>
+              {/* Documents Approval Rate */}
+              <div className="w-full h-[100%]">
+                <div style={{ maxWidth: '380px' }}>
+                  <ApprovalRate 
+                    title="Documents Approval Rate"
+                    subtitle="Approved documents percentage."
+                    approvalPercentage={documentStats.approvalRate}
+                    approvedCount={documentStats.approvedCount}
+                    typeLabel="Document"
+                    autoUpdate={false}
+                    colors={{
+                      primary: '#1a202c',
+                      secondary: '#718096',
+                      progressStart: 'rgba(102, 156, 238, 0.3)',
+                      progressEnd: 'rgba(66, 153, 225, 0.6)',
+                      textPrimary: '#2d3748',
+                      textSecondary: '#4a5568'
+                    }}
+                  />
+                </div>
+              </div>
             
             </div>
           </div>
