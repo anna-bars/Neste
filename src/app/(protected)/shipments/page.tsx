@@ -347,24 +347,27 @@ export default function ShipmentsPage() {
   }
 
   // Policy գործողությունների մշակում
-  const handlePolicyAction = (row: any, policy: any) => {
-    const policyId = policy.id
-    
-    switch (policy.status) {
-      case 'active':
-        if (policy.insurance_certificate_url) {
-          window.open(policy.insurance_certificate_url, '_blank')
-        } else {
-          console.log('Download certificate for:', policyId)
-        }
-        break
-      case 'pending':
-        console.log('View pending policy:', policyId)
-        break
-      default:
-        console.log('View policy details:', policyId)
-    }
+// Policy գործողությունների մշակում - ՓՈԽԱՐԵՆՔ
+const handlePolicyAction = (row: any, policy: any) => {
+  const policyId = policy.id
+  
+  // Որոշել ուր տանել՝ կախված status-ից
+  switch (policy.status) {
+    case 'active':
+      // Եթե ակտիվ է, տանել policy-ի դետալների էջ
+      window.location.href = `/shipments/${policyId}`
+      break
+    case 'pending':
+    case 'draft':
+    case 'submitted':
+      // Եթե pending կամ այլ status է, նաև տանել policy-ի էջ
+      window.location.href = `/shipments/${policyId}`
+      break
+    default:
+      // Ամեն դեպքում տանել policy-ի էջ
+      window.location.href = `/shipments/${policyId}`
   }
+}
 
   // Fallback տվյալներ
   const getFallbackData = () => {
