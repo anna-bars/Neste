@@ -47,6 +47,22 @@ export const PolicyTimelineWidget: React.FC<PolicyTimelineWidgetProps> = ({
     }
   }, [isHovered, percentage]);
 
+  // Ստուգել 0% կամ 100% դեպքերը - ավելի խիստ պայմաններ
+  const showPointer = animatedPercentage > 1 && animatedPercentage < 99;
+
+  // Հաշվել triangle pointer-ի դիրքը (պարզեցված տարբերակ)
+  const getTriangleLeftPosition = () => {
+    // Սահմանափակել արժեքը 0-100 սահմաններում
+    const clampedPercentage = Math.max(0, Math.min(100, animatedPercentage));
+    
+    // Եթե 0% կամ 100%, տեղադրել եզրերին
+    if (clampedPercentage === 0) return '-13.5px';
+    if (clampedPercentage === 100) return 'calc(100% - 13.5px)';
+    
+    // Հաշվել նորմալ դիրքը
+    return `calc(${clampedPercentage}% - 13.5px)`;
+  };
+
   return (
     <div 
       className="
@@ -220,17 +236,18 @@ export const PolicyTimelineWidget: React.FC<PolicyTimelineWidgetProps> = ({
             />
           </div>
 
-          {/* Triangle Pointer with Enhanced Hover */}
+          {/* Triangle Pointer with Enhanced Hover - Using CSS for visibility */}
           <div 
-            className="
+            className={`
               absolute top-[-1px] w-[27px] h-[25px]
               pointer-events-none transition-all duration-700 ease-out
               max-[1024px]:w-[24px] max-[1024px]:h-[22px]
               max-[480px]:w-[20px] max-[480px]:h-[18px]
               group-hover:scale-105
-            "
+              ${showPointer ? 'visible opacity-100' : 'invisible opacity-0'}
+            `}
             style={{ 
-              left: `calc(${animatedPercentage}% - ${window.innerWidth < 480 ? 10 : window.innerWidth < 1024 ? 12 : 13.5}px)`,
+              left: getTriangleLeftPosition(),
             }}
           >
             <img 
@@ -244,14 +261,14 @@ export const PolicyTimelineWidget: React.FC<PolicyTimelineWidgetProps> = ({
             />
           </div>
 
-          {/* Pulse Effect Container */}
+          {/* Pulse Effect Container - Also hide when at edges */}
           <div 
-            className="
+            className={`
               absolute top-[10px] h-[4px]
               rounded-[58px]
               transition-all duration-300 ease-out
-              opacity-0 group-hover:opacity-100
-            "
+              ${showPointer ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'}
+            `}
             style={{ 
               width: `${animatedPercentage}%`,
               background: 'linear-gradient(90deg, rgba(252,220,162,0.3) 0%, rgba(252,220,162,0.6) 50%, rgba(252,220,162,0.3) 100%)',
