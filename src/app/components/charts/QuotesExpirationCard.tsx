@@ -455,7 +455,6 @@ const QuotesExpirationCard = ({
               <span className="absolute top-[-2px] left-0 rate-symbol font-montserrat text-xs text-black font-normal tracking-[0.20px] w-2">
                 %
               </span>
-              <span className="text-[#C8C8C8] text-[12px] ml-[16px]">{percentageInfo}</span>
             </div>
           </div>
           <div className="expiration-right absolute top-14 left-0">
