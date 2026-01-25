@@ -154,55 +154,64 @@ export default function QuotesPage() {
     
     return baseConfig;
   };
-// Ինֆո վիջեթի տվյալները
-const calculateInfoWidgetData = () => {
-  const totalQuotes = quotesRows.length;
-  const rejectedQuotes = quotesRows.filter(q => q.quoteStatus === 'rejected').length;
-  
-  // Հաշվել rejection rate (որքան տոկոս են rejected)
-  const rejectionRate = totalQuotes > 0 
-    ? Math.round((rejectedQuotes / totalQuotes) * 100) 
-    : 0;
-  
-  // Գտնել ամենահաճախակի մերժման պատճառը
-  const getMostCommonRejectionReason = () => {
-    // Այստեղ կարող եք ավելացնել իրական տվյալներ ձեր Supabase-ից
-    // Այժմ օգտագործենք պարզ տրամաբանություն
-    if (rejectedQuotes > 0) {
-      // Այս օրինակում ասում ենք, որ մերժումների 72%-ը Inaccurate Cargo Value-ի պատճառով է
+
+  // Ինֆո վիջեթի տվյալները
+  const calculateInfoWidgetData = () => {
+    const totalQuotes = quotesRows.length;
+    const rejectedQuotes = quotesRows.filter(q => q.quoteStatus === 'rejected').length;
+    
+    // Հաշվել rejection rate (որքան տոկոս են rejected)
+    const rejectionRate = totalQuotes > 0 
+      ? Math.round((rejectedQuotes / totalQuotes) * 100) 
+      : 0;
+    
+    // Հաշվել improvement rate (100 - rejectionRate)
+    // Եթե ոչ մի quote չկա, ցույց տալ 0%
+    const improvementRate = totalQuotes > 0 ? 100 - rejectionRate : 0;
+    
+    // Գտնել ամենահաճախակի մերժման պատճառը
+    const getMostCommonRejectionReason = () => {
+      // Եթե quote չկա, ցույց տալ հատուկ մեսջ
+      if (totalQuotes === 0) {
+        return {
+          reason: 'No quotes yet',
+          percentage: 0,
+          otherReasons: []
+        };
+      }
+      
+      if (rejectedQuotes > 0) {
+        // Այս օրինակում ասում ենք, որ մերժումների 72%-ը Inaccurate Cargo Value-ի պատճառով է
+        return {
+          reason: 'Inaccurate Cargo Value',
+          percentage: 72,
+          otherReasons: [
+            'Missing Documentation',
+            'Incorrect Shipping Details',
+            'Risk Assessment Issues'
+          ]
+        };
+      }
       return {
-        reason: 'Inaccurate Cargo Value',
-        percentage: 72,
-        // Կարող եք ավելացնել այլ պատճառներ
-        otherReasons: [
-          'Missing Documentation',
-          'Incorrect Shipping Details',
-          'Risk Assessment Issues'
-        ]
+        reason: 'All quotes approved',
+        percentage: 0,
+        otherReasons: []
       };
-    }
+    };
+    
+    const mostCommonReason = getMostCommonRejectionReason();
+    
     return {
-      reason: 'N/A',
-      percentage: 0,
-      otherReasons: []
+      rateValue: improvementRate,
+      totalQuotes,
+      rejectedQuotes,
+      rejectionRate,
+      mostCommonReason
     };
   };
-  
-  const mostCommonReason = getMostCommonRejectionReason();
-  
-  // Հաշվել improvement rate (100 - rejectionRate)
-  const improvementRate = 100 - rejectionRate;
-  
-  return {
-    rateValue: improvementRate, // Ցույց տալ improvement rate
-    totalQuotes,
-    rejectedQuotes,
-    rejectionRate,
-    mostCommonReason
-  };
-};
 
-const infoWidgetData = calculateInfoWidgetData();
+  const infoWidgetData = calculateInfoWidgetData();
+  
   const formatQuoteId = (id: string, quoteNumber?: string) => {
     if (quoteNumber) {
       return quoteNumber;
@@ -350,8 +359,7 @@ const infoWidgetData = calculateInfoWidgetData();
 
         if (quotesError) {
           console.error('Error loading quotes:', quotesError)
-          // Օգտագործել fallback տվյալները
-          setQuotesRows(getFallbackData())
+          setQuotesRows([])
           return
         }
 
@@ -359,13 +367,12 @@ const infoWidgetData = calculateInfoWidgetData();
           const formattedData = formatQuotesData(quotes)
           setQuotesRows(formattedData)
         } else {
-          // Օգտագործել fallback տվյալները, եթե quotes չկան
-          setQuotesRows(getFallbackData())
+          setQuotesRows([])
         }
 
       } catch (error) {
         console.error('Error loading quotes data:', error)
-        setQuotesRows(getFallbackData())
+        setQuotesRows([])
       } finally {
         setLoading(false)
       }
@@ -374,178 +381,170 @@ const infoWidgetData = calculateInfoWidgetData();
     loadQuotesData()
   }, [user])
 
-  // Fallback տվյալներ եթե Supabase-ից տվյալներ չկան
-  const getFallbackData = () => {
-    return []
+  // Quotes էջի հատուկ լեյբլները
+  const quotesTypeLabels = {
+    approved: 'Converted',
+    declined: 'Pending',
+    expired: 'Declined'
   };
 
- // Quotes էջի հատուկ լեյբլները - ՓՈԽԱՐԵԼ
-const quotesTypeLabels = {
-  approved: 'Converted',  // approved & paid -> կանաչ
-  declined: 'Pending',    // approved բայց not paid -> դեղին
-  expired: 'Declined'     // rejected -> կարմիր
-};
+  // Quotes տվյալները chart-ների համար
+  const quotesData = {
+    'This Week': { 
+      approved: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= weekAgo;
+      }).length,
+      declined: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= weekAgo;
+      }).length,
+      expired: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return q.quoteStatus === 'rejected' && date >= weekAgo;
+      }).length
+    },
+    'This Month': { 
+      approved: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= monthAgo;
+      }).length,
+      declined: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= monthAgo;
+      }).length,
+      expired: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return q.quoteStatus === 'rejected' && date >= monthAgo;
+      }).length
+    },
+    'Last Month': { 
+      approved: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const currentMonth = new Date();
+        const lastMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0);
+        return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= lastMonthStart && date <= lastMonthEnd;
+      }).length,
+      declined: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const currentMonth = new Date();
+        const lastMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0);
+        return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= lastMonthStart && date <= lastMonthEnd;
+      }).length,
+      expired: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const currentMonth = new Date();
+        const lastMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0);
+        return q.quoteStatus === 'rejected' && date >= lastMonthStart && date <= lastMonthEnd;
+      }).length
+    },
+    'Last Quarter': { 
+      approved: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const now = new Date();
+        const quarterAgo = new Date(now);
+        quarterAgo.setMonth(now.getMonth() - 3);
+        return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= quarterAgo;
+      }).length,
+      declined: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const now = new Date();
+        const quarterAgo = new Date(now);
+        quarterAgo.setMonth(now.getMonth() - 3);
+        return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= quarterAgo;
+      }).length,
+      expired: quotesRows.filter(q => {
+        const date = new Date(q.rawData?.created_at);
+        const now = new Date();
+        const quarterAgo = new Date(now);
+        quarterAgo.setMonth(now.getMonth() - 3);
+        return q.quoteStatus === 'rejected' && date >= quarterAgo;
+      }).length
+    }
+  };
 
-// Quotes տվյալները chart-ների համար - ՓՈԽԱՐԵԼ
-// Փոխել quotesData-ն բազմաթիվ ժամանակահատվածների համար
-const quotesData = {
-  'This Week': { 
-    // Converted: approved & paid (կանաչ)
-    approved: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= weekAgo;
-    }).length,
-    // Pending: approved բայց not paid (դեղին)
-    declined: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= weekAgo;
-    }).length,
-    // Declined: rejected (կարմիր)
-    expired: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return q.quoteStatus === 'rejected' && date >= weekAgo;
-    }).length
-  },
-  'This Month': { 
-    approved: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const monthAgo = new Date();
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= monthAgo;
-    }).length,
-    declined: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const monthAgo = new Date();
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= monthAgo;
-    }).length,
-    expired: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const monthAgo = new Date();
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return q.quoteStatus === 'rejected' && date >= monthAgo;
-    }).length
-  },
-  'Last Month': { 
-    approved: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const currentMonth = new Date();
-      const lastMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0);
-      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= lastMonthStart && date <= lastMonthEnd;
-    }).length,
-    declined: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const currentMonth = new Date();
-      const lastMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0);
-      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= lastMonthStart && date <= lastMonthEnd;
-    }).length,
-    expired: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const currentMonth = new Date();
-      const lastMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0);
-      return q.quoteStatus === 'rejected' && date >= lastMonthStart && date <= lastMonthEnd;
-    }).length
-  },
-  'Last Quarter': { 
-    approved: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const now = new Date();
-      const quarterAgo = new Date(now);
-      quarterAgo.setMonth(now.getMonth() - 3);
-      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid' && date >= quarterAgo;
-    }).length,
-    declined: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const now = new Date();
-      const quarterAgo = new Date(now);
-      quarterAgo.setMonth(now.getMonth() - 3);
-      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid' && date >= quarterAgo;
-    }).length,
-    expired: quotesRows.filter(q => {
-      const date = new Date(q.rawData?.created_at);
-      const now = new Date();
-      const quarterAgo = new Date(now);
-      quarterAgo.setMonth(now.getMonth() - 3);
-      return q.quoteStatus === 'rejected' && date >= quarterAgo;
-    }).length
-  }
-};
-// ՓՈԽԱՐԵԼ նաև գույները quotesData-ի համար
-const quotesChartColors = {
-  approved: { start: '#accff0', end: '#66ACEE' }, // Converted: բաց կանաչից մուգ կանաչ
-  declined: { start: '#F8E2BE', end: '#EEDE66' }, // Pending: դեղին/նարնջագույն
-  expired: { start: '#F8BEBE', end: '#EE6666' }   // Declined: կարմիր
-};
-// Փոփոխենք quotesData2 օբյեկտը:
-// Quotes էջի համար տարբեր tabs-երի տվյալներ
-const quotesData2 = {
-  'This Week': { 
-    totalQuotes: quotesRows.length, 
-    expiringQuotes: quotesRows.filter(q => {
-      // This Week: Հաշվել approved և paid quote-ները (converted)
-      const isApprovedPaid = q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
-      // Ավելացնել նաև այն quote-ները, որոնք submitted են վերջին 7 օրվա ընթացքում
-      const isRecent = q.rawData?.created_at ? 
-        (Date.now() - new Date(q.rawData.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : 
-        false;
-      return (isApprovedPaid && isRecent) || 
-             (q.quoteStatus === 'submitted' && isRecent) || 
-             (q.quoteStatus === 'under_review' && isRecent);
-    }).length, 
-    expiringRate: Math.round((quotesRows.filter(q => {
-      const isApprovedPaid = q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
-      const isRecent = q.rawData?.created_at ? 
-        (Date.now() - new Date(q.rawData.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : 
-        false;
-      return (isApprovedPaid && isRecent) || 
-             (q.quoteStatus === 'submitted' && isRecent) || 
-             (q.quoteStatus === 'under_review' && isRecent);
-    }).length / Math.max(quotesRows.length, 1)) * 100) || 0 
-  },
-  'Next Week': { 
-    totalQuotes: quotesRows.length, 
-    expiringQuotes: quotesRows.filter(q => {
-      // Next Week: Հաշվել այն quote-ները որոնք approved են բայց դեռ not paid
-      const isApprovedNotPaid = q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
-      
-      // Ավելացնել նաև այն quote-ները որոնք պետք է վճարվեն հաջորդ 7 օրվա ընթացքում
-      const hasPaymentDeadline = q.rawData?.quote_expires_at || q.rawData?.coverage_end_date;
-      let isPaymentDueSoon = false;
-      
-      if (hasPaymentDeadline) {
-        const paymentDate = new Date(q.rawData.quote_expires_at || q.rawData.coverage_end_date);
-        const now = new Date();
-        const daysUntilPayment = Math.ceil((paymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        isPaymentDueSoon = daysUntilPayment > 0 && daysUntilPayment <= 7;
-      }
-      
-      return isApprovedNotPaid || (q.quoteStatus === 'pay_to_activate') || isPaymentDueSoon;
-    }).length, 
-    expiringRate: Math.round((quotesRows.filter(q => {
-      const isApprovedNotPaid = q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
-      const hasPaymentDeadline = q.rawData?.quote_expires_at || q.rawData?.coverage_end_date;
-      let isPaymentDueSoon = false;
-      
-      if (hasPaymentDeadline) {
-        const paymentDate = new Date(q.rawData.quote_expires_at || q.rawData.coverage_end_date);
-        const now = new Date();
-        const daysUntilPayment = Math.ceil((paymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        isPaymentDueSoon = daysUntilPayment > 0 && daysUntilPayment <= 7;
-      }
-      
-      return isApprovedNotPaid || (q.quoteStatus === 'pay_to_activate') || isPaymentDueSoon;
-    }).length / Math.max(quotesRows.length, 1)) * 100) || 0 
-  }
-};
+  // Գույները quotesData-ի համար
+  const quotesChartColors = {
+    approved: { start: '#accff0', end: '#66ACEE' },
+    declined: { start: '#F8E2BE', end: '#EEDE66' },
+    expired: { start: '#F8BEBE', end: '#EE6666' }
+  };
+
+  // Quotes էջի համար տարբեր tabs-երի տվյալներ
+  const quotesData2 = {
+    'This Week': { 
+      totalQuotes: quotesRows.length, 
+      expiringQuotes: quotesRows.filter(q => {
+        const isApprovedPaid = q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
+        const isRecent = q.rawData?.created_at ? 
+          (Date.now() - new Date(q.rawData.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : 
+          false;
+        return (isApprovedPaid && isRecent) || 
+               (q.quoteStatus === 'submitted' && isRecent) || 
+               (q.quoteStatus === 'under_review' && isRecent);
+      }).length, 
+      expiringRate: quotesRows.length > 0 
+        ? Math.round((quotesRows.filter(q => {
+            const isApprovedPaid = q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
+            const isRecent = q.rawData?.created_at ? 
+              (Date.now() - new Date(q.rawData.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : 
+              false;
+            return (isApprovedPaid && isRecent) || 
+                   (q.quoteStatus === 'submitted' && isRecent) || 
+                   (q.quoteStatus === 'under_review' && isRecent);
+          }).length / quotesRows.length) * 100) 
+        : 0
+    },
+    'Next Week': { 
+      totalQuotes: quotesRows.length, 
+      expiringQuotes: quotesRows.filter(q => {
+        const isApprovedNotPaid = q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
+        
+        const hasPaymentDeadline = q.rawData?.quote_expires_at || q.rawData?.coverage_end_date;
+        let isPaymentDueSoon = false;
+        
+        if (hasPaymentDeadline) {
+          const paymentDate = new Date(q.rawData.quote_expires_at || q.rawData.coverage_end_date);
+          const now = new Date();
+          const daysUntilPayment = Math.ceil((paymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          isPaymentDueSoon = daysUntilPayment > 0 && daysUntilPayment <= 7;
+        }
+        
+        return isApprovedNotPaid || (q.quoteStatus === 'pay_to_activate') || isPaymentDueSoon;
+      }).length, 
+      expiringRate: quotesRows.length > 0 
+        ? Math.round((quotesRows.filter(q => {
+            const isApprovedNotPaid = q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
+            const hasPaymentDeadline = q.rawData?.quote_expires_at || q.rawData?.coverage_end_date;
+            let isPaymentDueSoon = false;
+            
+            if (hasPaymentDeadline) {
+              const paymentDate = new Date(q.rawData.quote_expires_at || q.rawData.coverage_end_date);
+              const now = new Date();
+              const daysUntilPayment = Math.ceil((paymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              isPaymentDueSoon = daysUntilPayment > 0 && daysUntilPayment <= 7;
+            }
+            
+            return isApprovedNotPaid || (q.quoteStatus === 'pay_to_activate') || isPaymentDueSoon;
+          }).length / quotesRows.length) * 100) 
+        : 0
+    }
+  };
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -640,26 +639,26 @@ const quotesData2 = {
 
             <div className="block md:hidden">
               <ConversionChart 
-  title="Quote Conversion Overview"
-  data={quotesData}
-  defaultActiveTime="This Week"
-  showTimeDropdown={true}
-  typeLabels={quotesTypeLabels}
-  colors={quotesChartColors}  // Ավելացրեք այս տողը
-/>
+                title="Quote Conversion Overview"
+                data={quotesData}
+                defaultActiveTime="This Week"
+                showTimeDropdown={true}
+                typeLabels={quotesTypeLabels}
+                colors={quotesChartColors}
+              />
             </div>
             <div className="block md:hidden">
               <QuotesExpirationCard 
-  activeTab={activeTab}
-  onTabChange={setActiveTab}
-  data={quotesData2}
-  title="Conversion Rate"
-  info="Total converting quotes"
-  total="Total quotes"
-  sub="Converting"
-  percentageInfo="Converting"
-  chartType="quotes"
-/>
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                data={quotesData2}
+                title="Conversion Rate"
+                info="Total converting quotes"
+                total="Total quotes"
+                sub="Converting"
+                percentageInfo="Converting"
+                chartType="quotes"
+              />
             </div>
 
             {/* Universal Table for Recent Activity */}
@@ -704,11 +703,6 @@ const quotesData2 = {
             max-[1280px]:min-h-auto max-[1280px]:max-h-none max-[1280px]:row-start-1
             max-[1280px]:hidden
           ">
-            
-
-            {/* Improve Your Quote Rate Card */}
-
-
             {/* Quote Conversion Rate */}
             <div className="flex-grow min-h-[calc(31%-4px)] xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto">
               <ConversionChart 
@@ -717,7 +711,7 @@ const quotesData2 = {
                 defaultActiveTime="This Week"
                 showTimeDropdown={true}
                 typeLabels={quotesTypeLabels}
-                colors={quotesChartColors}  // Ավելացրեք այս տողը
+                colors={quotesChartColors}
               />
             </div>
 
@@ -734,17 +728,23 @@ const quotesData2 = {
               chartType="quotes"
             />
 
-           <InfoWidget 
-  title="Improve Your Quote Rate"
-  rateValue={infoWidgetData.rateValue}
-  description={
-    <>
-      Your Quotes are often Declined due to 
-      <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
-    </>
-  }
-  subText={`${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined`}
-/>
+            <InfoWidget 
+              title="Improve Your Quote Rate"
+              rateValue={infoWidgetData.rateValue}
+              description={
+                <>
+                  {infoWidgetData.totalQuotes === 0 ? (
+                    'Create your first quote to get started'
+                  ) : (
+                    <>
+                      Your Quotes are often Declined due to 
+                      <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
+                    </>
+                  )}
+                </>
+              }
+              subText={infoWidgetData.totalQuotes > 0 ? `${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined` : 'No quotes yet'}
+            />
           </div>
 
           {/* Tablet View (768px - 1279px) - Three Widgets Side by Side */}
@@ -757,42 +757,48 @@ const quotesData2 = {
             <div className="grid grid-cols-3 gap-2 w-full">
               {/* Improve Your Quote Rate Card */}
               <InfoWidget 
-  title="Improve Your Quote Rate"
-  rateValue={infoWidgetData.rateValue}
-  description={
-    <>
-      Your Quotes are often Declined due to 
-      <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
-    </>
-  }
-  subText={`${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined`}
-/>
+                title="Improve Your Quote Rate"
+                rateValue={infoWidgetData.rateValue}
+                description={
+                  <>
+                    {infoWidgetData.totalQuotes === 0 ? (
+                      'Create your first quote to get started'
+                    ) : (
+                      <>
+                        Your Quotes are often Declined due to 
+                        <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
+                      </>
+                    )}
+                  </>
+                }
+                subText={infoWidgetData.totalQuotes > 0 ? `${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined` : 'No quotes yet'}
+              />
 
               {/* Quote Conversion Rate */}
               <div className="w-full">
                 <ConversionChart 
-  title="Quote Conversion Overview"
-  data={quotesData}
-  defaultActiveTime="This Week"
-  showTimeDropdown={true}
-  typeLabels={quotesTypeLabels}
-  colors={quotesChartColors}  // Ավելացրեք այս տողը
-/>
+                  title="Quote Conversion Overview"
+                  data={quotesData}
+                  defaultActiveTime="This Week"
+                  showTimeDropdown={true}
+                  typeLabels={quotesTypeLabels}
+                  colors={quotesChartColors}
+                />
               </div>
 
               {/* Quotes Expiration Card */}
               <div className="w-full">
                 <QuotesExpirationCard 
-  activeTab={activeTab}
-  onTabChange={setActiveTab}
-  data={quotesData2}
-  title="Conversion Rate"
-  info="Total converting quotes"
-  total="Total quotes"
-  sub="Converting"
-  percentageInfo="Converting"
-  chartType="quotes"
-/>
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  data={quotesData2}
+                  title="Conversion Rate"
+                  info="Total converting quotes"
+                  total="Total quotes"
+                  sub="Converting"
+                  percentageInfo="Converting"
+                  chartType="quotes"
+                />
               </div>
             </div>
           </div>

@@ -34,10 +34,8 @@ const QuotesExpirationCard = ({
   // Տարբեր tabs ըստ chartType-ի
   const getTabs = () => {
     if (chartType === 'quotes') {
-      // Quotes էջի համար՝ This Week և Next Week
       return ['This Week', 'Next Week'];
     } else {
-      // Shipments և Default էջերի համար՝ բոլոր 4 tabs
       return ['This Week', 'Next Week', 'In 2–4 Weeks', 'Next Month'];
     }
   };
@@ -47,14 +45,14 @@ const QuotesExpirationCard = ({
   // Default տվյալները ըստ chartType-ի
   const defaultExpirationData: Record<string, ExpirationData> = chartType === 'quotes' 
     ? {
-        'This Week': { totalQuotes: 22, expiringQuotes: 7, expiringRate: 32 },
-        'Next Week': { totalQuotes: 18, expiringQuotes: 12, expiringRate: 67 }
+        'This Week': { totalQuotes: 0, expiringQuotes: 0, expiringRate: 0 },
+        'Next Week': { totalQuotes: 0, expiringQuotes: 0, expiringRate: 0 }
       }
     : {
-        'This Week': { totalQuotes: 22, expiringQuotes: 7, expiringRate: 32 },
-        'Next Week': { totalQuotes: 18, expiringQuotes: 12, expiringRate: 67 },
-        'In 2–4 Weeks': { totalQuotes: 35, expiringQuotes: 4, expiringRate: 11 },
-        'Next Month': { totalQuotes: 42, expiringQuotes: 38, expiringRate: 90 }
+        'This Week': { totalQuotes: 0, expiringQuotes: 0, expiringRate: 0 },
+        'Next Week': { totalQuotes: 0, expiringQuotes: 0, expiringRate: 0 },
+        'In 2–4 Weeks': { totalQuotes: 0, expiringQuotes: 0, expiringRate: 0 },
+        'Next Month': { totalQuotes: 0, expiringQuotes: 0, expiringRate: 0 }
       };
   
   const expirationData = data || defaultExpirationData;
@@ -65,16 +63,16 @@ const QuotesExpirationCard = ({
   const [barsCount, setBarsCount] = useState(60);
   const [waveAnimation, setWaveAnimation] = useState(false);
   
-  // Վերահաշվել տվյալները՝ ցույց տալու համար missing docs
-const { totalQuotes, expiringQuotes, expiringRate } = expirationData[activeTab] || { 
-  totalQuotes: 0, 
-  expiringQuotes: 0, 
-  expiringRate: 0 
-};
-// Shipments էջի համար expiringRate-ն արդեն missing docs-ի տոկոսն է
-// Quotes էջի համար պետք է հաշվել հակառակը
-const missingDocsRate = chartType === 'shipments' ? expiringRate : 100 - expiringRate;
-const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuotes - expiringQuotes;
+  // Վերահաշվել տվյալները՝ ցույց տալու համար converting quotes
+  const { totalQuotes, expiringQuotes, expiringRate } = expirationData[activeTab] || { 
+    totalQuotes: 0, 
+    expiringQuotes: 0, 
+    expiringRate: 0 
+  };
+  
+  // Quotes էջի համար ցույց տալ conversion rate
+  const conversionRate = expiringRate; // Սա արդեն conversion rate-ն է
+  const convertingCount = expiringQuotes;
   
   const calculateBarsCount = useCallback((width: number) => {
     if (width <= 200) return 40;
@@ -99,34 +97,28 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
     };
   }, [calculateBarsCount]);
 
-  // Փոխել tab-ը ալիքային էֆեկտով
   const handleTabSelect = (tab: string) => {
-    // Ակտիվացնել ալիքային անիմացիան
     setWaveAnimation(true);
-    
-    // Փոխել tab-ը
     onTabChange?.(tab);
     setIsDropdownOpen(false);
     
-    // Անջատել ալիքային անիմացիան որոշ ժամանակ անց
     setTimeout(() => {
       setWaveAnimation(false);
     }, 1200);
   };
 
   const calculateBarDistribution = () => {
-    // Missing docs-ի համար օգտագործենք missingDocsRate
-    const missingPercentage = missingDocsRate / 100;
-    const missingBars = Math.max(1, Math.round(missingPercentage * barsCount));
-    const compliantBars = Math.max(1, barsCount - missingBars);
+    // Converting quotes-ի համար օգտագործենք conversionRate
+    const convertingPercentage = totalQuotes > 0 ? conversionRate / 100 : 0;
+    const convertingBars = Math.max(1, Math.round(convertingPercentage * barsCount));
+    const pendingBars = Math.max(1, barsCount - convertingBars);
     
-    return { missingBars, compliantBars };
+    return { convertingBars, pendingBars };
   };
 
-  const { missingBars, compliantBars } = calculateBarDistribution();
+  const { convertingBars, pendingBars } = calculateBarDistribution();
 
-  // Գույների ֆունկցիան ըստ chartType-ի
-  const getMissingBarColor = (progress: number) => {
+  const getConvertingBarColor = (progress: number) => {
     if (chartType === 'quotes') {
       // Quotes էջի համար՝ կանաչ գրադիենտ
       const startR = 191;    // #BFF8BE (բաց կանաչ)
@@ -143,12 +135,11 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
       
       return `rgb(${r}, ${g}, ${b})`;
     } else {
-      // Shipments և Default համար՝ կարմիր գրադիենտ
-      const startR = 255;    // #FF8888 (բաց կարմիր)
+      const startR = 255;
       const startG = 239;
       const startB = 166;
       
-      const endR = 235;       // #DC3545 (մուգ կարմիր)
+      const endR = 235;
       const endG = 54;
       const endB = 37;
       
@@ -160,7 +151,6 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
     }
   };
 
-  // Հիմնական գույները ըստ chartType-ի
   const getColors = () => {
     if (chartType === 'quotes') {
       return {
@@ -169,8 +159,8 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
         light: 'rgba(102, 238, 104, 0.1)',
         lightBorder: 'rgba(102, 238, 104, 0.2)',
         shadow: 'rgba(102, 238, 104, 0.4)',
-        compliantStart: '#E2E3E4',
-        compliantEnd: '#C8C9CA'
+        pendingStart: '#E2E3E4',
+        pendingEnd: '#C8C9CA'
       };
     } else {
       return {
@@ -179,53 +169,48 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
         light: 'rgba(220, 53, 69, 0.1)',
         lightBorder: 'rgba(220, 53, 69, 0.2)',
         shadow: 'rgba(220, 53, 69, 0.4)',
-        compliantStart: '#E2E3E4',
-        compliantEnd: '#C8C9CA'
+        pendingStart: '#E2E3E4',
+        pendingEnd: '#C8C9CA'
       };
     }
   };
 
-  // Կառուցել գծիկների array առանձին ալիքաձև անիմացիաներով
   const renderBars = () => {
     const bars = [];
     
-    // 1. Սկզբում ավելացնենք MISSING բարերը (կարմիր/կանաչ)
-    for (let i = 0; i < missingBars; i++) {
-      const progress = missingBars > 1 ? i / (missingBars - 1) : 0.5;
+    // 1. Converting բարերը (կանաչ)
+    for (let i = 0; i < convertingBars; i++) {
+      const progress = convertingBars > 1 ? i / (convertingBars - 1) : 0.5;
       const normalHeight = 18;
       const hoverHeight = 24;
       
-      // Missing բարերի համար ալիքային էֆեկտ
-      const waveDelay = i * 20; // 20ms յուրաքանչյուր missing bar-ի համար
+      const waveDelay = i * 20;
       const height = isCardHovered ? hoverHeight : normalHeight;
       
-      // Ալիքային էֆեկտի պարամետրեր
       let transform = 'scaleX(2.7)';
       let opacity = 1;
       let animation = '';
       
       if (waveAnimation) {
-        // Ալիքաձև էֆեկտ missing բարերի համար (առաջին ալիք)
-        const waveProgress = Math.min(1, i / (missingBars * 0.5));
+        const waveProgress = Math.min(1, i / (convertingBars * 0.5));
         const waveHeight = Math.sin(waveProgress * Math.PI * 2) * 0.5 + 1;
         transform = `scaleX(2.7) scaleY(${waveHeight})`;
         opacity = 0.5 + waveProgress * 0.5;
         animation = 'missingWave 1.2s ease-out';
       } else if (isCardHovered) {
-        // Թեթև ալիքաձև էֆեկտ հովերի ժամանակ
         transform = `scaleX(2.7) scaleY(${1.05 + Math.sin(i * 0.3) * 0.05})`;
       }
       
       bars.push(
         <div
-          key={`missing-bar-${i}`}
-          className="chart-bar missing-bar"
+          key={`converting-bar-${i}`}
+          className="chart-bar converting-bar"
           style={{
             width: '1px',
             transform: transform,
             transformOrigin: 'left',
             height: `${height}px`,
-            backgroundColor: getMissingBarColor(progress),
+            backgroundColor: getConvertingBarColor(progress),
             borderRadius: '1px',
             cursor: 'pointer',
             opacity: opacity,
@@ -236,27 +221,25 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
             animationDelay: waveAnimation ? `${waveDelay}ms` : '0s',
             willChange: 'height, background-color, transform, opacity'
           }}
-          title={`${sub}: ${missingDocsCount} (${missingDocsRate}%)`}
+          title={`${sub}: ${convertingCount} (${conversionRate}%)`}
         />
       );
     }
     
-    // 2. Այնուհետև ավելացնենք COMPLIANT բարերը (մոխրագույն)
-    for (let i = 0; i < compliantBars; i++) {
-      const progress = compliantBars > 1 ? i / (compliantBars - 1) : 0.5;
+    // 2. Pending բարերը (մոխրագույն)
+    for (let i = 0; i < pendingBars; i++) {
+      const progress = pendingBars > 1 ? i / (pendingBars - 1) : 0.5;
       const normalHeight = 24;
       const hoverHeight = 18;
       
-      // Compliant բարերի համար ալիքային էֆեկտ (երկրորդ ալիք)
-      const waveDelay = missingBars * 20 + i * 20; // 20ms յուրաքանչյուր compliant bar-ի համար
+      const waveDelay = convertingBars * 20 + i * 20;
       const height = isCardHovered ? hoverHeight : normalHeight;
       
-      // Compliant գույների գրադիենտ
-      const startR = 226; // #E2E3E4
+      const startR = 226;
       const startG = 227;
       const startB = 228;
       
-      const endR = 200; // #C8C9CA
+      const endR = 200;
       const endG = 201;
       const endB = 202;
       
@@ -264,27 +247,24 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
       const g = Math.round(startG + (endG - startG) * progress);
       const b = Math.round(startB + (endB - startB) * progress);
       
-      // Ալիքային էֆեկտի պարամետրեր
       let transform = 'scaleX(2.7)';
       let opacity = 1;
       let animation = '';
       
       if (waveAnimation) {
-        // Ալիքաձև էֆեկտ compliant բարերի համար (երկրորդ ալիք)
-        const waveProgress = Math.min(1, i / (compliantBars * 0.5));
+        const waveProgress = Math.min(1, i / (pendingBars * 0.5));
         const waveHeight = Math.sin(waveProgress * Math.PI * 2) * 0.5 + 1;
         transform = `scaleX(2.7) scaleY(${waveHeight})`;
         opacity = 0.5 + waveProgress * 0.5;
         animation = 'compliantWave 1.2s ease-out';
       } else if (isCardHovered) {
-        // Թեթև ալիքաձև էֆեկտ հովերի ժամանակ
         transform = `scaleX(2.7) scaleY(${1.05 + Math.sin(i * 0.3) * 0.05})`;
       }
       
       bars.push(
         <div
-          key={`compliant-bar-${i}`}
-          className="chart-bar compliant-bar"
+          key={`pending-bar-${i}`}
+          className="chart-bar pending-bar"
           style={{
             width: '1px',
             transform: transform,
@@ -301,7 +281,7 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
             animationDelay: waveAnimation ? `${waveDelay}ms` : '0s',
             willChange: 'height, background-color, transform, opacity'
           }}
-          title={`Compliant: ${expiringQuotes}`}
+          title={`Pending: ${totalQuotes - convertingCount}`}
         />
       );
     }
@@ -484,7 +464,6 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
           justify-content: flex-end;
         }
         
-        /* Հովեր էֆեկտներ ամբողջ կոմպոնենտի համար */
         .card-hovered .expiring-text {
           font-weight: 600;
         }
@@ -493,17 +472,16 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
           transition: all 0.25s ease;
         }
         
-        .missing-bar:hover {
+        .converting-bar:hover {
           transform: scaleX(2.7) scaleY(1.3) !important;
           transition: transform 0.15s ease;
         }
         
-        .compliant-bar:hover {
+        .pending-bar:hover {
           transform: scaleX(2.7) scaleY(0.7) !important;
           transition: transform 0.15s ease;
         }
         
-        /* Expiring indicator հովեր էֆեկտ */
         .expiring-indicator-wrapper {
           transition: all 0.2s ease;
         }
@@ -518,7 +496,6 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
           transform: scale(1.02);
         }
         
-        /* Active tab indicator */
         .active-tab-indicator {
           position: relative;
         }
@@ -542,7 +519,6 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
           background-color: ${colors.secondary};
         }
         
-        /* Անիմացիաներ թաբ փոխելիս */
         .rate-number {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -569,7 +545,6 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
         <div className="card-header mb-5 flex justify-between items-start">
           <h3 className="font-montserrat text-lg font-medium text-black mb-0">{title}</h3>
           
-          {/* Dropdown աջ անկյունում */}
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -590,7 +565,6 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
               </svg>
             </button>
             
-            {/* Dropdown Menu */}
             {isDropdownOpen && (
               <div 
                 className="absolute right-0 top-full mt-1 bg-white min-w-[140px] shadow-[0_4px_12px_rgba(0,0,0,0.1)] rounded-lg z-10 py-1"
@@ -646,7 +620,7 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
                   animation: waveAnimation ? 'numberWave 1.2s ease-out' : 'none'
                 }}
               >
-                {missingDocsRate}
+                {conversionRate}
               </span>
               <span className="absolute top-[-2px] left-0 rate-symbol font-montserrat text-xs text-black font-normal tracking-[0.20px] w-2">
                 %
@@ -655,7 +629,7 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
           </div>
           <div className="expiration-right absolute top-14 left-0">
             <span className="expiration-total font-montserrat text-xs font-medium text-[#c7c7c7] tracking-[0.24px] whitespace-nowrap transition-all duration-300">
-              {info}: {missingDocsCount}
+              {info}: {convertingCount}
             </span>
           </div>
         </div>
@@ -696,7 +670,7 @@ const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuote
                     animation: waveAnimation ? 'slideUpFade 0.8s ease' : 'none'
                   }}
                 >
-                  {sub}: {missingDocsCount}
+                  {sub}: {convertingCount}
                 </span>
               </div>
             </div>
