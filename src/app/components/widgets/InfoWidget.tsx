@@ -33,9 +33,9 @@ export const InfoWidget: React.FC<InfoWidgetProps> = ({
       <div className="stats-content">
         <div className="rate-section relative w-[120px] md:w-[100%] h-[32px] md:h-[39px]">
           
-          <div className="rate-value absolute top-0 left-0 w-full md:w-full h-[30px] md:h-[37px] flex gap-1 items-baseline">
+          <div className="rate-value absolute top-0 left-0 w-full md:w-full h-[30px] md:h-[37px] flex gap-4 items-baseline">
             {/* Percentage value - responsive text size */}
-            <span className="percentage font-montserrat text-[40px] md:text-[56px] text-black font-normal tracking-[0.8px] md:tracking-[1.12px] leading-7 md:leading-9  ml-3 md:ml-4">
+            <span className="percentage  gap-4 font-montserrat text-[40px] md:text-[56px] text-black font-normal tracking-[0.8px] md:tracking-[1.12px] leading-7 md:leading-9  ml-3 md:ml-4">
               {rateValue}
             </span>
             {/* Percent symbol - responsive positioning */}

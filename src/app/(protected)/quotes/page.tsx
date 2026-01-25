@@ -782,41 +782,10 @@ const quotesData2 = {
             max-[1280px]:min-h-auto max-[1280px]:max-h-none max-[1280px]:row-start-1
             max-[1280px]:hidden
           ">
-            <div className="flex justify-end items-center gap-3 !h-[39px]">
-              <button
-                className="inline-flex items-center justify-center gap-[10px] px-4 py-2 h-[35.68px] bg-[#f8fbff] border border-[#ffffff30] rounded-[6px] font-poppins text-base font-normal text-black cursor-pointer whitespace-nowrap"
-                onClick={() => {
-                  // Download functionality
-                  console.log('Download quotes data')
-                }}
-              >
-                <img
-                  src="/quotes/download.svg"
-                  alt=""
-                  className="w-3 h-3 object-cover"
-                />
-                Download
-              </button>
-              <button 
-                onClick={handleGetNewQuote}
-                className="inline-flex items-center justify-center gap-[10px] px-4 py-2 h-[35.68px] bg-[#0b0b0b] border-0 rounded-[6px] font-poppins text-base font-normal text-white cursor-pointer whitespace-nowrap"
-              >
-                + Get New Quote
-              </button>
-            </div>
+            
 
             {/* Improve Your Quote Rate Card */}
-           <InfoWidget 
-  title="Improve Your Quote Rate"
-  rateValue={infoWidgetData.rateValue}
-  description={
-    <>
-      Your Quotes are often Declined due to 
-      <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
-    </>
-  }
-  subText={`${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined`}
-/>
+
 
             {/* Quote Conversion Rate */}
             <div className="flex-grow min-h-[calc(31%-4px)] xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto">
@@ -841,6 +810,18 @@ const quotesData2 = {
   sub="Converting"
   percentageInfo="Converting"
   chartType="quotes"
+/>
+
+           <InfoWidget 
+  title="Improve Your Quote Rate"
+  rateValue={infoWidgetData.rateValue}
+  description={
+    <>
+      Your Quotes are often Declined due to 
+      <strong className="font-medium tracking-[0.03px]"> {infoWidgetData.mostCommonReason.reason}</strong>
+    </>
+  }
+  subText={`${infoWidgetData.rejectedQuotes} of ${infoWidgetData.totalQuotes} quotes declined`}
 />
           </div>
 
