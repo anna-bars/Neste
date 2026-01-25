@@ -179,43 +179,7 @@ export default function DocumentsPage() {
 
   // Fallback փաստաթղթերի տվյալներ
   const getFallbackDocuments = (): DocumentStatus[] => {
-    return [
-      { 
-        type: 'Policy:', 
-        id: 'POL-437418', 
-        status: 'Pending Review', 
-        cargoType: 'Electronics', 
-        summary: '1 Document Pending Review' 
-      },
-      { 
-        type: 'Policy:',
-        id: 'POL-3401',
-        status: 'Missing',
-        cargoType: 'Machinery',
-        summary: '1 of 3 Documents Missing' 
-      },
-      { 
-        type: 'Policy:',
-        id: 'POL-0812',
-        status: 'Rejected',
-        cargoType: 'Textiles',
-        summary: '2 of 3 Documents Approved' 
-      },
-      { 
-        type: 'Quote:',
-        id: 'Q-0072',
-        status: 'Pending Review',
-        cargoType: 'Clothing',
-        summary: '1 Document Pending Review' 
-      },
-      { 
-        type: 'Policy:',
-        id: 'POL-4419',
-        status: 'Approved',
-        cargoType: 'Perishables',
-        summary: 'All Documents Approved' 
-      }
-    ]
+    return []
   }
 
   // Խորհուրդների տվյալներ chart-ների համար
