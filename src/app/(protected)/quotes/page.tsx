@@ -790,27 +790,27 @@ const quotesData2 = {
             {/* Quote Conversion Rate */}
             <div className="flex-grow min-h-[calc(31%-4px)] xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto">
               <ConversionChart 
-  title="Quote Conversion Overview"
-  data={quotesData}
-  defaultActiveTime="This Week"
-  showTimeDropdown={true}
-  typeLabels={quotesTypeLabels}
-  colors={quotesChartColors}  // Ավելացրեք այս տողը
-/>
+                title="Quote Conversion Overview"
+                data={quotesData}
+                defaultActiveTime="This Week"
+                showTimeDropdown={true}
+                typeLabels={quotesTypeLabels}
+                colors={quotesChartColors}  // Ավելացրեք այս տողը
+              />
             </div>
 
             {/* Quotes Expiration Card */}
             <QuotesExpirationCard 
-  activeTab={activeTab}
-  onTabChange={setActiveTab}
-  data={quotesData2}
-  title="Conversion Rate"
-  info="Total converting quotes"
-  total="Total quotes"
-  sub="Converting"
-  percentageInfo="Converting"
-  chartType="quotes"
-/>
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              data={quotesData2}
+              title="Conversion Rate"
+              info="Total converting quotes"
+              total="Total quotes"
+              sub="Converting"
+              percentageInfo="Converting"
+              chartType="quotes"
+            />
 
            <InfoWidget 
   title="Improve Your Quote Rate"
