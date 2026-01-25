@@ -2,7 +2,7 @@
 
 import DashboardLayout from '../DashboardLayout'
 import { useEffect, useState } from 'react'
-import { ConversionChart, ConversionChartData } from '../../components/charts/ConversionChart'
+import { ConversionChart } from '../../components/charts/ConversionChart'
 import { UniversalTable, renderStatus, renderButton } from '@/app/components/tables/UniversalTable';
 import QuotesExpirationCard from '@/app/components/charts/QuotesExpirationCard'
 import InfoWidget from '@/app/components/widgets/InfoWidget'
@@ -58,7 +58,7 @@ export default function DocumentsPage() {
         }
 
         if (!policies || policies.length === 0) {
-          setDocumentsData(getFallbackDocuments())
+          setDocumentsData([])
           setLoading(false)
           return
         }
@@ -102,7 +102,7 @@ export default function DocumentsPage() {
 
       } catch (error) {
         console.error('Error loading documents data:', error)
-        setDocumentsData(getFallbackDocuments())
+        setDocumentsData([])
       } finally {
         setLoading(false)
       }
@@ -183,13 +183,6 @@ export default function DocumentsPage() {
   }
 
   // Խորհուրդների տվյալներ chart-ների համար
-  const quotesDatas = {
-    'This Week': { approved: 17, declined: 2, expired: 18 },
-    'This Month': { approved: 35, declined: 5, expired: 42 },
-    'Last Month': { approved: 28, declined: 3, expired: 31 },
-    'Last Quarter': { approved: 120, declined: 15, expired: 135 }
-  }
-
   const quotesTypeLabels = {
     approved: 'Pending',
     declined: 'Missing',
@@ -262,22 +255,39 @@ export default function DocumentsPage() {
 
   // InfoWidget-ի տվյալները
   const calculateInfoWidgetData = () => {
+    const totalDocuments = documentsData.length
+    const rejectedCount = documentStats.rejectedCount
+    
+    // Հաշվել rejection rate
+    const rejectionRate = totalDocuments > 0 
+      ? Math.round((rejectedCount / totalDocuments) * 100) 
+      : 0
+    
+    // Հաշվել improvement rate (100 - rejectionRate)
+    const improvementRate = totalDocuments > 0 ? 100 - rejectionRate : 0
+    
     return {
-      rateValue: documentStats.approvalRate,
-      totalDocuments: documentsData.length,
-      approvedDocuments: documentStats.approvalRate,
+      rateValue: improvementRate,
+      totalDocuments: totalDocuments,
+      rejectedCount: rejectedCount,
+      rejectionRate: rejectionRate,
       // Գտնել ամենատարածված մերժման պատճառը
       getMostCommonRejectionReason: () => {
-        // Այստեղ կարող եք Supabase-ից ստանալ մերժման պատճառները
-        // Առայժմ օգտագործենք պարզ տրամաբանություն
-        if (documentStats.rejectedCount > 0) {
+        if (totalDocuments === 0) {
+          return {
+            reason: 'No documents yet',
+            percentage: 0
+          }
+        }
+        
+        if (rejectedCount > 0) {
           return {
             reason: 'Low-Resolution Scans',
             percentage: 92
           }
         }
         return {
-          reason: 'N/A',
+          reason: 'All documents approved',
           percentage: 0
         }
       }
@@ -327,6 +337,199 @@ export default function DocumentsPage() {
     
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
+
+  // Դատարկ վիճակի համար ցուցադրել գեղեցիկ UI
+  const renderEmptyState = () => {
+    return (
+      <div className="relative flex flex-col items-center justify-center py-16 px-4 w-full">
+        {/* Glassmorphism 3D Card */}
+        <div className="mb-8 relative group">
+          <div className="relative w-24 h-24">
+            {/* Glass Card */}
+            <div className="
+              absolute inset-0 
+              bg-white/80 backdrop-blur-sm
+              rounded-xl 
+              border border-white/60
+              shadow-[0_8px_32px_rgba(31,38,135,0.07)]
+              flex items-center justify-center
+              transform transition-all duration-500 
+              group-hover:scale-110 group-hover:shadow-[0_12px_48px_rgba(37,99,235,0.15)]
+              group-hover:border-blue-300/40
+            ">
+              {/* Animated Gradient Icon */}
+              <div className="relative">
+                <div className="
+                  w-14 h-14 
+                  bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500
+                  rounded-lg 
+                  flex items-center justify-center 
+                  shadow-lg shadow-blue-500/30
+                  animate-gradient-x
+                ">
+                  <svg 
+                    className="w-6 h-6 text-white" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2.2} 
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                    />
+                  </svg>
+                </div>
+                
+                {/* 3D Depth Effect */}
+                <div className="
+                  absolute -inset-2 border-2 border-blue-300/20 rounded-xl
+                  transform -rotate-3
+                  transition-transform duration-700 group-hover:rotate-3
+                "></div>
+              </div>
+            </div>
+            
+            {/* Floating Particles */}
+            <div className="absolute inset-0">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="
+                    absolute w-1.5 h-1.5 
+                    bg-gradient-to-r from-blue-400 to-cyan-400 
+                    rounded-full
+                    animate-float-fast
+                  "
+                  style={{
+                    top: `${Math.sin(i * 2 * Math.PI/3) * 32 + 50}%`,
+                    left: `${Math.cos(i * 2 * Math.PI/3) * 32 + 50}%`,
+                    animationDelay: `${i * 0.2}s`
+                  }}
+                />
+              ))}
+            </div>
+            
+            {/* Glow Ring */}
+            <div className="
+              absolute -inset-3 
+              bg-gradient-to-r from-blue-400/20 via-cyan-400/10 to-purple-400/20
+              rounded-2xl 
+              blur-md 
+              opacity-0 
+              group-hover:opacity-60
+              transition-opacity duration-500
+            "></div>
+          </div>
+          
+          {/* Subtle Shadow */}
+          <div className="
+            absolute -bottom-1 inset-x-0 h-2 
+            bg-gradient-to-t from-gray-200/30 to-transparent 
+            blur-sm 
+            rounded-full
+            transform scale-x-90
+          "></div>
+        </div>
+        
+        {/* Content */}
+        <div className="text-center space-y-3 mb-8 max-w-md">
+          <h3 className="font-poppins font-semibold text-xl text-gray-900 tracking-tight">
+            {searchQuery ? (
+              <span className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                No documents found
+              </span>
+            ) : (
+              <span className="bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                No Documents Yet
+              </span>
+            )}
+          </h3>
+          
+          <p className="font-poppins text-gray-500 text-sm leading-relaxed px-2">
+            {searchQuery 
+              ? `"${searchQuery}" didn't match any documents in the database`
+              : "You don't have any documents yet. Documents will appear here after you create a policy or quote."}
+          </p>
+        </div>
+        
+        {/* Actions */}
+        <div className="flex flex-col gap-3 items-center">
+          <button 
+            onClick={() => router.push('/quotes/new/shipping')}
+            className="
+              relative
+              px-6 py-3
+              bg-gradient-to-r from-blue-500 to-blue-600
+              text-white 
+              rounded-lg
+              font-poppins font-medium text-sm
+              hover:from-blue-600 hover:to-blue-700
+              transition-all duration-300
+              shadow-md hover:shadow-lg
+              hover:-translate-y-0.5
+              flex items-center gap-2
+              overflow-hidden
+              group/btn
+            "
+          >
+            {/* Shine Effect */}
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></span>
+            
+            <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="relative z-10">Create Your First Quote</span>
+          </button>
+          
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="
+                px-5 py-2.5
+                bg-white 
+                text-gray-700 
+                rounded-lg
+                font-poppins font-medium text-xs
+                border border-gray-200
+                hover:border-gray-300 hover:bg-gray-50
+                transition-all duration-300
+                shadow-sm hover:shadow
+                hover:-translate-y-0.5
+                flex items-center gap-1.5
+              "
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Search
+            </button>
+          )}
+        </div>
+        
+        {/* Quick Tips */}
+        {!searchQuery && (
+          <div className="mt-8 pt-6 border-t border-gray-100/60 w-full max-w-xs">
+            <div className="flex flex-col items-center gap-2 text-xs text-gray-400">
+              <p className="text-center mb-2">Documents will be available after:</p>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Creating a quote
+                </span>
+                <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
+                <span className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  Policy approval
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -422,19 +625,23 @@ export default function DocumentsPage() {
               </div>
 
               {/* Փաստաթղթերի ցուցադրում */}
-              <div className="overflow-y-scroll max-h-[82vh] sm:max-h-[84%]  rounded sm:max-h-max-content flex justify-start flex-wrap gap-y-3 sm:gap-2.5">
-                {filteredDocuments.map((doc, index) => (
-                  <DocumentItem
-                    key={index}
-                    type={doc.type}
-                    id={doc.id}
-                    status={doc.status}
-                    cargoType={doc.cargoType}
-                    summary={doc.summary}
-                    buttonText="View Details"
-                    onClick={() => handleDocumentClick(doc)}
-                  />
-                ))}
+              <div className="overflow-y-auto max-h-[82vh] sm:max-h-[84%] rounded flex justify-start flex-wrap gap-y-3 sm:gap-2.5 p-2">
+                {filteredDocuments.length > 0 ? (
+                  filteredDocuments.map((doc, index) => (
+                    <DocumentItem
+                      key={index}
+                      type={doc.type}
+                      id={doc.id}
+                      status={doc.status}
+                      cargoType={doc.cargoType}
+                      summary={doc.summary}
+                      buttonText="View Details"
+                      onClick={() => handleDocumentClick(doc)}
+                    />
+                  ))
+                ) : (
+                  renderEmptyState()
+                )}
               </div>
             </div>
 
@@ -484,11 +691,17 @@ export default function DocumentsPage() {
               rateValue={mostCommonReason.percentage}
               description={
                 <>
-                  Your documents are often Rejected due to
-                  <strong className="font-medium tracking-[0.03px]"> {mostCommonReason.reason}</strong>
+                  {documentsData.length === 0 ? (
+                    'Upload documents after creating your first policy'
+                  ) : (
+                    <>
+                      Your documents are often Rejected due to
+                      <strong className="font-medium tracking-[0.03px]"> {mostCommonReason.reason}</strong>
+                    </>
+                  )}
                 </>
               }
-              subText={`${documentStats.rejectedCount} of ${documentsData.length} documents rejected`}
+              subText={documentsData.length > 0 ? `${infoWidgetData.rejectedCount} of ${documentsData.length} documents rejected` : 'No documents yet'}
               perecntageInfo="Approved Submissions"
             />
            
@@ -509,11 +722,17 @@ export default function DocumentsPage() {
                 rateValue={mostCommonReason.percentage}
                 description={
                   <>
-                    Your documents are often Rejected due to
-                    <strong className="font-medium tracking-[0.03px]"> {mostCommonReason.reason}</strong>
+                    {documentsData.length === 0 ? (
+                      'Upload documents after creating your first policy'
+                    ) : (
+                      <>
+                        Your documents are often Rejected due to
+                        <strong className="font-medium tracking-[0.03px]"> {mostCommonReason.reason}</strong>
+                      </>
+                    )}
                   </>
                 }
-                subText={`${documentStats.rejectedCount} of ${documentsData.length} documents rejected`}
+                subText={documentsData.length > 0 ? `${infoWidgetData.rejectedCount} of ${documentsData.length} documents rejected` : 'No documents yet'}
                 perecntageInfo="Approved Submissions"
               />
 
