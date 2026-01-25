@@ -31,14 +31,29 @@ const QuotesExpirationCard = ({
   percentageInfo = 'Missing Docs %',
   chartType = 'default'
 }: QuotesExpirationCardProps) => {
-  const tabs = ['This Week', 'Next Week', 'In 2–4 Weeks', 'Next Month'];
-  
-  const defaultExpirationData: Record<string, ExpirationData> = {
-    'This Week': { totalQuotes: 22, expiringQuotes: 7, expiringRate: 32 },
-    'Next Week': { totalQuotes: 18, expiringQuotes: 12, expiringRate: 67 },
-    'In 2–4 Weeks': { totalQuotes: 35, expiringQuotes: 4, expiringRate: 11 },
-    'Next Month': { totalQuotes: 42, expiringQuotes: 38, expiringRate: 90 }
+  const getTabs = () => {
+    if (chartType === 'quotes') {
+      // Quotes էջի համար՝ This Week և Next Week
+      return ['This Week', 'Next Week'];
+    } else {
+      // Default (Document Compliance) համար՝ բոլոր 4 tabs
+      return ['This Week', 'Next Week', 'In 2–4 Weeks', 'Next Month'];
+    }
   };
+
+  const tabs = getTabs();
+  
+  const defaultExpirationData: Record<string, ExpirationData> = chartType === 'quotes' 
+    ? {
+        'This Week': { totalQuotes: 22, expiringQuotes: 7, expiringRate: 32 },
+        'Next Week': { totalQuotes: 18, expiringQuotes: 12, expiringRate: 67 }
+      }
+    : {
+        'This Week': { totalQuotes: 22, expiringQuotes: 7, expiringRate: 32 },
+        'Next Week': { totalQuotes: 18, expiringQuotes: 12, expiringRate: 67 },
+        'In 2–4 Weeks': { totalQuotes: 35, expiringQuotes: 4, expiringRate: 11 },
+        'Next Month': { totalQuotes: 42, expiringQuotes: 38, expiringRate: 90 }
+      };
   
   const expirationData = data || defaultExpirationData;
   

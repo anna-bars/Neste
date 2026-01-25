@@ -582,46 +582,64 @@ const quotesChartColors = {
   expired: { start: '#F8BEBE', end: '#EE6666' }   // Declined: կարմիր
 };
 // Փոփոխենք quotesData2 օբյեկտը:
+// Quotes էջի համար տարբեր tabs-երի տվյալներ
 const quotesData2 = {
   'This Week': { 
     totalQuotes: quotesRows.length, 
     expiringQuotes: quotesRows.filter(q => {
-      // Հաշվել քանի quote-ներ են approved և paid (converted to policy)
-      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
+      // This Week: Հաշվել approved և paid quote-ները (converted)
+      const isApprovedPaid = q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
+      // Ավելացնել նաև այն quote-ները, որոնք submitted են վերջին 7 օրվա ընթացքում
+      const isRecent = q.rawData?.created_at ? 
+        (Date.now() - new Date(q.rawData.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : 
+        false;
+      return (isApprovedPaid && isRecent) || 
+             (q.quoteStatus === 'submitted' && isRecent) || 
+             (q.quoteStatus === 'under_review' && isRecent);
     }).length, 
     expiringRate: Math.round((quotesRows.filter(q => {
-      return q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
-    }).length / quotesRows.length) * 100) || 0 
+      const isApprovedPaid = q.quoteStatus === 'approved' && q.paymentStatus === 'paid';
+      const isRecent = q.rawData?.created_at ? 
+        (Date.now() - new Date(q.rawData.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : 
+        false;
+      return (isApprovedPaid && isRecent) || 
+             (q.quoteStatus === 'submitted' && isRecent) || 
+             (q.quoteStatus === 'under_review' && isRecent);
+    }).length / Math.max(quotesRows.length, 1)) * 100) || 0 
   },
   'Next Week': { 
     totalQuotes: quotesRows.length, 
     expiringQuotes: quotesRows.filter(q => {
-      // Հաշվել բոլոր quote-ները որոնք ներկայումս under review են (converting)
-      return q.quoteStatus === 'submitted' || q.quoteStatus === 'under_review';
+      // Next Week: Հաշվել այն quote-ները որոնք approved են բայց դեռ not paid
+      const isApprovedNotPaid = q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
+      
+      // Ավելացնել նաև այն quote-ները որոնք պետք է վճարվեն հաջորդ 7 օրվա ընթացքում
+      const hasPaymentDeadline = q.rawData?.quote_expires_at || q.rawData?.coverage_end_date;
+      let isPaymentDueSoon = false;
+      
+      if (hasPaymentDeadline) {
+        const paymentDate = new Date(q.rawData.quote_expires_at || q.rawData.coverage_end_date);
+        const now = new Date();
+        const daysUntilPayment = Math.ceil((paymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        isPaymentDueSoon = daysUntilPayment > 0 && daysUntilPayment <= 7;
+      }
+      
+      return isApprovedNotPaid || (q.quoteStatus === 'pay_to_activate') || isPaymentDueSoon;
     }).length, 
     expiringRate: Math.round((quotesRows.filter(q => {
-      return q.quoteStatus === 'submitted' || q.quoteStatus === 'under_review';
-    }).length / quotesRows.length) * 100) || 0 
-  },
-  'In 2–4 Weeks': { 
-    totalQuotes: quotesRows.length, 
-    expiringQuotes: quotesRows.filter(q => {
-      // Հաշվել quote-ները որոնք approved են բայց not yet paid
-      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
-    }).length, 
-    expiringRate: Math.round((quotesRows.filter(q => {
-      return q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
-    }).length / quotesRows.length) * 100) || 0 
-  },
-  'Next Month': { 
-    totalQuotes: quotesRows.length, 
-    expiringQuotes: quotesRows.filter(q => {
-      // Հաշվել draft quote-ները
-      return q.quoteStatus === 'draft';
-    }).length, 
-    expiringRate: Math.round((quotesRows.filter(q => {
-      return q.quoteStatus === 'draft';
-    }).length / quotesRows.length) * 100) || 0 
+      const isApprovedNotPaid = q.quoteStatus === 'approved' && q.paymentStatus !== 'paid';
+      const hasPaymentDeadline = q.rawData?.quote_expires_at || q.rawData?.coverage_end_date;
+      let isPaymentDueSoon = false;
+      
+      if (hasPaymentDeadline) {
+        const paymentDate = new Date(q.rawData.quote_expires_at || q.rawData.coverage_end_date);
+        const now = new Date();
+        const daysUntilPayment = Math.ceil((paymentDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        isPaymentDueSoon = daysUntilPayment > 0 && daysUntilPayment <= 7;
+      }
+      
+      return isApprovedNotPaid || (q.quoteStatus === 'pay_to_activate') || isPaymentDueSoon;
+    }).length / Math.max(quotesRows.length, 1)) * 100) || 0 
   }
 };
 
