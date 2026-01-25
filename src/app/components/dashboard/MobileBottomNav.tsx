@@ -22,36 +22,34 @@ export default function MobileBottomNav({
   const isActive = (itemLabel: string) => activeNavItem === itemLabel
   
   return (
-    <div className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1a1a1a]">
+    <div className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1a1a1a] py-1">
       <img src="/nav/mob-right-top.svg" className='absolute -top-[28.5px] right-0' alt="" />
       <img src="/nav/mob-left-top.svg" className='absolute -top-[28.5px] left-0' alt="" />
-      <div className="flex justify-center gap-2 items-center h-[70px] px-2">
+      <div className="flex justify-between items-center h-[70px] px-4">
         {navItems.map((item) => {
           const active = isActive(item.label)
           const iconSrc = active 
-            ? `/nav/${item.icon}-active.svg`
-            : `/nav/${item.icon}.svg`
+            ? `/nav/icons/${item.icon}-active.svg`
+            : `/nav/icons/${item.icon}.svg`
           
           return (
             <Link
               key={item.id}
               href={item.href}
               onClick={() => onNavClick(item.label)}
-              className="flex items-center justify-center no-underline"
+              className="flex flex-col items-center justify-center no-underline flex-1"
             >
-              <div 
-                className={`w-[50px] h-[50px] flex items-center justify-center rounded-[6px] transition-all duration-200 ${
-                  active 
-                    ? 'bg-black' 
-                    : 'bg-[#F3F3F6] border border-[#EDEDED]'
-                }`}
-                style={{ padding: '14px' }}
-              >
+              <div className="flex flex-col items-center justify-center">
                 <img 
                   src={iconSrc}
                   alt={item.label}
-                  className="w-6 h-6"
+                  className="w-6 h-6 mb-1"
                 />
+                <span className={`text-[10px] font-medium transition-all duration-200 ${
+                  active ? 'text-white' : 'text-gray-400'
+                }`}>
+                  {item.label}
+                </span>
               </div>
             </Link>
           )

@@ -90,7 +90,7 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     { id: 'quotes', label: 'Quotes', href: '/quotes', icon: 'quotes' },
-    { id: 'shipments', label: 'Shipments', href: '/shipments', icon: 'shipments' },
+    { id: 'policies', label: 'Shipments', href: '/shipments', icon: 'policies' },
     { id: 'documents', label: 'Documents', href: '/documents', icon: 'documents' }
   ]
   
