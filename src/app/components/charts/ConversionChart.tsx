@@ -223,11 +223,55 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
     ];
     
     const total = chartData.reduce((sum, item) => sum + item.count, 0);
-    if (total === 0) return [];
+    const isAllZero = total === 0;
     
-    const bars: JSX.Element[] = [];
+    if (isAllZero) {
+      // Եթե բոլոր արժեքները 0 են, ցույց տալ բոլոր գծիկները հավասար բաշխված
+      const equalCount = Math.floor(barsCount / 3);
+      const bars: JSX.Element[] = [];
+      
+      chartData.forEach((item, typeIndex) => {
+        const barCount = typeIndex === 2 ? barsCount - (equalCount * 2) : equalCount;
+        
+        for (let i = 0; i < barCount; i++) {
+          const isFirst = i === 0;
+          const isLast = i === barCount - 1;
+          const barKey = `${item.type}-zero-${i}-${typeIndex}`;
+          
+          let height = isFirst || isLast ? item.hegHeight : item.normalHeight;
+          
+          const gradientProgress = barCount > 1 ? i / (barCount - 1) : 0.5;
+          let backgroundColor = getGradientColor(item.type, gradientProgress);
+          
+          // Միայն թեթև opacity, բայց պահպանել գույնը
+          backgroundColor = backgroundColor + '80'; // 50% opacity
+          
+          bars.push(
+            <div 
+              key={barKey}
+              className={`${item.type}-chart-bar`}
+              style={{
+                width: '1px',
+                transform: 'scaleX(2.7)',
+                transformOrigin: 'left',
+                height: `${height}px`,
+                backgroundColor: backgroundColor,
+                opacity: 0.5,
+                cursor: 'pointer',
+                borderRadius: '1px'
+              }}
+              onMouseEnter={() => setHoveredType(item.type)}
+              onMouseLeave={() => setHoveredType(null)}
+              title={`${typeLabels[item.type as keyof typeof typeLabels]}: No data`}
+            />
+          );
+        }
+      });
+      
+      return bars;
+    }
     
-    // Յուրաքանչյուր տեսակի համար հաշվել գծիկների քանակը
+    // Նորմալ դեպք՝ երբ կան տվյալներ
     const barsPerType = chartData.map(item => ({
       ...item,
       barCount: Math.round((item.count / total) * barsCount)
@@ -261,6 +305,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
     }
     
     let barIndex = 0;
+    const bars: JSX.Element[] = [];
     
     // Յուրաքանչյուր տեսակի գծիկների համար
     barsPerType.forEach((item) => {
@@ -339,6 +384,10 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
     
     return bars;
   };
+
+  const getCurrentDataForDisplay = getCurrentDataForBars();
+  const total = getCurrentDataForDisplay.approved + getCurrentDataForDisplay.declined + getCurrentDataForDisplay.expired;
+  const isAllZero = total === 0;
 
   return (
     <div className="flex flex-col justify-between border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl p-4 h-full w-full quote-conversion performance-section hover:shadow-sm transition-shadow duration-300">
@@ -438,7 +487,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                     onMouseLeave={() => setHoveredType(null)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <div className="text-[13px] text-[#C8C8C8] capitalize">
+                    <div className={`text-[13px] ${isAllZero ? 'text-[#A0A0A0]' : 'text-[#C8C8C8]'} capitalize`}>
                       {typeLabels[item.type as keyof typeof typeLabels]}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
@@ -448,13 +497,13 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                           backgroundColor: getGradientColor(item.type, 0.5),
                           transform: hoveredType === item.type ? 'scale(1.2)' : 'scale(1)',
                           boxShadow: hoveredType === item.type ? `0 0 8px ${getGradientColor(item.type, 0.5)}80` : 'none',
-                          opacity: showNumber ? 1 : 0.3
+                          opacity: showNumber ? (isAllZero ? 0.5 : 1) : 0.3
                         }}
                       ></div>
                       <div 
-                        className="text-[15px] font-medium transition-all duration-300 relative"
+                        className={`text-[15px] font-medium transition-all duration-300 ${isAllZero ? 'text-[#A0A0A0]' : ''}`}
                         style={{ 
-                          color: hoveredType === item.type ? '#000' : 'inherit'
+                          color: hoveredType === item.type ? '#000' : (isAllZero ? '#A0A0A0' : 'inherit')
                         }}
                       >
                         <span 
@@ -483,10 +532,22 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                 alignItems: 'end',
                 overflow: 'hidden',
                 marginBottom: '4px',
-                minHeight: '24px'
+                minHeight: '24px',
+                position: 'relative'
               }}
             >
               {renderBars()}
+              
+              {/* Show subtle overlay when no data */}
+              {isAllZero && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-center">
+                    <span className="text-xs text-gray-400 font-medium bg-white/80 backdrop-blur-sm px-2 py-1 rounded">
+                      No data
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div 
