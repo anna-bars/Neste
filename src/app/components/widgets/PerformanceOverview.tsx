@@ -1,4 +1,3 @@
-// components/widgets/PerformanceOverview.tsx
 import React, { useState } from 'react';
 
 interface MetricItem {
@@ -295,4 +294,4 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
       </div>
     </section>
   );
-};
+}; 
