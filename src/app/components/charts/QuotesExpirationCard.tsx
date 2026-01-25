@@ -46,6 +46,7 @@ const QuotesExpirationCard = ({
   const [isCardHovered, setIsCardHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [barsCount, setBarsCount] = useState(60);
+  const [waveAnimation, setWaveAnimation] = useState(false);
   
   // Վերահաշվել տվյալները՝ ցույց տալու համար missing docs
   const { totalQuotes, expiringQuotes, expiringRate } = expirationData[activeTab] || { 
@@ -80,6 +81,21 @@ const QuotesExpirationCard = ({
       window.removeEventListener('resize', updateBarsCount);
     };
   }, [calculateBarsCount]);
+
+  // Փոխել tab-ը ալիքային էֆեկտով
+  const handleTabSelect = (tab: string) => {
+    // Ակտիվացնել ալիքային անիմացիան
+    setWaveAnimation(true);
+    
+    // Փոխել tab-ը
+    onTabChange?.(tab);
+    setIsDropdownOpen(false);
+    
+    // Անջատել ալիքային անիմացիան որոշ ժամանակ անց
+    setTimeout(() => {
+      setWaveAnimation(false);
+    }, 1200);
+  };
 
   const calculateBarDistribution = () => {
     // Missing docs-ի համար օգտագործենք missingDocsRate
@@ -127,11 +143,6 @@ const QuotesExpirationCard = ({
     }
   };
 
-  // Legend գույն ըստ chartType-ի
-  const getLegendColor = () => {
-    return chartType === 'quotes' ? '#66EE68' : '#DC3545';
-  };
-
   // Հիմնական գույները ըստ chartType-ի
   const getColors = () => {
     if (chartType === 'quotes') {
@@ -140,7 +151,9 @@ const QuotesExpirationCard = ({
         secondary: '#BFF8BE',
         light: 'rgba(102, 238, 104, 0.1)',
         lightBorder: 'rgba(102, 238, 104, 0.2)',
-        shadow: 'rgba(102, 238, 104, 0.4)'
+        shadow: 'rgba(102, 238, 104, 0.4)',
+        compliantStart: '#E2E3E4',
+        compliantEnd: '#C8C9CA'
       };
     } else {
       return {
@@ -148,59 +161,130 @@ const QuotesExpirationCard = ({
         secondary: '#FF8888',
         light: 'rgba(220, 53, 69, 0.1)',
         lightBorder: 'rgba(220, 53, 69, 0.2)',
-        shadow: 'rgba(220, 53, 69, 0.4)'
+        shadow: 'rgba(220, 53, 69, 0.4)',
+        compliantStart: '#E2E3E4',
+        compliantEnd: '#C8C9CA'
       };
     }
   };
 
-  const handleTabSelect = (tab: string) => {
-    onTabChange?.(tab);
-    setIsDropdownOpen(false);
-  };
-
-  // Կառուցել գծիկների array հովերի անիմացիայով
+  // Կառուցել գծիկների array առանձին ալիքաձև անիմացիաներով
   const renderBars = () => {
     const bars = [];
     
-    // Ստեղծել բոլոր բարերը միանգամից, բայց նրանց տվյալները փոխել անիմացիայով
-    for (let i = 0; i < barsCount; i++) {
-      const isMissing = i < missingBars;
+    // 1. Սկզբում ավելացնենք MISSING բարերը (կարմիր/կանաչ)
+    for (let i = 0; i < missingBars; i++) {
       const progress = missingBars > 1 ? i / (missingBars - 1) : 0.5;
+      const normalHeight = 18;
+      const hoverHeight = 24;
       
-      const normalHeight = isMissing ? 18 : 24;
-      const hoverHeight = isMissing ? 24 : 18;
-      
-      // Շատ կարճ delay բարերի համար - 1-2ms միայն
-      const baseDelay = i * 1.5; // 1.5ms delay յուրաքանչյուր bar-ի համար
-      const animationDelay = isCardHovered ? baseDelay : 0;
+      // Missing բարերի համար ալիքային էֆեկտ
+      const waveDelay = i * 20; // 20ms յուրաքանչյուր missing bar-ի համար
       const height = isCardHovered ? hoverHeight : normalHeight;
       
-      // Bar անիմացիայի էֆեկտներ
+      // Ալիքային էֆեկտի պարամետրեր
       let transform = 'scaleX(2.7)';
+      let opacity = 1;
+      let animation = '';
       
-      if (isCardHovered) {
+      if (waveAnimation) {
+        // Ալիքաձև էֆեկտ missing բարերի համար (առաջին ալիք)
+        const waveProgress = Math.min(1, i / (missingBars * 0.5));
+        const waveHeight = Math.sin(waveProgress * Math.PI * 2) * 0.5 + 1;
+        transform = `scaleX(2.7) scaleY(${waveHeight})`;
+        opacity = 0.5 + waveProgress * 0.5;
+        animation = 'missingWave 1.2s ease-out';
+      } else if (isCardHovered) {
         // Թեթև ալիքաձև էֆեկտ հովերի ժամանակ
         transform = `scaleX(2.7) scaleY(${1.05 + Math.sin(i * 0.3) * 0.05})`;
       }
       
       bars.push(
         <div
-          key={`bar-${i}`}
-          className={`chart-bar ${isMissing ? 'missing-bar' : 'compliant-bar'}`}
+          key={`missing-bar-${i}`}
+          className="chart-bar missing-bar"
           style={{
             width: '1px',
             transform: transform,
             transformOrigin: 'left',
             height: `${height}px`,
-            backgroundColor: isMissing ? getMissingBarColor(progress) : '#E2E3E4',
+            backgroundColor: getMissingBarColor(progress),
             borderRadius: '1px',
             cursor: 'pointer',
-            transition: `all 0.25s ease ${animationDelay}ms, transform 0.2s ease ${animationDelay}ms`,
-            willChange: 'height, background-color'
+            opacity: opacity,
+            transition: waveAnimation ? 
+              `all 0.5s ease ${waveDelay}ms, opacity 0.3s ease ${waveDelay}ms` :
+              `all 0.25s ease, transform 0.2s ease`,
+            animation: animation,
+            animationDelay: waveAnimation ? `${waveDelay}ms` : '0s',
+            willChange: 'height, background-color, transform, opacity'
           }}
-          title={isMissing ? 
-            `${sub}: ${missingDocsCount} (${missingDocsRate}%)` : 
-            `Compliant: ${expiringQuotes}`}
+          title={`${sub}: ${missingDocsCount} (${missingDocsRate}%)`}
+        />
+      );
+    }
+    
+    // 2. Այնուհետև ավելացնենք COMPLIANT բարերը (մոխրագույն)
+    for (let i = 0; i < compliantBars; i++) {
+      const progress = compliantBars > 1 ? i / (compliantBars - 1) : 0.5;
+      const normalHeight = 24;
+      const hoverHeight = 18;
+      
+      // Compliant բարերի համար ալիքային էֆեկտ (երկրորդ ալիք)
+      const waveDelay = missingBars * 20 + i * 20; // 20ms յուրաքանչյուր compliant bar-ի համար
+      const height = isCardHovered ? hoverHeight : normalHeight;
+      
+      // Compliant գույների գրադիենտ
+      const startR = 226; // #E2E3E4
+      const startG = 227;
+      const startB = 228;
+      
+      const endR = 200; // #C8C9CA
+      const endG = 201;
+      const endB = 202;
+      
+      const r = Math.round(startR + (endR - startR) * progress);
+      const g = Math.round(startG + (endG - startG) * progress);
+      const b = Math.round(startB + (endB - startB) * progress);
+      
+      // Ալիքային էֆեկտի պարամետրեր
+      let transform = 'scaleX(2.7)';
+      let opacity = 1;
+      let animation = '';
+      
+      if (waveAnimation) {
+        // Ալիքաձև էֆեկտ compliant բարերի համար (երկրորդ ալիք)
+        const waveProgress = Math.min(1, i / (compliantBars * 0.5));
+        const waveHeight = Math.sin(waveProgress * Math.PI * 2) * 0.5 + 1;
+        transform = `scaleX(2.7) scaleY(${waveHeight})`;
+        opacity = 0.5 + waveProgress * 0.5;
+        animation = 'compliantWave 1.2s ease-out';
+      } else if (isCardHovered) {
+        // Թեթև ալիքաձև էֆեկտ հովերի ժամանակ
+        transform = `scaleX(2.7) scaleY(${1.05 + Math.sin(i * 0.3) * 0.05})`;
+      }
+      
+      bars.push(
+        <div
+          key={`compliant-bar-${i}`}
+          className="chart-bar compliant-bar"
+          style={{
+            width: '1px',
+            transform: transform,
+            transformOrigin: 'left',
+            height: `${height}px`,
+            backgroundColor: `rgb(${r}, ${g}, ${b})`,
+            borderRadius: '1px',
+            cursor: 'pointer',
+            opacity: opacity,
+            transition: waveAnimation ? 
+              `all 0.5s ease ${waveDelay}ms, opacity 0.3s ease ${waveDelay}ms` :
+              `all 0.25s ease, transform 0.2s ease`,
+            animation: animation,
+            animationDelay: waveAnimation ? `${waveDelay}ms` : '0s',
+            willChange: 'height, background-color, transform, opacity'
+          }}
+          title={`Compliant: ${expiringQuotes}`}
         />
       );
     }
@@ -225,6 +309,68 @@ const QuotesExpirationCard = ({
           100% {
             opacity: 1;
             transform: scaleX(2.7) scaleY(1);
+          }
+        }
+        
+        @keyframes missingWave {
+          0% {
+            transform: scaleX(2.7) scaleY(0.1);
+            opacity: 0;
+          }
+          15% {
+            transform: scaleX(2.7) scaleY(1.6);
+            opacity: 0.9;
+          }
+          30% {
+            transform: scaleX(2.7) scaleY(0.7);
+            opacity: 0.8;
+          }
+          45% {
+            transform: scaleX(2.7) scaleY(1.3);
+            opacity: 1;
+          }
+          60% {
+            transform: scaleX(2.7) scaleY(0.9);
+            opacity: 1;
+          }
+          75% {
+            transform: scaleX(2.7) scaleY(1.1);
+            opacity: 1;
+          }
+          100% {
+            transform: scaleX(2.7) scaleY(1);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes compliantWave {
+          0% {
+            transform: scaleX(2.7) scaleY(0.1);
+            opacity: 0;
+          }
+          20% {
+            transform: scaleX(2.7) scaleY(1.6);
+            opacity: 0.9;
+          }
+          40% {
+            transform: scaleX(2.7) scaleY(0.7);
+            opacity: 0.8;
+          }
+          60% {
+            transform: scaleX(2.7) scaleY(1.3);
+            opacity: 1;
+          }
+          80% {
+            transform: scaleX(2.7) scaleY(0.9);
+            opacity: 1;
+          }
+          95% {
+            transform: scaleX(2.7) scaleY(1.1);
+            opacity: 1;
+          }
+          100% {
+            transform: scaleX(2.7) scaleY(1);
+            opacity: 1;
           }
         }
         
@@ -263,6 +409,29 @@ const QuotesExpirationCard = ({
           100% {
             transform: scale(1);
             box-shadow: 0 0 0 0 ${colors.light};
+          }
+        }
+        
+        @keyframes numberWave {
+          0% {
+            transform: scale(0.8);
+            opacity: 0.5;
+          }
+          25% {
+            transform: scale(1.1);
+            opacity: 0.8;
+          }
+          50% {
+            transform: scale(0.95);
+            opacity: 0.9;
+          }
+          75% {
+            transform: scale(1.05);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
           }
         }
         
@@ -455,7 +624,11 @@ const QuotesExpirationCard = ({
         <div className="expiration-stats h-[inherit] relative w-[149px] hidden xl:block">
           <div className="expiration-left absolute top-0 left-0.5 w-[143px] h-11 flex gap-3">
             <div className="expiration-rate w-20 h-10 flex gap-1 items-baseline">
-              <span className="ml-4 rate-number font-montserrat text-[56px] text-black font-normal tracking-[1.12px] leading-10 w-16 transition-all duration-300">
+              <span className="ml-4 rate-number font-montserrat text-[56px] text-black font-normal tracking-[1.12px] leading-10 w-16 transition-all duration-300"
+                style={{
+                  animation: waveAnimation ? 'numberWave 1.2s ease-out' : 'none'
+                }}
+              >
                 {missingDocsRate}
               </span>
               <span className="absolute top-[-2px] left-0 rate-symbol font-montserrat text-xs text-black font-normal tracking-[0.20px] w-2">
@@ -502,7 +675,8 @@ const QuotesExpirationCard = ({
                   className="expiring-text font-montserrat text-xs font-medium transition-all duration-300"
                   style={{ 
                     color: isCardHovered ? colors.primary : '#6f6f6f',
-                    fontWeight: isCardHovered ? 600 : 500
+                    fontWeight: isCardHovered ? 600 : 500,
+                    animation: waveAnimation ? 'slideUpFade 0.8s ease' : 'none'
                   }}
                 >
                   {sub}: {missingDocsCount}
