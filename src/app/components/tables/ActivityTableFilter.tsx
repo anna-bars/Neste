@@ -132,7 +132,7 @@ export const ActivityTableFilter: React.FC<ActivityTableFilterProps> = ({
   return (
     <>
       <div className='block-1 relative'>
-        <div className={`mt-3 mb-2 lg:mt-0 lg:mb-0 flex px-${pxValue} md:px-${pxValue} justify-between items-center relative`}>
+        <div className={`mt-3 mb-2 p-0 lg:mt-0 lg:mb-0 flex px-0 md:px-${pxValue} justify-between items-center relative`}>
           <div className="flex flex-col">
             <h2 className="font-poppins font-semibold text-xl text-gray-900">{title}</h2>
           </div>
@@ -187,7 +187,7 @@ export const ActivityTableFilter: React.FC<ActivityTableFilterProps> = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                New Quote
+                <span className='hidden md:block'>New Quote</span>
               </button>
             )}
           </div>
