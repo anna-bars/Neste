@@ -66,15 +66,15 @@ const QuotesExpirationCard = ({
   const [waveAnimation, setWaveAnimation] = useState(false);
   
   // Վերահաշվել տվյալները՝ ցույց տալու համար missing docs
-  const { totalQuotes, expiringQuotes, expiringRate } = expirationData[activeTab] || { 
-    totalQuotes: 0, 
-    expiringQuotes: 0, 
-    expiringRate: 0 
-  };
-  
-  // Missing docs-ի համար հաշվել հակառակ տոկոսը
-  const missingDocsRate = 100 - expiringRate;
-  const missingDocsCount = totalQuotes - expiringQuotes;
+const { totalQuotes, expiringQuotes, expiringRate } = expirationData[activeTab] || { 
+  totalQuotes: 0, 
+  expiringQuotes: 0, 
+  expiringRate: 0 
+};
+// Shipments էջի համար expiringRate-ն արդեն missing docs-ի տոկոսն է
+// Quotes էջի համար պետք է հաշվել հակառակը
+const missingDocsRate = chartType === 'shipments' ? expiringRate : 100 - expiringRate;
+const missingDocsCount = chartType === 'shipments' ? expiringQuotes : totalQuotes - expiringQuotes;
   
   const calculateBarsCount = useCallback((width: number) => {
     if (width <= 200) return 40;
