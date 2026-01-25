@@ -128,12 +128,12 @@ const QuotesExpirationCard = ({
     } else {
       // Default (Document Compliance) համար՝ կարմիր գրադիենտ
       const startR = 255;    // #FF8888 (բաց կարմիր)
-      const startG = 136;
-      const startB = 136;
+      const startG = 239;
+      const startB = 166;
       
-      const endR = 220;       // #DC3545 (մուգ կարմիր)
-      const endG = 53;
-      const endB = 69;
+      const endR = 235;       // #DC3545 (մուգ կարմիր)
+      const endG = 54;
+      const endB = 37;
       
       const r = Math.round(startR + (endR - startR) * progress);
       const g = Math.round(startG + (endG - startG) * progress);
