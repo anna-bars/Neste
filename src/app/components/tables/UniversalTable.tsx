@@ -264,25 +264,115 @@ const filteredRows = useMemo(() => {
     setSearchQuery('');
   };
 
+// UniversalTable.tsx - փոխարինեք defaultEmptyState-ը այս կոդով
+
   const defaultEmptyState = (
-    <div className="flex flex-col items-center justify-center py-12 px-4">
-      <div className="text-gray-400 mb-4">
-        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+    <div className="flex flex-col items-center justify-center py-16 px-6">
+      {/* Ավելի գեղեցիկ իկոն */}
+      <div className="relative mb-8">
+        <div className="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-inner">
+            <svg 
+              className="w-10 h-10 text-blue-400" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={1.5} 
+                d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+              />
+            </svg>
+          </div>
+          
+          {/* Դեկորատիվ օղակներ */}
+          <div className="absolute inset-0 border-2 border-blue-100 rounded-full animate-pulse"></div>
+          <div className="absolute inset-4 border border-blue-50 rounded-full"></div>
+        </div>
       </div>
-      <h3 className="font-poppins font-medium text-lg text-gray-700 mb-2">No results found</h3>
-      <p className="font-poppins text-sm text-gray-500 text-center max-w-md">
-        {searchQuery 
-          ? `No results match your search "${searchQuery}". Try adjusting your filters or search terms.`
-          : "No data available. Try adjusting your filters."}
-      </p>
-      <button 
-        className="mt-6 px-6 py-2.5 bg-[#2563eb] text-white rounded-lg font-poppins text-sm font-normal hover:bg-[#1d4ed8] transition-colors duration-300"
-        onClick={handleReset}
-      >
-        Clear all filters
-      </button>
+      
+      {/* Տեքստային բովանդակություն */}
+      <div className="text-center max-w-md mb-8">
+        <h3 className="font-poppins font-semibold text-xl text-gray-800 mb-3">
+          {searchQuery 
+            ? `No results found for "${searchQuery}"` 
+            : "No data available"}
+        </h3>
+        
+        <p className="font-poppins text-base text-gray-600 leading-relaxed">
+          {searchQuery 
+            ? "Try adjusting your search terms or filters to find what you're looking for."
+            : "There are currently no policies matching your selected filters. Try adjusting your filter criteria."}
+        </p>
+        
+        {/* Անցակետեր (եթե որևէ մեկը կիրառելի է) */}
+        <div className="mt-6 space-y-2 text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            <span className="font-poppins text-sm text-gray-500">
+              Check if your filters are too restrictive
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            <span className="font-poppins text-sm text-gray-500">
+              Try different time periods
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            <span className="font-poppins text-sm text-gray-500">
+              Select "All Activity" to see everything
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Գործողությունների կոճակներ */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <button 
+          className="
+            px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 
+            text-white rounded-xl font-poppins text-sm font-semibold 
+            hover:from-blue-600 hover:to-blue-700 
+            transition-all duration-300 shadow-md hover:shadow-lg
+            flex items-center gap-2
+          "
+          onClick={handleReset}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Clear all filters
+        </button>
+        
+        {searchQuery && (
+          <button 
+            className="
+              px-8 py-3 bg-white border border-gray-200 
+              text-gray-700 rounded-xl font-poppins text-sm font-semibold 
+              hover:bg-gray-50 hover:border-gray-300
+              transition-all duration-300 shadow-sm hover:shadow
+              flex items-center gap-2
+            "
+            onClick={() => setSearchQuery('')}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear search
+          </button>
+        )}
+      </div>
+      
+      {/* Դեկորատիվ տարրեր */}
+      <div className="mt-10 flex gap-4 opacity-30">
+        <div className="w-12 h-1 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
+        <div className="w-6 h-1 bg-gradient-to-r from-indigo-400 to-transparent rounded-full"></div>
+        <div className="w-8 h-1 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
+      </div>
     </div>
   );
 
