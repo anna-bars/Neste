@@ -266,115 +266,205 @@ const filteredRows = useMemo(() => {
 
 // UniversalTable.tsx - փոխարինեք defaultEmptyState-ը այս կոդով
 
-  const defaultEmptyState = (
-    <div className="flex flex-col items-center justify-center py-16 px-6">
-      {/* Ավելի գեղեցիկ իկոն */}
-      <div className="relative mb-8">
-        <div className="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-inner">
-            <svg 
-              className="w-10 h-10 text-blue-400" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={1.5} 
-                d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-              />
-            </svg>
-          </div>
-          
-          {/* Դեկորատիվ օղակներ */}
-          <div className="absolute inset-0 border-2 border-blue-100 rounded-full animate-pulse"></div>
-          <div className="absolute inset-4 border border-blue-50 rounded-full"></div>
-        </div>
-      </div>
-      
-      {/* Տեքստային բովանդակություն */}
-      <div className="text-center max-w-md mb-8">
-        <h3 className="font-poppins font-semibold text-xl text-gray-800 mb-3">
-          {searchQuery 
-            ? `No results found for "${searchQuery}"` 
-            : "No data available"}
-        </h3>
-        
-        <p className="font-poppins text-base text-gray-600 leading-relaxed">
-          {searchQuery 
-            ? "Try adjusting your search terms or filters to find what you're looking for."
-            : "There are currently no policies matching your selected filters. Try adjusting your filter criteria."}
-        </p>
-        
-        {/* Անցակետեր (եթե որևէ մեկը կիրառելի է) */}
-        <div className="mt-6 space-y-2 text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-            <span className="font-poppins text-sm text-gray-500">
-              Check if your filters are too restrictive
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-            <span className="font-poppins text-sm text-gray-500">
-              Try different time periods
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-            <span className="font-poppins text-sm text-gray-500">
-              Select "All Activity" to see everything
-            </span>
+// Գրադիենտով տարբերակ
+// Ժամանակակից մոդեռն տարբերակ
+// Սուպեր մոդեռն մինիմալիստիկ տարբերակ
+// 3D էֆեկտով տարբերակ (պահանջում է CSS)
+// Գեղեցիկ 3D տարբերակ բարելավված էֆեկտներով
+// Պարզ Cube էֆեկտ
+// Կոմպակտ 3D տարբերակ
+// Premium տարբերակ - ավելի ժամանակակից և գրավիչ
+const defaultEmptyState = (
+  <div className="relative flex flex-col items-center justify-center py-10 px-4">
+    {/* Glassmorphism 3D Card */}
+    <div className="mb-7 relative group">
+      <div className="relative w-20 h-20">
+        {/* Glass Card */}
+        <div className="
+          absolute inset-0 
+          bg-white/80 backdrop-blur-sm
+          rounded-xl 
+          border border-white/60
+          shadow-[0_8px_32px_rgba(31,38,135,0.07)]
+          flex items-center justify-center
+          transform transition-all duration-500 
+          group-hover:scale-110 group-hover:shadow-[0_12px_48px_rgba(37,99,235,0.15)]
+          group-hover:border-blue-300/40
+        ">
+          {/* Animated Gradient Icon */}
+          <div className="relative">
+            <div className="
+              w-12 h-12 
+              bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500
+              rounded-lg 
+              flex items-center justify-center 
+              shadow-lg shadow-blue-500/30
+              animate-gradient-x
+            ">
+              <svg 
+                className="w-5 h-5 text-white" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2.2} 
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                />
+              </svg>
+            </div>
+            
+            {/* 3D Depth Effect */}
+            <div className="
+              absolute -inset-2 border-2 border-blue-300/20 rounded-xl
+              transform -rotate-3
+              transition-transform duration-700 group-hover:rotate-3
+            "></div>
           </div>
         </div>
+        
+        {/* Floating Particles */}
+        <div className="absolute inset-0">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="
+                absolute w-1 h-1 
+                bg-gradient-to-r from-blue-400 to-cyan-400 
+                rounded-full
+                animate-float-fast
+              "
+              style={{
+                top: `${Math.sin(i * 2 * Math.PI/3) * 32 + 50}%`,
+                left: `${Math.cos(i * 2 * Math.PI/3) * 32 + 50}%`,
+                animationDelay: `${i * 0.2}s`
+              }}
+            />
+          ))}
+        </div>
+        
+        {/* Glow Ring */}
+        <div className="
+          absolute -inset-3 
+          bg-gradient-to-r from-blue-400/20 via-cyan-400/10 to-purple-400/20
+          rounded-2xl 
+          blur-md 
+          opacity-0 
+          group-hover:opacity-60
+          transition-opacity duration-500
+        "></div>
       </div>
       
-      {/* Գործողությունների կոճակներ */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <button 
-          className="
-            px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 
-            text-white rounded-xl font-poppins text-sm font-semibold 
-            hover:from-blue-600 hover:to-blue-700 
-            transition-all duration-300 shadow-md hover:shadow-lg
-            flex items-center gap-2
-          "
-          onClick={handleReset}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Clear all filters
-        </button>
-        
-        {searchQuery && (
-          <button 
-            className="
-              px-8 py-3 bg-white border border-gray-200 
-              text-gray-700 rounded-xl font-poppins text-sm font-semibold 
-              hover:bg-gray-50 hover:border-gray-300
-              transition-all duration-300 shadow-sm hover:shadow
-              flex items-center gap-2
-            "
-            onClick={() => setSearchQuery('')}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            Clear search
-          </button>
+      {/* Subtle Shadow */}
+      <div className="
+        absolute -bottom-1 inset-x-0 h-2 
+        bg-gradient-to-t from-gray-200/30 to-transparent 
+        blur-sm 
+        rounded-full
+        transform scale-x-90
+      "></div>
+    </div>
+    
+    {/* Content */}
+    <div className="text-center space-y-2.5 mb-7 max-w-xs">
+      <h3 className="font-poppins font-semibold text-lg text-gray-900 tracking-tight">
+        {searchQuery ? (
+          <span className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+            No matches found
+          </span>
+        ) : (
+          <span className="bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+            Nothing to show
+          </span>
         )}
-      </div>
+      </h3>
       
-      {/* Դեկորատիվ տարրեր */}
-      <div className="mt-10 flex gap-4 opacity-30">
-        <div className="w-12 h-1 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
-        <div className="w-6 h-1 bg-gradient-to-r from-indigo-400 to-transparent rounded-full"></div>
-        <div className="w-8 h-1 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
+      <p className="font-poppins text-gray-500 text-xs leading-relaxed px-2">
+        {searchQuery 
+          ? `"${searchQuery}" didn't match any policies in the database`
+          : "Try adjusting your filters or selecting different options"}
+      </p>
+    </div>
+    
+    {/* Actions - Modern Buttons */}
+    <div className="flex gap-2.5">
+      <button 
+        onClick={handleReset}
+        className="
+          relative
+          px-4 py-2.5
+          bg-gradient-to-r from-gray-900 to-gray-800
+          text-white 
+          rounded-lg
+          font-poppins font-medium text-xs
+          hover:from-gray-800 hover:to-gray-700
+          transition-all duration-300
+          shadow-md hover:shadow-lg
+          hover:-translate-y-0.5
+          flex items-center gap-1.5
+          overflow-hidden
+          group/btn
+        "
+      >
+        {/* Shine Effect */}
+        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></span>
+        
+        <svg className="w-3.5 h-3.5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <span className="relative z-10">Reset All</span>
+      </button>
+      
+      {searchQuery && (
+        <button 
+          onClick={() => setSearchQuery('')}
+          className="
+            px-4 py-2.5
+            bg-white 
+            text-gray-700 
+            rounded-lg
+            font-poppins font-medium text-xs
+            border border-gray-200
+            hover:border-gray-300 hover:bg-gray-50
+            transition-all duration-300
+            shadow-sm hover:shadow
+            hover:-translate-y-0.5
+            flex items-center gap-1.5
+          "
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Clear Search
+        </button>
+      )}
+    </div>
+    
+    {/* Quick Tips */}
+    <div className="mt-6 pt-5 border-t border-gray-100/60 w-full max-w-xs">
+      <div className="flex items-center justify-center gap-3 text-[11px] text-gray-400">
+        <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+          <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+          All Activity
+        </span>
+        <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
+        <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+          <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-150"></div>
+          Last 7 days
+        </span>
+        <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
+        <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+          <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse delay-300"></div>
+          Reset filters
+        </span>
       </div>
     </div>
-  );
+  </div>
+);
+
+
 
   const visibleDesktopColumns = columns.filter(col => !col.hideOnMobile);
   const computedDesktopGridCols = desktopGridCols || `0.7fr repeat(${visibleDesktopColumns.length - 3}, minmax(0, 1fr)) 0.9fr 1fr`;
