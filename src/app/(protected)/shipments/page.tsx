@@ -292,42 +292,6 @@ export default function ShipmentsPage() {
     }
   }
 
-  // Հաշվել փաստաթղթերի կոմպլայենսը policy-ի համար
-  const calculateDocsComplianceForPolicy = (policyId: string) => {
-    const policyDocuments = documentsData[policyId] || [];
-    
-    if (!policyDocuments || policyDocuments.length === 0) {
-      return { isCompliant: false, approvedDocs: 0, totalDocs: 3 };
-    }
-
-    // Վերցնել վերջին փաստաթղթի գրառումը
-    const latestDocument = policyDocuments[policyDocuments.length - 1];
-    
-    const requiredDocs = [
-      { key: 'commercial_invoice_status', label: 'Commercial Invoice' },
-      { key: 'packing_list_status', label: 'Packing List' },
-      { key: 'bill_of_lading_status', label: 'Bill of Lading' }
-    ];
-
-    let approvedCount = 0;
-    let totalDocs = 0;
-
-    requiredDocs.forEach(doc => {
-      const status = latestDocument[doc.key];
-      
-      if (status) {
-        totalDocs++;
-        if (status === 'approved') {
-          approvedCount++;
-        }
-      }
-    });
-
-    const isCompliant = approvedCount === 3 && totalDocs === 3;
-    
-    return { isCompliant, approvedDocs: approvedCount, totalDocs };
-  };
-
   // Ֆորմատավորել ծածկույթի ժամանակահատվածը
   const formatCoveragePeriod = (startDate: string, endDate: string) => {
     if (!startDate || !endDate) return 'N/A'
@@ -347,27 +311,26 @@ export default function ShipmentsPage() {
   }
 
   // Policy գործողությունների մշակում
-// Policy գործողությունների մշակում - ՓՈԽԱՐԵՆՔ
-const handlePolicyAction = (row: any, policy: any) => {
-  const policyId = policy.id
-  
-  // Որոշել ուր տանել՝ կախված status-ից
-  switch (policy.status) {
-    case 'active':
-      // Եթե ակտիվ է, տանել policy-ի դետալների էջ
-      window.location.href = `/shipments/${policyId}`
-      break
-    case 'pending':
-    case 'draft':
-    case 'submitted':
-      // Եթե pending կամ այլ status է, նաև տանել policy-ի էջ
-      window.location.href = `/shipments/${policyId}`
-      break
-    default:
-      // Ամեն դեպքում տանել policy-ի էջ
-      window.location.href = `/shipments/${policyId}`
+  const handlePolicyAction = (row: any, policy: any) => {
+    const policyId = policy.id
+    
+    // Որոշել ուր տանել՝ կախված status-ից
+    switch (policy.status) {
+      case 'active':
+        // Եթե ակտիվ է, տանել policy-ի դետալների էջ
+        window.location.href = `/shipments/${policyId}`
+        break
+      case 'pending':
+      case 'draft':
+      case 'submitted':
+        // Եթե pending կամ այլ status է, նաև տանել policy-ի էջ
+        window.location.href = `/shipments/${policyId}`
+        break
+      default:
+        // Ամեն դեպքում տանել policy-ի էջ
+        window.location.href = `/shipments/${policyId}`
+    }
   }
-}
 
   // Fallback տվյալներ
   const getFallbackData = () => {
@@ -457,23 +420,22 @@ const handlePolicyAction = (row: any, policy: any) => {
   }
 
   // Հաշվել 3 օրվա ընթացքում ավարտվող պոլիսիների թիվը
-const calculateExpiringIn3Days = () => {
-  const now = new Date()
-  
-  const expiringIn3Days = policiesRows.filter(policy => {
-    const rawData = policy.rawData
-    if (!rawData || rawData.status !== 'active') return false
+  const calculateExpiringIn3Days = () => {
+    const now = new Date()
     
-    const coverageEnd = new Date(rawData.coverage_end)
-    const daysUntilExpiry = Math.ceil((coverageEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    const expiringIn3Days = policiesRows.filter(policy => {
+      const rawData = policy.rawData
+      if (!rawData || rawData.status !== 'active') return false
+      
+      const coverageEnd = new Date(rawData.coverage_end)
+      const daysUntilExpiry = Math.ceil((coverageEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      
+      // Ստուգել միայն 1-3 օրվա ընթացքում ավարտվող պոլիսիները
+      return daysUntilExpiry >= 1 && daysUntilExpiry <= 3
+    }).length
     
-    // Ստուգել միայն 1-3 օրվա ընթացքում ավարտվող պոլիսիները
-    return daysUntilExpiry >= 1 && daysUntilExpiry <= 3
-  }).length
-  
-  return expiringIn3Days
-}
-
+    return expiringIn3Days
+  }
 
   // Policy timelines-ի տվյալներ
   const calculatePolicyTimelineData = () => {
@@ -492,112 +454,265 @@ const calculateExpiringIn3Days = () => {
 
   const policyTimelineData = calculatePolicyTimelineData()
 
-  // Docs compliance տվյալներ (իրական տվյալների հիման վրա)
-  const calculateDocsComplianceData = () => {
-    const totalPolicies = policiesRows.length
+  // Docs compliance տվյալներ (ըստ ժամանակահատվածների)
+// shipments/page.tsx - ՓՈԽԱՐԵՆՔ calculateDocsComplianceByTimePeriod ֆունկցիան
+
+// Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ՈՒՂՂՎԱԾ
+// Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ՆՈՐ ՏԱՐԲԵՐԱԿ
+// Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ԼՐԻՎ ՈՒՂՂՎԱԾ
+// Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ԼՐԻՎ ՈՒՂՂՎԱԾ ԻՆՔՆԱԳՈՐԾՈՒՆ ԼՈԳԵՐՈՎ
+// Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ԼՐԻՎ ՈՒՂՂՎԱԾ coverage period-ով
+const calculateDocsComplianceByTimePeriod = () => {
+  const now = new Date()
+  
+  console.log('=== DOCS COMPLIANCE CALCULATION STARTED (COVERAGE PERIOD) ===')
+  console.log('Now:', now.toISOString())
+  console.log('Today date:', now.getDate(), now.getMonth() + 1, now.getFullYear())
+  
+  // Սահմանել շաբաթների միջակայքերը
+  // This Week: 19.01 - 25.01
+  const thisWeekStart = new Date(2026, 0, 19) // 19 հունվար
+  const thisWeekEnd = new Date(2026, 0, 25)   // 25 հունվար
+  
+  // Next Week: 26.01 - 01.02
+  const nextWeekStart = new Date(2026, 0, 26) // 26 հունվար  
+  const nextWeekEnd = new Date(2026, 1, 1)    // 1 փետրվար
+  
+  // In 2-4 Weeks: 02.02 - 22.02
+  const in24WeeksStart = new Date(2026, 1, 2)  // 2 փետրվար
+  const in24WeeksEnd = new Date(2026, 1, 22)   // 22 փետրվար
+  
+  // Next Month: 23.02 - 24.03 (մոտավորապես)
+  const nextMonthStart = new Date(2026, 1, 23) // 23 փետրվար
+  const nextMonthEnd = new Date(2026, 2, 24)   // 24 մարտ
+  
+  console.log('This Week:', thisWeekStart.toDateString(), '-', thisWeekEnd.toDateString())
+  console.log('Next Week:', nextWeekStart.toDateString(), '-', nextWeekEnd.toDateString())
+  
+  // Ֆիլտրել միայն ակտիվ պոլիսիները
+  const activePolicies = policiesRows.filter(policy => 
+    policy.rawData?.status === 'active'
+  )
+  
+  console.log('Total active policies:', activePolicies.length)
+  
+  const complianceData = {
+    thisWeek: { missingDocs: 0, total: 0 },
+    nextWeek: { missingDocs: 0, total: 0 },
+    in24Weeks: { missingDocs: 0, total: 0 },
+    nextMonth: { missingDocs: 0, total: 0 }
+  }
+
+  // Վերլուծել յուրաքանչյուր ակտիվ պոլիսի
+  activePolicies.forEach((policy, index) => {
+    const rawData = policy.rawData
+    if (!rawData) return
+
+    const coverageStart = rawData.coverage_start
+    const coverageEnd = rawData.coverage_end
     
-    if (totalPolicies === 0) {
+    if (!coverageStart || !coverageEnd) {
+      console.log(`Policy ${policy.id}: No coverage dates`)
+      return
+    }
+
+    try {
+      // Ստեղծել ամսաթվերը
+      const startDate = new Date(coverageStart)
+      const endDate = new Date(coverageEnd)
+      
+      // Ստուգել, թե coverage period-ը ընկնում է որ ժամանակահատվածում
+      // Policy-ի coverage period-ը համընկնում է, եթե այն հատվում է շաբաթի հետ
+      const overlapsWithThisWeek = (
+        (startDate <= thisWeekEnd && endDate >= thisWeekStart) ||
+        (startDate <= thisWeekStart && endDate >= thisWeekEnd)
+      )
+      
+      const overlapsWithNextWeek = (
+        (startDate <= nextWeekEnd && endDate >= nextWeekStart) ||
+        (startDate <= nextWeekStart && endDate >= nextWeekEnd)
+      )
+      
+      const overlapsWith24Weeks = (
+        (startDate <= in24WeeksEnd && endDate >= in24WeeksStart) ||
+        (startDate <= in24WeeksStart && endDate >= in24WeeksEnd)
+      )
+      
+      const overlapsWithNextMonth = (
+        (startDate <= nextMonthEnd && endDate >= nextMonthStart) ||
+        (startDate <= nextMonthStart && endDate >= nextMonthEnd)
+      )
+      
+      const isMissingDocs = policy.missingDocs?.text?.includes('Missing') || 
+                           policy.missingDocs?.text === 'No Docs' ||
+                           policy.missingDocs?.text?.includes('Rejected') ||
+                           (policy.missingDocs?.text !== 'Approved' && 
+                            !policy.missingDocs?.text?.includes('Under Review') &&
+                            !policy.missingDocs?.text?.includes('Docs'))
+      
+      console.log(`\n--- Policy ${index + 1}: ${policy.id} ---`)
+      console.log('Coverage Period:', policy.expirationDate)
+      console.log('Start Date:', startDate.toDateString())
+      console.log('End Date:', endDate.toDateString())
+      console.log('Docs Status:', policy.missingDocs?.text)
+      console.log('Is Missing Docs:', isMissingDocs)
+      
+      // Ստուգել համընկնումները
+      if (overlapsWithThisWeek) {
+        complianceData.thisWeek.total++
+        if (isMissingDocs) complianceData.thisWeek.missingDocs++
+        console.log(`✅ Overlaps with This Week`)
+      }
+      
+      if (overlapsWithNextWeek) {
+        complianceData.nextWeek.total++
+        if (isMissingDocs) complianceData.nextWeek.missingDocs++
+        console.log(`✅ Overlaps with Next Week`)
+      }
+      
+      if (overlapsWith24Weeks) {
+        complianceData.in24Weeks.total++
+        if (isMissingDocs) complianceData.in24Weeks.missingDocs++
+        console.log(`✅ Overlaps with In 2-4 Weeks`)
+      }
+      
+      if (overlapsWithNextMonth) {
+        complianceData.nextMonth.total++
+        if (isMissingDocs) complianceData.nextMonth.missingDocs++
+        console.log(`✅ Overlaps with Next Month`)
+      }
+      
+      if (!overlapsWithThisWeek && !overlapsWithNextWeek && 
+          !overlapsWith24Weeks && !overlapsWithNextMonth) {
+        console.log(`➖ Does not overlap with any time period`)
+      }
+    } catch (error) {
+      console.error(`Error processing policy ${policy.id}:`, error)
+    }
+  })
+
+  console.log('\n=== FINAL COMPLIANCE DATA ===')
+  console.log('This Week:', complianceData.thisWeek)
+  console.log('Next Week:', complianceData.nextWeek)
+  console.log('In 2-4 Weeks:', complianceData.in24Weeks)
+  console.log('Next Month:', complianceData.nextMonth)
+  
+  return complianceData
+}
+
+const timeBasedComplianceData = calculateDocsComplianceByTimePeriod()
+
+// Փոփոխական տվյալներ tabs-ների համար
+const shipmentsData = {
+  'This Week': { 
+    totalQuotes: timeBasedComplianceData.thisWeek.total, 
+    expiringQuotes: timeBasedComplianceData.thisWeek.missingDocs,
+    expiringRate: timeBasedComplianceData.thisWeek.total > 0 
+      ? Math.round((timeBasedComplianceData.thisWeek.missingDocs / timeBasedComplianceData.thisWeek.total) * 100)
+      : 0
+  },
+  'Next Week': { 
+    totalQuotes: timeBasedComplianceData.nextWeek.total, 
+    expiringQuotes: timeBasedComplianceData.nextWeek.missingDocs,
+    expiringRate: timeBasedComplianceData.nextWeek.total > 0 
+      ? Math.round((timeBasedComplianceData.nextWeek.missingDocs / timeBasedComplianceData.nextWeek.total) * 100)
+      : 0
+  },
+  'In 2–4 Weeks': { 
+    totalQuotes: timeBasedComplianceData.in24Weeks.total, 
+    expiringQuotes: timeBasedComplianceData.in24Weeks.missingDocs,
+    expiringRate: timeBasedComplianceData.in24Weeks.total > 0 
+      ? Math.round((timeBasedComplianceData.in24Weeks.missingDocs / timeBasedComplianceData.in24Weeks.total) * 100)
+      : 0
+  },
+  'Next Month': { 
+    totalQuotes: timeBasedComplianceData.nextMonth.total, 
+    expiringQuotes: timeBasedComplianceData.nextMonth.missingDocs,
+    expiringRate: timeBasedComplianceData.nextMonth.total > 0 
+      ? Math.round((timeBasedComplianceData.nextMonth.missingDocs / timeBasedComplianceData.nextMonth.total) * 100)
+      : 0
+  }
+}
+
+console.log('\n=== SHIPMENTS DATA FOR CARDS ===')
+console.log('Shipments Data:', shipmentsData)
+console.log('\n=== SHIPMENTS DATA FOR CARDS ===')
+console.log('Shipments Data:', shipmentsData)
+  // Docs compliance տվյալներ (ընդհանուր)
+  const calculateOverallDocsComplianceData = () => {
+    // Ֆիլտրել միայն ակտիվ պոլիսիները
+    const activePolicies = policiesRows.filter(policy => 
+      policy.rawData?.status === 'active'
+    )
+    
+    const activePoliciesCount = activePolicies.length
+    
+    if (activePoliciesCount === 0) {
       return {
         totalPoliciesRequiringDocs: 0,
         policiesWithAllDocsApproved: 0,
         policiesWithMissingDocs: 0,
         complianceRate: 0
-      };
+      }
     }
 
     // Հաշվել այն պոլիսիները, որոնք ունեն բոլոր 3 փաստաթղթերը approved
     let policiesWithAllDocsApproved = 0
     let policiesWithMissingDocs = 0
     
-    policiesRows.forEach(policy => {
-      // Ստուգել, թե արդյոք պոլիսին պահանջում է փաստաթղթեր (Active կամ Expired)
-      const isActiveOrExpired = policy.rawData?.status === 'active' || policy.rawData?.status === 'expired'
-      
-      if (!isActiveOrExpired) {
-        return // Մի հաշվիր Pending կամ այլ status-ներ
-      }
-      
+    activePolicies.forEach(policy => {
       // Ստուգել docs status-ը
       if (policy.missingDocs?.text === 'Approved') {
         policiesWithAllDocsApproved++
-      } else if (policy.missingDocs?.text?.includes('Missing')) {
+      } else if (policy.missingDocs?.text?.includes('Missing') || 
+                 policy.missingDocs?.text === 'No Docs') {
         policiesWithMissingDocs++
       }
     })
     
-    // Հաշվել ընդհանուր պոլիսիների թիվը, որոնք պահանջում են փաստաթղթեր
-    const totalPoliciesRequiringDocs = policiesRows.filter(policy => {
-      return policy.rawData?.status === 'active' || policy.rawData?.status === 'expired'
-    }).length
-    
     // Հաշվել compliance rate
-    const complianceRate = totalPoliciesRequiringDocs > 0 
-      ? Math.round((policiesWithAllDocsApproved / totalPoliciesRequiringDocs) * 100)
+    const complianceRate = activePoliciesCount > 0 
+      ? Math.round((policiesWithAllDocsApproved / activePoliciesCount) * 100)
       : 0
     
     return {
-      totalPoliciesRequiringDocs,
+      totalPoliciesRequiringDocs: activePoliciesCount,
       policiesWithAllDocsApproved,
       policiesWithMissingDocs,
       complianceRate
     }
   }
 
-  const docsComplianceData = calculateDocsComplianceData()
 
-  // Փոփոխական տվյալներ tabs-ների համար - թարմացված
-  const shipmentsData = {
-    'This Week': { 
-      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
-      expiringQuotes: docsComplianceData.policiesWithAllDocsApproved,
-      expiringRate: docsComplianceData.complianceRate
-    },
-    'Next Week': { 
-      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
-      expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.8),
-      expiringRate: docsComplianceData.complianceRate
-    },
-    'In 2–4 Weeks': { 
-      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
-      expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.6),
-      expiringRate: docsComplianceData.complianceRate
-    },
-    'Next Month': { 
-      totalQuotes: docsComplianceData.totalPoliciesRequiringDocs, 
-      expiringQuotes: Math.floor(docsComplianceData.totalPoliciesRequiringDocs * 0.4),
-      expiringRate: 40
+
+  // Policy risk տվյալներ InfoWidget-ի համար
+  const calculatePolicyRiskData = () => {
+    const totalPolicies = policiesRows.length
+    
+    // Միայն ակտիվ պոլիսիները
+    const activePolicies = policiesRows.filter(policy => 
+      policy.rawData?.status === 'active'
+    ).length
+    
+    const expiringIn3Days = calculateExpiringIn3Days()
+    
+    // Expiration Risk (1-3 օրում ավարտվող պոլիսիների տոկոս)
+    const expirationRisk = activePolicies > 0 
+      ? Math.round((expiringIn3Days / activePolicies) * 100)
+      : 0
+    
+    // Improvement Rate (ինչքան է բարելավվել/փոքր է ռիսկը)
+    const improvementRate = 100 - expirationRisk
+    
+    return {
+      expirationRisk, // Սա է իրական ռիսկը (25%)
+      improvementRate, // Սա է բարելավումը (75%)
+      totalPolicies: activePolicies,
+      expiringIn3Days
     }
   }
 
-  // Policy risk տվյալներ InfoWidget-ի համար
-// Policy risk տվյալներ InfoWidget-ի համար
-const calculatePolicyRiskData = () => {
-  const totalPolicies = policiesRows.length
-  
-  // Միայն ակտիվ պոլիսիները
-  const activePolicies = policiesRows.filter(policy => 
-    policy.rawData?.status === 'active'
-  ).length
-  
-  const expiringIn3Days = calculateExpiringIn3Days()
-  
-  // Expiration Risk (1-3 օրում ավարտվող պոլիսիների տոկոս)
-  const expirationRisk = activePolicies > 0 
-    ? Math.round((expiringIn3Days / activePolicies) * 100)
-    : 0
-  
-  // Improvement Rate (ինչքան է բարելավվել/փոքր է ռիսկը)
-  const improvementRate = 100 - expirationRisk
-  
-  return {
-    expirationRisk, // Սա է իրական ռիսկը (25%)
-    improvementRate, // Սա է բարելավումը (75%)
-    totalPolicies: activePolicies,
-    expiringIn3Days
-  }
-}
-
-const policyRiskData = calculatePolicyRiskData()
+  const policyRiskData = calculatePolicyRiskData()
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -724,6 +839,7 @@ const policyRiskData = calculatePolicyRiskData()
                 total='Total policies'
                 sub='Policies w/ missing docs'
                 percentageInfo='Docs Compliance'
+                chartType='shipments'
               />
             </div>
 
@@ -787,6 +903,7 @@ const policyRiskData = calculatePolicyRiskData()
               total='Total policies'
               sub='Policies w/ missing docs'
               percentageInfo='Docs Compliance'
+              chartType='shipments'
             />
 
             {/* Policy Risk Card */}
@@ -843,6 +960,7 @@ const policyRiskData = calculatePolicyRiskData()
                   total='Total policies'
                   sub='Policies w/ missing docs'
                   percentageInfo='Docs Compliance'
+                  chartType='shipments'
                 />
               </div>
             </div>

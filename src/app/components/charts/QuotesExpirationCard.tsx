@@ -17,7 +17,7 @@ interface QuotesExpirationCardProps {
   total?: string,
   sub?: string,
   percentageInfo?: string
-  chartType?: 'default' | 'quotes'
+  chartType?: 'default' | 'quotes' | 'shipments'
 }
 
 const QuotesExpirationCard = ({ 
@@ -31,18 +31,20 @@ const QuotesExpirationCard = ({
   percentageInfo = 'Missing Docs %',
   chartType = 'default'
 }: QuotesExpirationCardProps) => {
+  // Տարբեր tabs ըստ chartType-ի
   const getTabs = () => {
     if (chartType === 'quotes') {
       // Quotes էջի համար՝ This Week և Next Week
       return ['This Week', 'Next Week'];
     } else {
-      // Default (Document Compliance) համար՝ բոլոր 4 tabs
+      // Shipments և Default էջերի համար՝ բոլոր 4 tabs
       return ['This Week', 'Next Week', 'In 2–4 Weeks', 'Next Month'];
     }
   };
 
   const tabs = getTabs();
   
+  // Default տվյալները ըստ chartType-ի
   const defaultExpirationData: Record<string, ExpirationData> = chartType === 'quotes' 
     ? {
         'This Week': { totalQuotes: 22, expiringQuotes: 7, expiringRate: 32 },
@@ -141,7 +143,7 @@ const QuotesExpirationCard = ({
       
       return `rgb(${r}, ${g}, ${b})`;
     } else {
-      // Default (Document Compliance) համար՝ կարմիր գրադիենտ
+      // Shipments և Default համար՝ կարմիր գրադիենտ
       const startR = 255;    // #FF8888 (բաց կարմիր)
       const startG = 239;
       const startB = 166;
