@@ -12,7 +12,7 @@ interface MobileBottomNavProps {
   }[]
   activeNavItem: string
   onNavClick: (itemLabel: string) => void
-}
+} 
 
 export default function MobileBottomNav({ 
   navItems, 
@@ -22,7 +22,9 @@ export default function MobileBottomNav({
   const isActive = (itemLabel: string) => activeNavItem === itemLabel
   
   return (
-    <div className="xl:hidden fixed bottom-0 left-0 right-0 z-40">
+    <div className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1a1a1a]">
+      <img src="/nav/mob-right-top.svg" className='absolute -top-[28.5px] right-0' alt="" />
+      <img src="/nav/mob-left-top.svg" className='absolute -top-[28.5px] left-0' alt="" />
       <div className="flex justify-center gap-2 items-center h-[70px] px-2">
         {navItems.map((item) => {
           const active = isActive(item.label)
