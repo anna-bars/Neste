@@ -307,12 +307,31 @@ const defaultEmptyState = (
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2.2} 
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-                />
+                {rows.length === 0 && !searchQuery ? (
+                  // Նոր օգտատեր / առանց տվյալների
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2.2} 
+                    d="M12 4v16m8-8H4" 
+                  />
+                ) : searchQuery ? (
+                  // Որոնման արդյունք չկա
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2.2} 
+                    d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                  />
+                ) : (
+                  // Ֆիլտրի արդյունք չկա
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2.2} 
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                  />
+                )}
               </svg>
             </div>
             
@@ -367,14 +386,21 @@ const defaultEmptyState = (
       "></div>
     </div>
     
-    {/* Content */}
+    {/* Content - տարբեր հաղորդագրություններ տարբեր դեպքերի համար */}
     <div className="text-center space-y-2.5 mb-7 max-w-xs">
       <h3 className="font-poppins font-semibold text-lg text-gray-900 tracking-tight">
-        {searchQuery ? (
+        {rows.length === 0 && !searchQuery ? (
+          // Նոր օգտատեր / առանց տվյալների
+          <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+            Welcome aboard! 🚀
+          </span>
+        ) : searchQuery ? (
+          // Որոնման արդյունք չկա
           <span className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
             No matches found
           </span>
         ) : (
+          // Ֆիլտրի արդյունք չկա
           <span className="bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
             Nothing to show
           </span>
@@ -382,88 +408,156 @@ const defaultEmptyState = (
       </h3>
       
       <p className="font-poppins text-gray-500 text-xs leading-relaxed px-2">
-        {searchQuery 
-          ? `"${searchQuery}" didn't match any policies in the database`
-          : "Try adjusting your filters or selecting different options"}
+        {rows.length === 0 && !searchQuery ? (
+          // Նոր օգտատեր / առանց տվյալների
+          "Start by creating your first quote or policy to see it appear here"
+        ) : searchQuery ? (
+          `"${searchQuery}" didn't match any policies in the database`
+        ) : (
+          "Try adjusting your filters or selecting different options"
+        )}
       </p>
     </div>
     
-    {/* Actions - Modern Buttons */}
+    {/* Actions - տարբեր կոճակներ տարբեր դեպքերի համար */}
     <div className="flex gap-2.5">
-      <button 
-        onClick={handleReset}
-        className="
-          relative
-          px-4 py-2.5
-          bg-gradient-to-r from-gray-900 to-gray-800
-          text-white 
-          rounded-lg
-          font-poppins font-medium text-xs
-          hover:from-gray-800 hover:to-gray-700
-          transition-all duration-300
-          shadow-md hover:shadow-lg
-          hover:-translate-y-0.5
-          flex items-center gap-1.5
-          overflow-hidden
-          group/btn
-        "
-      >
-        {/* Shine Effect */}
-        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></span>
-        
-        <svg className="w-3.5 h-3.5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        <span className="relative z-10">Reset All</span>
-      </button>
-      
-      {searchQuery && (
+      {rows.length === 0 && !searchQuery ? (
+        // Նոր օգտատերի համար - "Get Started" կոճակ
         <button 
-          onClick={() => setSearchQuery('')}
+          onClick={() => window.location.href = '/create-quote'} // Կամ այլ նավարկություն
           className="
-            px-4 py-2.5
-            bg-white 
-            text-gray-700 
+            relative
+            px-5 py-2.5
+            bg-gradient-to-r from-blue-600 to-cyan-500
+            text-white 
             rounded-lg
             font-poppins font-medium text-xs
-            border border-gray-200
-            hover:border-gray-300 hover:bg-gray-50
+            hover:from-blue-700 hover:to-cyan-600
             transition-all duration-300
-            shadow-sm hover:shadow
+            shadow-lg hover:shadow-xl
             hover:-translate-y-0.5
             flex items-center gap-1.5
+            overflow-hidden
+            group/btn
           "
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+          {/* Shine Effect */}
+          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></span>
+          
+          <svg className="w-3.5 h-3.5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
           </svg>
-          Clear Search
+          <span className="relative z-10">Get Started</span>
         </button>
+      ) : (
+        // Ֆիլտրի կամ որոնման դեպքում
+        <>
+          <button 
+            onClick={handleReset}
+            className="
+              relative
+              px-4 py-2.5
+              bg-gradient-to-r from-gray-900 to-gray-800
+              text-white 
+              rounded-lg
+              font-poppins font-medium text-xs
+              hover:from-gray-800 hover:to-gray-700
+              transition-all duration-300
+              shadow-md hover:shadow-lg
+              hover:-translate-y-0.5
+              flex items-center gap-1.5
+              overflow-hidden
+              group/btn
+            "
+          >
+            {/* Shine Effect */}
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></span>
+            
+            <svg className="w-3.5 h-3.5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="relative z-10">Reset All</span>
+          </button>
+          
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="
+                px-4 py-2.5
+                bg-white 
+                text-gray-700 
+                rounded-lg
+                font-poppins font-medium text-xs
+                border border-gray-200
+                hover:border-gray-300 hover:bg-gray-50
+                transition-all duration-300
+                shadow-sm hover:shadow
+                hover:-translate-y-0.5
+                flex items-center gap-1.5
+              "
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Search
+            </button>
+          )}
+        </>
       )}
     </div>
     
     {/* Quick Tips */}
-    <div className="mt-6 pt-5 border-t border-gray-100/60 w-full max-w-xs">
-      <div className="flex items-center justify-center gap-3 text-[11px] text-gray-400">
-        <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
-          <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
-          All Activity
-        </span>
-        <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
-        <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
-          <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-150"></div>
-          Last 7 days
-        </span>
-        <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
-        <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
-          <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse delay-300"></div>
-          Reset filters
-        </span>
+    {rows.length === 0 && !searchQuery ? (
+      // Նոր օգտատերի համար - օգտակար հուշումներ
+      <div className="mt-6 pt-5 border-t border-gray-100/60 w-full max-w-xs">
+        <div className="flex flex-col items-center gap-3 text-[11px] text-gray-400">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+              Create your first quote
+            </span>
+            <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
+            <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse delay-150"></div>
+              Submit for approval
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+              <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-300"></div>
+              Track status
+            </span>
+            <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
+            <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse delay-450"></div>
+              Manage policies
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
+    ) : (
+      // Ֆիլտրի դեպքում - ֆիլտրի հուշումներ
+      <div className="mt-6 pt-5 border-t border-gray-100/60 w-full max-w-xs">
+        <div className="flex items-center justify-center gap-3 text-[11px] text-gray-400">
+          <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+            All Activity
+          </span>
+          <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
+          <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+            <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-150"></div>
+            Last 7 days
+          </span>
+          <div className="w-0.5 h-0.5 bg-gray-300 rounded-full"></div>
+          <span className="flex items-center gap-1.5 transition-colors hover:text-gray-600 cursor-help">
+            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse delay-300"></div>
+            Reset filters
+          </span>
+        </div>
+      </div>
+    )}
   </div>
 );
-
 
 
   const visibleDesktopColumns = columns.filter(col => !col.hideOnMobile);
