@@ -10,7 +10,6 @@ interface MetricItem {
   hasArrow?: boolean;
   arrowDirection?: 'up' | 'down';
   arrowColor?: 'blue' | 'red';
-  // Նոր prop՝ սահմանելու համար, արդյոք metric-ը դատարկ է
   isEmpty?: boolean;
 }
 
@@ -18,7 +17,6 @@ interface PerformanceOverviewProps {
   title?: string;
   timePeriod?: string;
   metrics?: MetricItem[];
-  // Նոր prop՝ ամբողջ վիդջեթի համար դատարկ state
   isEmpty?: boolean;
 }
 
@@ -30,7 +28,6 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
 }) => {
   const [hoveredMetricId, setHoveredMetricId] = useState<string | null>(null);
 
-  // Ֆունկցիա՝ սլաքի նկարը ընտրելու համար
   const getArrowImage = (metric: MetricItem) => {
     if (metric.hasArrow && !metric.isEmpty) {
       if (metric.arrowDirection === 'up' && metric.arrowColor === 'blue') {
@@ -94,7 +91,6 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
     return `${direction} arrow (${color})`;
   };
 
-  // Ֆունկցիա՝ ստուգելու համար, արդյոք բոլոր metric-ները դատարկ են
   const allMetricsEmpty = isEmpty || metrics.every(metric => metric.isEmpty || metric.value === '0' || metric.value === '0.');
 
   return (
@@ -103,22 +99,10 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
       max-[768px]:p-4
       max-[768px]:pl-4.5
       relative
-      ${allMetricsEmpty ? 'opacity-70' : ''}
     ">
-      {allMetricsEmpty && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#fdfdf8cf] bg-opacity-90 z-10 rounded-2xl">
-          <div className="text-center">
-            <div className="text-[14px] text-[#7b7b7b] font-medium mb-1">
-              No Data Available
-            </div>
-            <div className="text-[12px] text-[#a0a0a0]">
-              Data will appear here once available
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="flex justify-between items-start mb-2 
+      {/* Վերևի մասը միշտ ցույց տալ */}
+      <div className="
+        flex justify-between items-start mb-2 
         max-[1336px]:items-center
         max-[1280px]:items-center
         max-[1024px]:items-center
@@ -129,7 +113,6 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
             max-[1336px]:text-[16px]
             max-[1280px]:text-[16px]
             max-[1024px]:text-[14px]
-            ${allMetricsEmpty ? 'opacity-50' : ''}
           ">
             {title}
           </h2>
@@ -137,7 +120,6 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
         <div className="
           flex items-center gap-3 px-3 py-1 rounded-lg border border-[#c7c7c7]/51 
           hover:border-[#a0a0a0]/51 transition-colors duration-300 cursor-pointer
-          ${allMetricsEmpty ? 'opacity-50 pointer-events-none' : ''}
         ">
           <span className="font-montserrat text-[12px] font-normal text-[#7b7b7b]">
             {timePeriod}
@@ -145,14 +127,13 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
         </div>
       </div>
       
-      {/* Metrics Grid */}
+      {/* Metrics Grid - պարզապես ցույց տալ metrics-ները, նույնիսկ եթե դատարկ են */}
       <div className="
         flex justify-around xl:flex-nowrap gap-8 xl:gap-2 
         max-[1336px]:justify-around max-[1336px]:gap-2
         max-[1280px]:justify-around max-[1280px]:gap-2
         max-[1024px]:flex max-[1024px]:gap-8 max-[1024px]:px-5
         max-[768px]:flex-wrap max-[768px]:gap-4 max-[768px]:gap-y-4 max-[768px]:justify-between
-        ${allMetricsEmpty ? 'filter blur-[1px] opacity-60' : ''}
       ">
         {metrics.map((metric) => {
           const isMetricEmpty = metric.isEmpty || metric.value === '0' || metric.value === '0.';
@@ -170,7 +151,7 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
               onMouseEnter={() => !isMetricEmpty && setHoveredMetricId(metric.id)}
               onMouseLeave={() => !isMetricEmpty && setHoveredMetricId(null)}
             >
-              {/* Main metric block with hover effects */}
+              {/* Main metric block */}
               <div className="relative">
                 <div className="w-fit
                   font-montserrat text-[46px] xl:text-[46px] font-normal 
@@ -294,4 +275,4 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
       </div>
     </section>
   );
-}; 
+};
