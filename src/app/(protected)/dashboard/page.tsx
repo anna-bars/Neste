@@ -1158,7 +1158,7 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
 }
 
 function calculateHighValuePercentage(data: any[]) {
-  if (!data.length) return 45.55
+  if (!data.length) return 0
   
   const highValueThreshold = 10000
   const highValueCount = data.filter(item => item.value >= highValueThreshold).length
