@@ -810,6 +810,7 @@ const quotesData2 = {
               sub="Converting"
               percentageInfo="Converting"
               chartType="quotes"
+              
             />
 
            <InfoWidget 
