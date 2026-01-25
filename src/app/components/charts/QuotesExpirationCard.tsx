@@ -116,9 +116,9 @@ const QuotesExpirationCard = ({
       const startG = 248;
       const startB = 190;
       
-      const endR = 102;       // #66EE68 (մուգ կանաչ)
-      const endG = 238;
-      const endB = 104;
+      const endR = 37;       // #66EE68 (մուգ կանաչ)
+      const endG = 99;
+      const endB = 235;
       
       const r = Math.round(startR + (endR - startR) * progress);
       const g = Math.round(startG + (endG - startG) * progress);
