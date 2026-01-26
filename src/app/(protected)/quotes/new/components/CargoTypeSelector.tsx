@@ -1,6 +1,6 @@
 'use client';
 
-import { Cpu, Shirt, Cog, Apple, FlaskConical, Pill, Box, Zap, AlertCircle, Check, Sparkles } from 'lucide-react';
+import { Cpu, Shirt, Cog, Apple, FlaskConical, Pill, Box, Zap, AlertCircle, Check } from 'lucide-react';
 import { useState } from 'react';
 
 interface CargoTypeSelectorProps {
@@ -25,9 +25,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Cpu,
       description: 'Devices, computers',
       risk: 'Medium',
-      iconColor: 'text-blue-500',
+      iconColor: 'text-blue-600',
       bg: 'bg-blue-50',
       border: 'border-blue-200',
+      hoverBg: 'hover:bg-blue-100',
       riskColor: 'bg-amber-100 text-amber-800 border-amber-200'
     },
     { 
@@ -36,9 +37,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Shirt,
       description: 'Clothing, textiles',
       risk: 'Low',
-      iconColor: 'text-emerald-500',
+      iconColor: 'text-emerald-600',
       bg: 'bg-emerald-50',
       border: 'border-emerald-200',
+      hoverBg: 'hover:bg-emerald-100',
       riskColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
     },
     { 
@@ -47,9 +49,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Cog,
       description: 'Industrial equipment',
       risk: 'High',
-      iconColor: 'text-rose-500',
+      iconColor: 'text-rose-600',
       bg: 'bg-rose-50',
       border: 'border-rose-200',
+      hoverBg: 'hover:bg-rose-100',
       riskColor: 'bg-rose-100 text-rose-800 border-rose-200'
     },
     { 
@@ -58,9 +61,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Apple,
       description: 'Perishable goods',
       risk: 'Medium',
-      iconColor: 'text-amber-500',
+      iconColor: 'text-amber-600',
       bg: 'bg-amber-50',
       border: 'border-amber-200',
+      hoverBg: 'hover:bg-amber-100',
       riskColor: 'bg-amber-100 text-amber-800 border-amber-200'
     },
     { 
@@ -69,9 +73,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: FlaskConical,
       description: 'Hazardous materials',
       risk: 'High',
-      iconColor: 'text-purple-500',
+      iconColor: 'text-purple-600',
       bg: 'bg-purple-50',
       border: 'border-purple-200',
+      hoverBg: 'hover:bg-purple-100',
       riskColor: 'bg-purple-100 text-purple-800 border-purple-200'
     },
     { 
@@ -80,9 +85,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Pill,
       description: 'Medical supplies',
       risk: 'Low',
-      iconColor: 'text-teal-500',
+      iconColor: 'text-teal-600',
       bg: 'bg-teal-50',
       border: 'border-teal-200',
+      hoverBg: 'hover:bg-teal-100',
       riskColor: 'bg-teal-100 text-teal-800 border-teal-200'
     },
     { 
@@ -91,9 +97,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Box,
       description: 'Other cargo',
       risk: 'Variable',
-      iconColor: 'text-gray-500',
+      iconColor: 'text-gray-600',
       bg: 'bg-gray-50',
       border: 'border-gray-200',
+      hoverBg: 'hover:bg-gray-100',
       riskColor: 'bg-gray-100 text-gray-800 border-gray-200'
     },
   ];
@@ -119,10 +126,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
               className={`
                 relative group p-4 rounded-xl border transition-all duration-300
                 ${isSelected
-                  ? `${option.bg} ${option.border} shadow-sm`
-                  : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
+                  ? `${option.bg} ${option.border} shadow-md`
+                  : `bg-white border-gray-200 ${option.hoverBg} hover:border-gray-300 shadow-sm`
                 }
-                ${isHovered && !isSelected ? 'scale-[1.02]' : ''}
+                ${isHovered && !isSelected ? 'scale-[1.02] shadow-sm' : ''}
               `}
             >
               <div className="relative z-10">
@@ -132,7 +139,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
                     w-14 h-14 rounded-xl flex items-center justify-center mb-3 mx-auto
                     ${isSelected
                       ? `${option.bg} ${option.border}`
-                      : 'bg-gray-50 border border-gray-200 group-hover:border-gray-300'
+                      : 'bg-white border border-gray-200 group-hover:border-gray-300'
                     }
                     transition-all
                   `}
@@ -167,7 +174,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
                 {/* Selection Indicator */}
                 {isSelected && (
                   <div className="absolute -top-2 -right-2 z-20">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center shadow-sm bg-blue-600">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center shadow-md bg-blue-600">
                       <Check className="w-3 h-3 text-white" />
                     </div>
                   </div>
@@ -180,7 +187,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
 
       {/* Selection Details */}
       {selectedOption && cargoType !== 'other' && (
-        <div className={`p-4 rounded-xl ${selectedOption.bg} border ${selectedOption.border}`}>
+        <div className={`p-4 rounded-xl ${selectedOption.bg} border ${selectedOption.border} shadow-sm`}>
           <div className="flex items-center gap-3 mb-3">
             <div className={`p-2 rounded-lg ${selectedOption.bg}`}>
               <selectedOption.icon className={`w-5 h-5 ${selectedOption.iconColor}`} />
@@ -205,7 +212,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
 
       {/* Other Cargo Type Input */}
       {cargoType === 'other' && (
-        <div className="p-4 rounded-xl bg-gray-50 border border-gray-300">
+        <div className="p-4 rounded-xl bg-gray-50 border border-gray-300 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-gray-200">
               <Box className="w-5 h-5 text-gray-800" />
