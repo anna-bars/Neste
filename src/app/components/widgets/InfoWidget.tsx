@@ -27,7 +27,7 @@ export const InfoWidget: React.FC<InfoWidgetProps> = ({
   );
 
   return (
-    <div className={`min-h-[calc(26%-4px)] xl:flex-[0_0_26%] flex-col flex justify-between stats-card border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl p-4 hover:shadow-sm transition-shadow duration-300 ${className}`}>
+    <div className={`min-h-[calc(32%-4px)] xl:flex-[0_0_26%] flex-col flex justify-between stats-card border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl p-4 hover:shadow-sm transition-shadow duration-300 ${className}`}>
       {/* Title - responsive text size */}
       <h3 className="font-montserrat text-base md:text-lg font-medium text-black">
         {title}

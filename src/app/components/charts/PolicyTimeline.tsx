@@ -66,8 +66,8 @@ export const PolicyTimelineWidget: React.FC<PolicyTimelineWidgetProps> = ({
   return (
     <div 
       className="
-        relative w-full font-montserrat flex-grow min-h-[calc(29%-4px)] flex flex-col justify-between 
-        xl:flex-[0_0_31%] xl:min-h-auto xl:h-auto
+        relative w-full font-montserrat flex-grow min-h-[calc(32%-4px)] flex flex-col justify-between 
+        xl:flex-[0_0_34%] xl:min-h-auto xl:h-auto
         max-[1336px]:flex-grow max-[1336px]:min-h-auto max-[1336px]:h-auto
         max-[768px]:flex-shrink-0 max-[768px]:w-[100%] max-[768px]:min-h-[200px] 
         max-[768px]:max-h-[220px] max-[768px]:min-h-[200px]

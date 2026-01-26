@@ -439,7 +439,7 @@ const QuotesExpirationCard = ({
           display: flex;
           overflow: hidden;
           min-height: 30px;
-          margin-bottom: 8px;
+          margin-bottom:0px;
         }
         
         .stats-card {
