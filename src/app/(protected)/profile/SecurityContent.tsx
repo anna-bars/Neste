@@ -1,48 +1,97 @@
+'use client'
+
 import { useState } from "react";
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/app/context/UserContext';
 
 export const SecurityContent = () => {
-  const [is2FAEnabled, setIs2FAEnabled] = useState(true);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const { user } = useUser();
+  const supabase = createClient();
+  
+  const [loading, setLoading] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const sessions = [
-    {
-      id: "1",
-      device: "Chrome on Windows",
-      location: "Gyumri, Armenia",
-      lastActive: "5 minutes ago",
-      isCurrent: true,
-      icon: "🌐",
-    },
-    {
-      id: "2",
-      device: "Safari on iPhone",
-      location: "Amsterdam, Netherlands",
-      lastActive: "2 days ago",
-      isCurrent: false,
-      icon: "📱",
-    },
-  ];
+  const handleChangePassword = async () => {
+    setError("");
+    setSuccess("");
 
-  const handleSignOut = (id: string) => {
-    console.log(`Sign out session ${id}`);
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError("New passwords do not match");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword
+      });
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setSuccess("Password updated successfully!");
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+        
+        // Sign out from all sessions after password change
+        setTimeout(() => {
+          supabase.auth.signOut();
+        }, 2000);
+      }
+    } catch (error: any) {
+      setError(error.message || "An error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSignOutAll = () => {
-    console.log("Sign out all devices");
-  };
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      return;
+    }
 
-  const handleDeleteAccount = () => {
-    console.log("Delete account clicked");
-  };
+    try {
+      // Note: In production, you should implement proper account deletion
+      // This might involve deleting from profiles table first, then auth.users
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        alert("Error signing out: " + error.message);
+        return;
+      }
 
-  const handleChangePassword = () => {
-    console.log("Change password clicked");
+      alert("Account deletion request sent. You will be redirected.");
+      // Redirect to home page
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      alert("An error occurred while deleting account.");
+    }
   };
 
   return (
-    <div className="flex flex-col w-full items-start gap-6 p-4 sm:p-6 relative bg-[#fbfbf6] rounded-2xl">
+    <div className="flex flex-col w-full items-start gap-6 p-4 sm:p-6 relative bg-[#fbfbf6] rounded-2xl border border-[#e5e7eb]">
       {/* Change Password Section */}
       <div className="inline-flex flex-col items-start gap-5 relative w-full">
         <div className="flex flex-col sm:flex-row items-start justify-between relative self-stretch w-full gap-4">
@@ -50,41 +99,56 @@ export const SecurityContent = () => {
             <h2 className="absolute top-0 left-0 [font-family:'Montserrat-Medium',Helvetica] font-medium text-black text-lg tracking-[0.36px] leading-[normal]">
               Change Password
             </h2>
-            <p className="absolute top-7 mb-3 left-0 [font-family:'Montserrat-Regular',Helvetica] font-normal text-[#c7c7c7] text-xs tracking-[0.24px] leading-[normal]">
+            <p className="absolute top-7 left-0 [font-family:'Montserrat-Regular',Helvetica] font-normal text-[#c7c7c7] text-xs tracking-[0.24px] leading-[normal]">
               Update your password regularly to keep your account secure
             </p>
           </div>
           <button
             onClick={handleChangePassword}
-            className="inline-flex h-[35.68px] items-center justify-center gap-2.5 px-3 py-1.5 relative bg-blue-600 rounded-md hover:bg-blue-700 transition-colors w-full sm:w-auto"
+            disabled={loading}
+            className="inline-flex h-[35.68px] items-center justify-center gap-2.5 px-3 py-1.5 relative bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
           >
             <span className="relative w-fit [font-family:'Poppins-Regular',Helvetica] font-normal text-white text-sm tracking-[0] leading-[18px] whitespace-nowrap">
-              Change Password
+              {loading ? "Updating..." : "Update Password"}
             </span>
           </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row items-start gap-6 relative w-full mt-4">
+        {/* Error/Success Messages */}
+        {error && (
+          <div className="w-full p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+        
+        {success && (
+          <div className="w-full p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-600 text-sm">{success}</p>
+            <p className="text-green-500 text-xs mt-1">You will be signed out in a few seconds...</p>
+          </div>
+        )}
+
+        <div className="flex flex-col lg:flex-row items-start gap-6 relative w-full">
           {[
             {
               id: "currentPassword",
               label: "Current Password",
-              value: currentPassword,
-              setter: setCurrentPassword,
+              value: passwordForm.currentPassword,
+              onChange: (value: string) => setPasswordForm({...passwordForm, currentPassword: value}),
               placeholder: "Enter current password",
             },
             {
               id: "newPassword",
               label: "New Password",
-              value: newPassword,
-              setter: setNewPassword,
-              placeholder: "Enter new password",
+              value: passwordForm.newPassword,
+              onChange: (value: string) => setPasswordForm({...passwordForm, newPassword: value}),
+              placeholder: "Enter new password (min 6 characters)",
             },
             {
               id: "confirmPassword",
               label: "Confirm New Password",
-              value: confirmPassword,
-              setter: setConfirmPassword,
+              value: passwordForm.confirmPassword,
+              onChange: (value: string) => setPasswordForm({...passwordForm, confirmPassword: value}),
               placeholder: "Confirm new password",
             },
           ].map((field) => (
@@ -92,12 +156,12 @@ export const SecurityContent = () => {
               <label className="relative w-fit mt-[-1.00px] [font-family:'Montserrat-Regular',Helvetica] font-normal text-[#4f4f4f] text-sm tracking-[0] leading-[18px] whitespace-nowrap">
                 {field.label}
               </label>
-              <div className="flex flex-col h-[38px] items-start justify-center gap-2.5 px-3 py-2 relative self-stretch w-full rounded-[7px] border border-solid border-[#c7c7c782]">
+              <div className="flex flex-col h-[38px] items-start justify-center gap-2.5 px-3 py-2 relative self-stretch w-full rounded-[7px] border border-solid border-[#c7c7c782] bg-white">
                 <input
                   type="password"
                   id={field.id}
                   value={field.value}
-                  onChange={(e) => field.setter(e.target.value)}
+                  onChange={(e) => field.onChange(e.target.value)}
                   placeholder={field.placeholder}
                   className="relative w-full mt-[-1.00px] [font-family:'Montserrat-Regular',Helvetica] font-normal text-[#7b7b7b] text-base tracking-[0] leading-[18px] bg-transparent border-none outline-none"
                 />
@@ -109,45 +173,7 @@ export const SecurityContent = () => {
 
       <div className="relative self-stretch w-full h-px bg-gray-200" />
 
-      {/* Two-Factor Authentication */}
-      <div className="inline-flex flex-col items-start gap-5 relative w-full">
-        <div className="flex flex-col sm:flex-row items-start justify-between relative self-stretch w-full gap-4">
-          <div className="w-full sm:w-[278px] relative h-[43px]">
-            <h2 className="absolute top-0 left-0 [font-family:'Montserrat-Medium',Helvetica] font-medium text-black text-lg tracking-[0.36px] leading-[normal]">
-              Two-Factor Authentication
-            </h2>
-            <p className="absolute top-7 left-0 [font-family:'Montserrat-Regular',Helvetica] font-normal text-[#c7c7c7] text-xs tracking-[0.24px] leading-[normal]">
-              Add an extra layer of security to your account
-            </p>
-          </div>
-          <div className="flex items-center gap-3 self-start">
-            <span className="relative w-fit [font-family:'Montserrat-Regular',Helvetica] font-normal text-[#606068] text-sm tracking-[0] leading-[18px] whitespace-nowrap">
-              {is2FAEnabled ? "Enabled" : "Disabled"}
-            </span>
-            <div
-              onClick={() => setIs2FAEnabled(!is2FAEnabled)}
-              className={`w-12 h-6 rounded-full cursor-pointer relative transition-colors ${is2FAEnabled ? "bg-blue-600" : "bg-gray-300"}`}
-            >
-              <div
-                className={`absolute w-4 h-4 bg-white rounded-full top-1 transition-all ${is2FAEnabled ? "right-1" : "left-1"}`}
-              />
-            </div>
-          </div>
-        </div>
-
-        {is2FAEnabled && (
-          <div className="inline-flex items-start gap-2.5 p-4 relative self-stretch w-full rounded-[7px] bg-blue-50 border border-solid border-blue-100">
-            <div className="relative w-5 h-5">⚡</div>
-            <p className="relative flex-1 mt-[-1.00px] [font-family:'Montserrat-Regular',Helvetica] font-normal text-blue-700 text-sm tracking-[0] leading-[18px]">
-              Two-factor authentication is currently active. You'll need to verify your identity using your authenticator app when signing in from new devices.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="relative self-stretch w-full h-px bg-gray-200" />
-
-      {/* Active Sessions */}
+      {/* Session Management */}
       <div className="inline-flex flex-col items-start gap-5 relative w-full">
         <div className="flex flex-col sm:flex-row items-start justify-between relative self-stretch w-full gap-4">
           <div className="w-full sm:w-[278px] relative h-[43px]">
@@ -159,7 +185,7 @@ export const SecurityContent = () => {
             </p>
           </div>
           <button
-            onClick={handleSignOutAll}
+            onClick={() => supabase.auth.signOut()}
             className="inline-flex h-[35.68px] items-center justify-center gap-2.5 px-3 py-1.5 relative rounded-md border border-solid border-gray-300 hover:bg-gray-50 transition-colors w-full sm:w-auto"
           >
             <span className="relative w-fit [font-family:'Poppins-Regular',Helvetica] font-normal text-gray-700 text-sm tracking-[0] leading-[18px] whitespace-nowrap">
@@ -168,49 +194,13 @@ export const SecurityContent = () => {
           </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row items-start gap-4 relative self-stretch w-full">
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              className={`flex flex-col w-full lg:w-[582px] items-start justify-center p-4 sm:p-6 relative rounded-lg border border-solid ${session.isCurrent ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50 opacity-70"}`}
-            >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between relative self-stretch w-full gap-4">
-                <div className="inline-flex items-center gap-4 relative flex-[0_0_auto]">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${session.isCurrent ? "bg-blue-100" : "bg-gray-100"}`}>
-                    <span className={`${session.isCurrent ? "text-blue-600" : "text-gray-400"}`}>
-                      {session.icon}
-                    </span>
-                  </div>
-                  <div className="inline-flex flex-col items-start relative">
-                    <div className={`relative w-fit [font-family:'Montserrat-Regular',Helvetica] font-normal ${session.isCurrent ? "text-black" : "text-gray-500"} text-base tracking-[0] leading-[normal]`}>
-                      {session.device}
-                    </div>
-                    <div className="relative w-fit [font-family:'Montserrat-Regular',Helvetica] font-normal text-gray-400 text-sm tracking-[0] leading-[normal]">
-                      {session.location} – Last active: {session.lastActive}
-                    </div>
-                  </div>
-                </div>
-                <div className="inline-flex items-center gap-3 relative flex-[0_0_auto]">
-                  {session.isCurrent && (
-                    <span className="inline-flex items-center justify-center gap-2.5 px-2 py-1 relative bg-green-100 rounded-[37px]">
-                      <div className="relative w-1.5 h-1.5 bg-green-500 rounded-[3px]" />
-                      <div className="relative w-fit [font-family:'Poppins-Regular',Helvetica] font-normal text-green-800 text-xs tracking-[0] leading-[normal] whitespace-nowrap">
-                        Current
-                      </div>
-                    </span>
-                  )}
-                  <button
-                    onClick={() => handleSignOut(session.id)}
-                    className={`inline-flex h-[35.68px] items-center justify-center gap-2.5 px-3 py-1.5 relative rounded-md border border-solid ${session.isCurrent ? "border-red-300 text-red-600 hover:bg-red-50" : "border-gray-300 text-gray-600 hover:bg-gray-50"} transition-colors w-full sm:w-auto`}
-                  >
-                    <span className="relative w-fit [font-family:'Poppins-Regular',Helvetica] font-normal text-sm tracking-[0] leading-[18px] whitespace-nowrap">
-                      Sign Out
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-col w-full items-start gap-4 relative">
+          <div className="inline-flex items-start gap-2.5 p-4 relative self-stretch w-full rounded-[7px] bg-blue-50 border border-solid border-blue-100">
+            <div className="relative w-5 h-5">⚡</div>
+            <p className="relative flex-1 mt-[-1.00px] [font-family:'Montserrat-Regular',Helvetica] font-normal text-blue-700 text-sm tracking-[0] leading-[18px]">
+              You are currently signed in. Signing out will require you to log in again on this device.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -235,6 +225,13 @@ export const SecurityContent = () => {
               Delete Account
             </span>
           </button>
+        </div>
+        
+        <div className="inline-flex items-start gap-2.5 p-3 relative self-stretch w-full rounded-[7px] bg-white border border-solid border-red-100">
+          <div className="relative w-5 h-5 text-red-500">⚠️</div>
+          <p className="relative flex-1 mt-[-1.00px] [font-family:'Montserrat-Regular',Helvetica] font-normal text-red-700 text-sm tracking-[0] leading-[18px]">
+            Warning: This will permanently delete your account, all policies, quotes, and billing information. You will lose access to all documents and certificates associated with your account.
+          </p>
         </div>
       </div>
     </div>

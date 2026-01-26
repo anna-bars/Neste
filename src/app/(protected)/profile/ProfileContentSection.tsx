@@ -7,9 +7,14 @@ import { SecurityContent } from './SecurityContent'
 interface ProfileContentSectionProps {
   activeTab: ProfileTab
   onTabChange: (tab: ProfileTab) => void
+  profileData: any
 }
 
-export const ProfileContentSection = ({ activeTab, onTabChange }: ProfileContentSectionProps) => {
+export const ProfileContentSection = ({ 
+  activeTab, 
+  onTabChange, 
+  profileData 
+}: ProfileContentSectionProps) => {
   return (
     <>
       {/* Մոբայլ նավիգացիա */}
@@ -42,41 +47,55 @@ export const ProfileContentSection = ({ activeTab, onTabChange }: ProfileContent
       {/* Դեսքթոփ դասավորություն */}
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Ձախ կողմ - նավիգացիա (դեսքթոփի համար) */}
-        <div className="hidden lg:block w-full lg:w-[16%] lg:min-w-[300px]">
+        <div className="hidden lg:block w-full lg:w-[23%] lg:min-w-[300px]">
           <div className="rounded-2xl sticky top-8">
             <div className="space-y-2">
               <button
                 onClick={() => onTabChange('profile')}
                 className={`flex justify-between items-center self-stretch w-full h-[43px] px-9 py-2.5 rounded-xl border border-solid border-[#FAFBFD] transition-colors [font-family:'Montserrat-Regular',Helvetica] text-sm ${
                   activeTab === 'profile'
-                    ? 'bg-white'
-                    : 'bg-[#f8fafd]'
+                    ? 'bg-white shadow-sm'
+                    : 'bg-[#f8fafd] hover:bg-gray-50'
                 }`}
               >
-                <span className="font-normal text-[16px] text-black">
+                <span className={`font-normal text-[16px] ${
+                  activeTab === 'profile' ? 'text-blue-600' : 'text-black'
+                }`}>
                   My Profile & Billing
                 </span>
+                {activeTab === 'profile' && (
+                  <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                )}
               </button>
               
               <button
                 onClick={() => onTabChange('security')}
                 className={`flex justify-between items-center self-stretch w-full h-[43px] px-9 py-2.5 rounded-xl border border-solid border-[#FAFBFD] transition-colors [font-family:'Montserrat-Regular',Helvetica] text-sm ${
                   activeTab === 'security'
-                    ? 'bg-white'
-                    : 'bg-[#f8fafd]'
+                    ? 'bg-white shadow-sm'
+                    : 'bg-[#f8fafd] hover:bg-gray-50'
                 }`}
               >
-                <span className="font-normal text-[16px] text-black">
+                <span className={`font-normal text-[16px] ${
+                  activeTab === 'security' ? 'text-blue-600' : 'text-black'
+                }`}>
                   Security
                 </span>
+                {activeTab === 'security' && (
+                  <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                )}
               </button>
             </div>
           </div>
         </div>
 
         {/* Աջ կողմ - պարունակություն */}
-        <div className="w-full lg:w-[84%]">
-          {activeTab === 'profile' ? <ProfileBillingContent /> : <SecurityContent />}
+        <div className="w-full lg:w-[77%]">
+          {activeTab === 'profile' ? (
+            <ProfileBillingContent profileData={profileData} />
+          ) : (
+            <SecurityContent />
+          )}
         </div>
       </div>
     </>
