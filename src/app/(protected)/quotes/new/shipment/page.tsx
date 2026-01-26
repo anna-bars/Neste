@@ -95,10 +95,61 @@ export default function ShipmentStepPage() {
           </div>
         </div>
 
-        {/* Main Content Grid */}
+        {/* Main Content Grid - Reversed order */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Side - Useful Information Cards (20%) */}
-          <div className="lg:col-span-3 space-y-6">
+          {/* Left Side - Main Cargo Selection (80%) */}
+          <div className="lg:col-span-9 order-2 lg:order-1">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-8">
+              {/* Main Header */}
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Select Cargo Type</h1>
+                    <p className="text-gray-600 text-sm mt-1">
+                      Choose what you're shipping for accurate coverage calculation
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Required Indicator */}
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-xs text-blue-700 mb-6">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                  Required for premium calculation
+                </div>
+              </div>
+
+              {/* Cargo Selection Grid via Component */}
+              <CargoTypeSelector 
+                cargoType={cargoType}
+                otherCargoType={otherCargoType}
+                onCargoTypeSelect={setCargoType}
+                onOtherCargoTypeChange={setOtherCargoType}
+              />
+
+              {/* Continue Button - Smaller */}
+              <div className="flex justify-end mt-8 pt-6 border-t border-gray-100">
+                <button
+                  onClick={handleNext}
+                  disabled={!cargoType || (cargoType === 'other' && !otherCargoType)}
+                  className={`
+                    group px-8 py-3 rounded-xl font-semibold text-white 
+                    bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 
+                    disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300
+                    flex items-center gap-2 shadow-lg hover:shadow-xl
+                  `}
+                >
+                  <span className="text-base">Continue to Details</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Useful Information Cards (20%) */}
+          <div className="lg:col-span-3 space-y-6 order-1 lg:order-2">
             {/* Why Cargo Type Matters */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
@@ -174,57 +225,6 @@ export default function ShipmentStepPage() {
                 </p>
                 <button className="w-full py-2 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 rounded-lg transition-colors">
                   Contact Support
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Side - Main Cargo Selection (80%) */}
-          <div className="lg:col-span-9">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-8">
-              {/* Main Header */}
-              <div className="mb-8">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
-                    <Zap className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Select Cargo Type</h1>
-                    <p className="text-gray-600 text-sm mt-1">
-                      Choose what you're shipping for accurate coverage calculation
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Required Indicator */}
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-xs text-blue-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                  Required for premium calculation
-                </div>
-              </div>
-
-              {/* Cargo Selection Grid via Component */}
-              <CargoTypeSelector 
-                cargoType={cargoType}
-                otherCargoType={otherCargoType}
-                onCargoTypeSelect={setCargoType}
-                onOtherCargoTypeChange={setOtherCargoType}
-              />
-
-              {/* Continue Button */}
-              <div className="flex justify-end mt-10">
-                <button
-                  onClick={handleNext}
-                  disabled={!cargoType || (cargoType === 'other' && !otherCargoType)}
-                  className={`
-                    group px-10 py-3.5 rounded-xl font-semibold text-white 
-                    bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 
-                    disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300
-                    flex items-center gap-2 shadow-lg hover:shadow-xl
-                  `}
-                >
-                  <span className="text-lg">Continue to Details</span>
-                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
             </div>
