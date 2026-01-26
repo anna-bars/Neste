@@ -200,3 +200,48 @@ body {
     display: none;             /* Chrome, Safari */
   }
 }
+
+/* Add these styles to your globals.css */
+@layer components {
+  .quote-wizard-container {
+    height: calc(100vh - 64px); /* Subtract header height */
+    max-height: calc(100vh - 64px);
+    width: 78%;
+    max-width: 78%;
+    margin: 0 auto;
+  }
+
+  .quote-wizard-content {
+    height: calc(100vh - 200px); /* Subtract header + progress */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E1 #F1F5F9;
+  }
+
+  .quote-wizard-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .quote-wizard-content::-webkit-scrollbar-track {
+    background: #F1F5F9;
+    border-radius: 3px;
+  }
+
+  .quote-wizard-content::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+  }
+
+  .quote-wizard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    height: 100%;
+  }
+
+  @media (min-width: 1024px) {
+    .quote-wizard-grid {
+      grid-template-columns: 2fr 1fr;
+    }
+  }
+}

@@ -1,3 +1,5 @@
+'use client';
+
 import { Cpu, Shirt, Cog, Apple, FlaskConical, Pill, Box, Zap, AlertCircle, Check } from 'lucide-react';
 import { useState } from 'react';
 
@@ -23,10 +25,9 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Cpu,
       description: 'Devices, computers',
       risk: 'Medium',
-      color: '#0066FF',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      textColor: 'text-blue-700',
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
       riskColor: 'bg-yellow-100 text-yellow-800 border-yellow-200'
     },
     { 
@@ -35,10 +36,9 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Shirt,
       description: 'Clothing, textiles',
       risk: 'Low',
-      color: '#10B981',
-      bgColor: 'bg-emerald-50',
-      borderColor: 'border-emerald-200',
-      textColor: 'text-emerald-700',
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-200',
       riskColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
     },
     { 
@@ -47,11 +47,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Cog,
       description: 'Industrial equipment',
       risk: 'High',
-      color: '#DC2626',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
-      textColor: 'text-red-700',
-      riskColor: 'bg-red-100 text-red-800 border-red-200'
+      color: 'text-rose-600',
+      bg: 'bg-rose-50',
+      border: 'border-rose-200',
+      riskColor: 'bg-rose-100 text-rose-800 border-rose-200'
     },
     { 
       value: 'food', 
@@ -59,10 +58,9 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Apple,
       description: 'Perishable goods',
       risk: 'Medium',
-      color: '#D97706',
-      bgColor: 'bg-amber-50',
-      borderColor: 'border-amber-200',
-      textColor: 'text-amber-700',
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+      border: 'border-amber-200',
       riskColor: 'bg-amber-100 text-amber-800 border-amber-200'
     },
     { 
@@ -71,10 +69,9 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: FlaskConical,
       description: 'Hazardous materials',
       risk: 'High',
-      color: '#7C3AED',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200',
-      textColor: 'text-purple-700',
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+      border: 'border-purple-200',
       riskColor: 'bg-purple-100 text-purple-800 border-purple-200'
     },
     { 
@@ -83,10 +80,9 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Pill,
       description: 'Medical supplies',
       risk: 'Low',
-      color: '#059669',
-      bgColor: 'bg-teal-50',
-      borderColor: 'border-teal-200',
-      textColor: 'text-teal-700',
+      color: 'text-teal-600',
+      bg: 'bg-teal-50',
+      border: 'border-teal-200',
       riskColor: 'bg-teal-100 text-teal-800 border-teal-200'
     },
     { 
@@ -95,10 +91,9 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
       icon: Box,
       description: 'Other cargo',
       risk: 'Variable',
-      color: '#6B7280',
-      bgColor: 'bg-gray-50',
-      borderColor: 'border-gray-200',
-      textColor: 'text-gray-700',
+      color: 'text-gray-600',
+      bg: 'bg-gray-50',
+      border: 'border-gray-200',
       riskColor: 'bg-gray-100 text-gray-800 border-gray-200'
     },
   ];
@@ -108,7 +103,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
   return (
     <div className="space-y-6">
       {/* Cargo Selection Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {cargoOptions.map((option) => {
           const Icon = option.icon;
           const isSelected = cargoType === option.value;
@@ -122,31 +117,27 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
               onMouseEnter={() => setHoveredType(option.value)}
               onMouseLeave={() => setHoveredType(null)}
               className={`
-                relative group p-4 rounded-xl border-2 transition-all duration-300
+                relative group p-5 rounded-xl border-2 transition-all duration-300
                 ${isSelected
-                  ? `${option.bgColor} ${option.borderColor} shadow-sm`
+                  ? `${option.bg} ${option.border} shadow-lg`
                   : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
                 }
                 ${isHovered && !isSelected ? 'scale-[1.02]' : ''}
               `}
-              style={isSelected ? {
-                boxShadow: `0 2px 8px 0 ${option.color}20`
-              } : {}}
             >
               <div className="relative z-10">
                 {/* Icon */}
                 <div 
                   className={`
-                    w-12 h-12 rounded-xl flex items-center justify-center mb-3 mx-auto
+                    w-16 h-16 rounded-xl flex items-center justify-center mb-4 mx-auto
                     ${isSelected
-                      ? `${option.bgColor}`
-                      : 'bg-gray-100 text-gray-600 group-hover:text-gray-900'
+                      ? `${option.bg} ${option.border}`
+                      : 'bg-gray-50 border border-gray-200 group-hover:border-gray-300'
                     }
-                    transition-colors
+                    transition-all
                   `}
-                  style={isSelected ? { color: option.color } : {}}
                 >
-                  <Icon className="w-6 h-6" />
+                  <Icon className={`w-7 h-7 ${option.color}`} />
                 </div>
 
                 {/* Content */}
@@ -158,7 +149,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
                     {option.label}
                   </h3>
                   <p className={`
-                    text-xs mb-2
+                    text-xs mb-3
                     ${isSelected ? 'text-gray-700' : 'text-gray-600'}
                   `}>
                     {option.description}
@@ -176,18 +167,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
                 {/* Selection Indicator */}
                 {isSelected && (
                   <div className="absolute -top-2 -right-2">
-                    <div 
-                      className="w-6 h-6 rounded-full flex items-center justify-center shadow-sm"
-                      style={{ background: option.color }}
-                    >
-                      <Check className="w-3 h-3 text-white" />
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shadow-lg ${option.bg} ${option.border}`}>
+                      <Check className="w-3.5 h-3.5 text-white" />
                     </div>
                   </div>
-                )}
-
-                {/* Hover Effect */}
-                {isHovered && !isSelected && (
-                  <div className="absolute inset-0 rounded-xl bg-gray-50/50"></div>
                 )}
               </div>
             </button>
@@ -197,23 +180,17 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
 
       {/* Selection Details */}
       {selectedOption && cargoType !== 'other' && (
-        <div className={`p-5 rounded-xl ${selectedOption.bgColor} border-2 ${selectedOption.borderColor}`}>
-          <div className="flex items-center gap-3 mb-3">
-            <div 
-              className="p-2.5 rounded-lg border"
-              style={{ 
-                background: selectedOption.color,
-                borderColor: selectedOption.color 
-              }}
-            >
-              <selectedOption.icon className="w-5 h-5 text-white" />
+        <div className={`p-6 rounded-xl ${selectedOption.bg} border-2 ${selectedOption.border}`}>
+          <div className="flex items-center gap-4 mb-4">
+            <div className={`p-3 rounded-xl ${selectedOption.bg}`}>
+              <selectedOption.icon className={`w-6 h-6 ${selectedOption.color}`} />
             </div>
             <div>
-              <div className="font-bold text-gray-900">{selectedOption.label} Selected</div>
+              <div className="font-bold text-gray-900 text-lg">{selectedOption.label} Selected</div>
               <div className="text-sm text-gray-700 font-medium">Optimal coverage selected for this cargo type</div>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-gray-600" />
               <span className="text-gray-800 font-medium">Risk Level: {selectedOption.risk}</span>
@@ -228,10 +205,10 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
 
       {/* Other Cargo Type Input */}
       {cargoType === 'other' && (
-        <div className="p-5 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 rounded-lg bg-gray-200 border border-gray-300">
-              <Box className="w-5 h-5 text-gray-800" />
+        <div className="p-6 rounded-xl bg-gray-50 border-2 border-gray-300">
+          <div className="flex items-center gap-4 mb-5">
+            <div className="p-3 rounded-xl bg-gray-200">
+              <Box className="w-6 h-6 text-gray-800" />
             </div>
             <div>
               <div className="font-bold text-gray-900">Custom Cargo Type</div>
@@ -239,7 +216,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
             </div>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Cargo Description
@@ -249,7 +226,7 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
                 value={otherCargoType}
                 onChange={(e) => onOtherCargoTypeChange(e.target.value)}
                 placeholder="e.g., Automotive parts, Artwork, Specialized equipment..."
-                className="w-full h-12 px-4 rounded-lg border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-[#0066FF] focus:ring-2 focus:ring-blue-100 focus:outline-none text-sm font-medium"
+                className="w-full h-12 px-4 rounded-lg border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none text-sm font-medium"
                 required
                 maxLength={100}
               />
@@ -258,34 +235,6 @@ const CargoTypeSelector: React.FC<CargoTypeSelectorProps> = ({
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <AlertCircle className="w-4 h-4" />
               <span>Custom quotes processed within 1 business day</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hover Preview */}
-      {hoveredType && hoveredType !== cargoType && (
-        <div className="fixed bottom-4 right-4 p-4 rounded-xl bg-white border-2 border-gray-300 shadow-xl z-50 max-w-xs animate-in slide-in-from-bottom-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div 
-              className="p-2 rounded-lg border"
-              style={{ 
-                background: cargoOptions.find(opt => opt.value === hoveredType)?.color || '#6B7280',
-                borderColor: cargoOptions.find(opt => opt.value === hoveredType)?.color || '#6B7280'
-              }}
-            >
-              {(() => {
-                const Icon = cargoOptions.find(opt => opt.value === hoveredType)?.icon;
-                return Icon ? <Icon className="w-4 h-4 text-white" /> : null;
-              })()}
-            </div>
-            <div>
-              <div className="font-bold text-gray-900">
-                {cargoOptions.find(opt => opt.value === hoveredType)?.label}
-              </div>
-              <div className="text-xs text-gray-600">
-                {cargoOptions.find(opt => opt.value === hoveredType)?.description}
-              </div>
             </div>
           </div>
         </div>
