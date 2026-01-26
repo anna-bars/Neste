@@ -287,8 +287,8 @@ export default function DetailsStepPage() {
                           placeholder="Enter amount"
                           className="pl-12 w-full h-14 px-4 rounded-xl border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none text-base font-medium shadow-sm"
                           required
-                          min="0"
-                          step="0.01"
+                          min="150"
+                          step="10"  
                         />
                       </div>
                     </div>
