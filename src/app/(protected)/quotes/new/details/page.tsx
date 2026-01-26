@@ -15,7 +15,9 @@ import {
   AlertCircle,
   HelpCircle,
   CheckCircle2,
-  Zap
+  Zap,
+  Plane,
+  Ship
 } from 'lucide-react';
 import DashboardHeader from '@/app/components/dashboard/DashboardHeader';
 import CustomDatePicker from '../components/CustomDatePicker';
@@ -42,38 +44,47 @@ export default function DetailsStepPage() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowFormatted = tomorrow.toISOString().split('T')[0];
 
-  const transportModes = [
-    { 
-      id: 'sea', 
-      name: 'Sea Freight', 
-      time: '20-40 days', 
-      color: '#0066FF',
-      icon: '🛳️',
-      description: 'Most economical',
-      risk: 'Medium',
-      riskColor: 'bg-amber-100 text-amber-800 border-amber-200'
-    },
-    { 
-      id: 'air', 
-      name: 'Air Freight', 
-      time: '2-7 days', 
-      color: '#7C3AED',
-      icon: '✈️',
-      description: 'Fast & secure',
-      risk: 'Low',
-      riskColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
-    },
-    { 
-      id: 'road', 
-      name: 'Road Freight', 
-      time: '3-10 days', 
-      color: '#059669',
-      icon: '🚚',
-      description: 'Regional transport',
-      risk: 'Medium',
-      riskColor: 'bg-amber-100 text-amber-800 border-amber-200'
-    },
-  ];
+const transportModes = [
+  { 
+    id: 'sea', 
+    name: 'Sea Freight', 
+    time: '20-40 days', 
+    color: '#0066FF',
+    icon: Ship,  // lucide-react Ship իկոն
+    iconColor: 'text-blue-600',
+    description: 'Most economical',
+    risk: 'Medium',
+    riskColor: 'bg-amber-100 text-amber-800 border-amber-200',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200'
+  },
+  { 
+    id: 'air', 
+    name: 'Air Freight', 
+    time: '2-7 days', 
+    color: '#7C3AED',
+    icon: Plane,  // lucide-react Plane իկոն
+    iconColor: 'text-purple-600',
+    description: 'Fast & secure',
+    risk: 'Low',
+    riskColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200'
+  },
+  { 
+    id: 'road', 
+    name: 'Road Freight', 
+    time: '3-10 days', 
+    color: '#059669',
+    icon: Truck,  // lucide-react Truck իկոն
+    iconColor: 'text-green-600',
+    description: 'Regional transport',
+    risk: 'Medium',
+    riskColor: 'bg-amber-100 text-amber-800 border-amber-200',
+    bg: 'bg-green-50',
+    border: 'border-green-200'
+  },
+];
 
   // Check if step is complete
   useEffect(() => {
@@ -372,62 +383,65 @@ export default function DetailsStepPage() {
                     </div>
 
                     {/* Transport Mode */}
-                    <div>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-200">
-                          <Truck className="w-4 h-4 text-amber-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-gray-900">Transport Mode</h3>
-                          <p className="text-sm text-gray-600">Select shipping method</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {transportModes.map((mode) => {
-                          const isSelected = transportationMode === mode.id;
-                          return (
-                            <button
-                              key={mode.id}
-                              type="button"
-                              onClick={() => setTransportationMode(mode.id)}
-                              className={`
-                                relative group/transport p-5 rounded-xl border-2 transition-all duration-300
-                                ${isSelected
-                                  ? 'border-blue-500 bg-blue-50 shadow-md'
-                                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                                }
-                                ${isSelected ? 'scale-[1.02]' : ''}
-                              `}
-                            >
-                              <div className="text-left">
-                                <div className="flex items-center justify-between mb-3">
-                                  <span className="text-2xl">{mode.icon}</span>
-                                  {isSelected && (
-                                    <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                                  )}
-                                </div>
-                                <div className="mb-2">
-                                  <div className={`font-bold text-lg ${isSelected ? 'text-gray-900' : 'text-gray-800'}`}>
-                                    {mode.name}
-                                  </div>
-                                  <div className={`text-sm ${isSelected ? 'text-gray-700' : 'text-gray-600'}`}>
-                                    {mode.description}
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="text-sm font-medium text-gray-700">
-                                    {mode.time}
-                                  </div>
-                                  <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${mode.riskColor}`}>
-                                    {mode.risk}
-                                  </span>
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+<div>
+  <div className="flex items-center gap-3 mb-4">
+    <div className="p-2 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-200">
+      <Truck className="w-4 h-4 text-amber-600" />
+    </div>
+    <div>
+      <h3 className="font-bold text-gray-900">Transport Mode</h3>
+      <p className="text-sm text-gray-600">Select shipping method</p>
+    </div>
+  </div>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {transportModes.map((mode) => {
+      const isSelected = transportationMode === mode.id;
+      const Icon = mode.icon; // Ստանում ենք իկոնի կոմպոնենտը
+      return (
+        <button
+          key={mode.id}
+          type="button"
+          onClick={() => setTransportationMode(mode.id)}
+          className={`
+            relative group/transport p-5 rounded-xl border-2 transition-all duration-300
+            ${isSelected
+              ? `border-blue-500 ${mode.bg} shadow-md`
+              : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+            }
+            ${isSelected ? 'scale-[1.02]' : ''}
+          `}
+        >
+          <div className="text-left">
+            <div className="flex items-center justify-between mb-3">
+              <div className={`p-2.5 rounded-lg ${mode.bg} ${mode.border}`}>
+                <Icon className={`w-5 h-5 ${mode.iconColor}`} />
+              </div>
+              {isSelected && (
+                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+              )}
+            </div>
+            <div className="mb-2">
+              <div className={`font-bold text-lg ${isSelected ? 'text-gray-900' : 'text-gray-800'}`}>
+                {mode.name}
+              </div>
+              <div className={`text-sm ${isSelected ? 'text-gray-700' : 'text-gray-600'}`}>
+                {mode.description}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-gray-700">
+                {mode.time}
+              </div>
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${mode.riskColor}`}>
+                {mode.risk}
+              </span>
+            </div>
+          </div>
+        </button>
+      );
+    })}
+  </div>
+</div>
 
                     {/* Action Buttons */}
                     <div className="mt-12 pt-8 border-t border-gray-100 flex justify-between items-center">
