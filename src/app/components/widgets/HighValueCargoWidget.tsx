@@ -40,7 +40,7 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
         return {
           title: 'Insurance Coverage Utilization',
           description: 'of quotes converted to active policies',
-          valueLabel: 'Avg. coverage:',
+          valueLabel: 'Avg cov:',
           valuePrefix: '',
           showCurrencySymbol: false
         };
@@ -96,7 +96,7 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
             {config.title}
           </h3>
 
-          <div className="relative">
+          <div className="relative w-fit">
             {config.showCurrencySymbol && (
               <span className="absolute -left-1 top-0 text-white/84 text-[4px] tracking-[0.08px]
                 max-[1024px]:text-[3px]
