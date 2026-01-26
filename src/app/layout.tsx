@@ -10,6 +10,9 @@ const montserrat = Montserrat({ subsets: ['latin'], weight: ['400','500','600','
 export const metadata: Metadata = {
   title: 'Cargo Guard - Logistics Insurance',
   description: 'Instant cargo insurance quotes for global logistics',
+  icons: {
+    icon: '/favicon.png', // կամ '/favicon.svg'
+  },
 }
 
 export default function RootLayout({
