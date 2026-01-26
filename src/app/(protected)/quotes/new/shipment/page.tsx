@@ -117,10 +117,8 @@ export default function ShipmentStepPage() {
           {/* Left Side - Main Cargo Selection (80%) */}
           <div className="lg:col-span-9 order-2 lg:order-1">
             <div className="relative group">
-              {/* Subtle Glow Border */}
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-100 via-cyan-100 to-blue-100 rounded-3xl blur opacity-50 group-hover:opacity-70 transition-opacity"></div>
-              
-              <div className="relative bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
+
+              <div className="relative border border-[#d1d1d154] bg-[#FDFEFF] rounded-2xl shadow-sm overflow-hidden">
                 {/* Card Header */}
                 <div className="p-8 border-b border-gray-100">
                   <div className="flex items-start justify-between">
@@ -194,9 +192,9 @@ export default function ShipmentStepPage() {
           </div>
 
           {/* Right Side - Information Panel (20%) */}
-          <div className="lg:col-span-3 space-y-6 order-1 lg:order-2">
+          <div className="lg:col-span-3 space-y-2 order-1 lg:order-2">
             {/* Why It Matters */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6">
+            <div className="border border-[#d1d1d154] bg-[#FDFEFF] rounded-2xl shadow-sm  p-6">
               <div className="flex items-center gap-3 mb-5">
                 <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50">
                   <Lightbulb className="w-5 h-5 text-blue-600" />
@@ -265,7 +263,7 @@ export default function ShipmentStepPage() {
             </div>
 
             {/* Need Help? */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6">
+            <div className="border border-[#d1d1d154] bg-[#FDFEFF] rounded-2xl shadow-sm p-6">
               <div className="text-center">
                 <div className="inline-flex p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 mb-4 shadow-lg">
                   <HelpCircle className="w-5 h-5 text-white" />
