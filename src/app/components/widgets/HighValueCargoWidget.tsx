@@ -4,54 +4,105 @@ import React from 'react';
 interface HighValueCargoWidgetProps {
   percentage?: number;
   mtdValue?: string;
+  widgetType?: 'high-value' | 'coverage-utilization' | 'average-value';
 }
 
 export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
   percentage = 75.55,
-  mtdValue = "62,3k"
+  mtdValue = "62,3k",
+  widgetType = 'coverage-utilization'
 }) => {
-  const percentageStr = percentage.toFixed(2);
-  const [whole, decimal] = percentageStr.split('.');
+  // Ձևաչափել տոկոսը՝ հեռացնելով ավելորդ .00
+  const formatPercentage = (value: number): { whole: string; decimal: string } => {
+    const rounded = Math.round(value * 100) / 100; // Կլորացնել 2 տասնորդական
+    const isInteger = Number.isInteger(rounded);
+    
+    if (isInteger) {
+      return {
+        whole: rounded.toString(),
+        decimal: ''
+      };
+    }
+    
+    const [wholePart, decimalPart] = rounded.toFixed(2).split('.');
+    return {
+      whole: wholePart,
+      decimal: decimalPart
+    };
+  };
+
+  const { whole, decimal } = formatPercentage(percentage);
+
+  // Որոշել վերնագրերն ու պիտակները
+  const getWidgetConfig = () => {
+    switch (widgetType) {
+      case 'coverage-utilization':
+        return {
+          title: 'Insurance Coverage Utilization',
+          description: 'of quotes converted to active policies',
+          valueLabel: 'Avg. coverage:',
+          valuePrefix: '',
+          showCurrencySymbol: false
+        };
+      case 'average-value':
+        return {
+          title: 'Average Cargo Value',
+          description: 'average value per shipment this month',
+          valueLabel: 'MTD avg:',
+          valuePrefix: '$',
+          showCurrencySymbol: true
+        };
+      case 'high-value':
+      default:
+        return {
+          title: 'High-value cargo insured this month',
+          description: 'of total insured value this month',
+          valueLabel: 'MTD ·',
+          valuePrefix: '$',
+          showCurrencySymbol: true
+        };
+    }
+  };
+
+  const config = getWidgetConfig();
 
   return (
-    <div className="group
-      relative w-full font-montserrat flex-grow min-h-[calc(29%-4px)] 
+    <div className="group relative w-full font-montserrat flex-grow min-h-[calc(29%-4px)] 
       xl:flex-[0_0_28%] xl:min-h-auto xl:h-auto
       max-[1336px]:flex-grow max-[1336px]:min-h-auto max-[1336px]:h-auto
-      max-[1280px]:flex-grow  max-[1280px]:min-h-[240px] max-[1280px]:h-[240px] max-[1280px]:block
+      max-[1280px]:flex-grow max-[1280px]:min-h-[240px] max-[1280px]:h-[240px] max-[1280px]:block
       max-[768px]:w-[49%] max-[1024px]:min-h-[240px] max-[1024px]:max-h-[240px]
       max-[1024px]:block
       max-[768px]:flex-shrink-0 max-[768px]:w-[100%] max-[768px]:min-h-[240px] 
       max-[768px]:max-h-[280px]
       max-[480px]:w-[100%] max-[480px]:min-h-[100%] max-[480px]:max-h-[100%]
-      transition-all duration-300 ease-out
-    ">
-      {/* Background with transition */}
+      transition-all duration-300 ease-out">
+      
       <div className="absolute top-0 left-0 w-full h-full bg-[#fdfdf8cf] rounded-xl
         transition-all duration-300 ease-out
         group-hover:bg-[#f9f9f4]"></div>
       
-      {/* Content */}
       <div className="max-[480px]:min-h-[240px] relative z-10 p-4 h-full flex flex-col justify-between">
+        
         {/* Header */}
         <div className="flex justify-between items-start mb-2">
-          <h3 className="
-            text-[#3c3c3c] text-[16px] font-normal tracking-[0.24px] 
+          <h3 className="text-[#3c3c3c] text-[16px] font-normal tracking-[0.24px] 
             w-[60%] leading-tight
             max-[1024px]:text-[14px] max-[1024px]:tracking-[0.2px]
             max-[768px]:text-[15px] max-[768px]:w-[55%]
             max-[480px]:text-[13px] max-[480px]:w-[65%] max-[480px]:tracking-[0.18px]
             transition-colors duration-300 ease-out
-            group-hover:text-[#2a2a2a]
-          ">
-            High-value cargo insured this month
+            group-hover:text-[#2a2a2a]">
+            {config.title}
           </h3>
 
           <div className="relative">
-            <span className="absolute -left-1 top-0 text-white/84 text-[4px] tracking-[0.08px]
-              max-[1024px]:text-[3px]
-              transition-all duration-300 ease-out
-              group-hover:text-white/95">$</span>
+            {config.showCurrencySymbol && (
+              <span className="absolute -left-1 top-0 text-white/84 text-[4px] tracking-[0.08px]
+                max-[1024px]:text-[3px]
+                transition-all duration-300 ease-out
+                group-hover:text-white/95">$</span>
+            )}
             <div className="bg-[#71a3ef] rounded-[20px] px-2 py-0.5 flex items-center justify-center
               max-[1024px]:px-1.5 max-[1024px]:py-0.5
               max-[480px]:px-1
@@ -62,11 +113,7 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
                 max-[480px]:text-[8px]
                 transition-all duration-300 ease-out">
                 <span className="tracking-[0.04px] max-[1024px]:tracking-[0.03px]">
-                  MTD · {mtdValue.split(',')[0]},
-                </span>
-                <span className="text-white/80 tracking-[0.04px] max-[1024px]:tracking-[0.03px]
-                  group-hover:text-white/90">
-                  {mtdValue.split(',')[1]}
+                  {config.valueLabel} {mtdValue}
                 </span>
               </span>
             </div>
@@ -78,22 +125,27 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
           <div className="flex mb-3 items-end justify-start
             max-[480px]:flex-col max-[480px]:items-start max-[480px]:gap-1">
             <div className="flex items-start gap-0.5 mb-0.5">
-              <span className="text-black text-[42px] tracking-[0.84px] leading-none
+              <span className="pl-2 text-black text-[48px] tracking-[0.84px] leading-none
                 max-[1024px]:text-[34px] max-[1024px]:tracking-[0.68px]
                 max-[768px]:text-[36px]
                 max-[480px]:text-[28px] max-[480px]:tracking-[0.56px]
                 transition-colors duration-300 ease-out
                 group-hover:text-[#111111]">
-                <span className="tracking-[0.54px] max-[1024px]:tracking-[0.43px]">{whole}.</span>
-                <span className="text-[#c7c7c7] tracking-[0.54px] max-[1024px]:tracking-[0.43px]
-                  transition-colors duration-300 ease-out
-                  group-hover:text-[#a8a8a8]">{decimal}</span>
+                <span className="tracking-[0.54px] max-[1024px]:tracking-[0.43px]">{whole}</span>
+                {decimal && (
+                  <>
+                    <span className="tracking-[0.54px] max-[1024px]:tracking-[0.43px]">.</span>
+                    <span className="text-[#c7c7c7] tracking-[0.54px] max-[1024px]:tracking-[0.43px]
+                      transition-colors duration-300 ease-out
+                      group-hover:text-[#a8a8a8]">{decimal}</span>
+                  </>
+                )}
               </span>
-              <span className="text-black text-[7px] tracking-[0.14px] mt-[9px]
+              <span className="text-black text-[7px] tracking-[0.14px] mt-[6px]
                 max-[1024px]:text-[6px] max-[1024px]:mt-[7px]
                 max-[480px]:text-[5px] max-[480px]:mt-[6px]
                 transition-colors duration-300 ease-out
-                group-hover:text-[#111111]">%</span>
+                group-hover:text-[#111111] absolute">%</span>
             </div>
             
             <p className="text-[#c7c7c7] text-xs tracking-[0.24px] text-right leading-tight 
@@ -103,7 +155,7 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
               max-[480px]:w-[90%] max-[480px]:text-left max-[480px]:mb-0 max-[480px]:text-[9px]
               transition-colors duration-300 ease-out
               group-hover:text-gray-500">
-              of total insured value this month
+              {config.description}
             </p>
           </div>
 
@@ -113,7 +165,6 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
               max-[1024px]:h-4
               max-[480px]:h-3.5">
               
-              {/* Filled progress bar with hover effect */}
               <div 
                 className="absolute top-1 left-0 h-3 
                   bg-gradient-to-r from-[#bfd5f8] to-[#669cee] 
@@ -125,7 +176,6 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
                 style={{ width: `${percentage}%` }}
               ></div>
               
-              {/* Empty progress bar with hover effect */}
               <div 
                 className="absolute top-1 h-3 
                   bg-gradient-to-r from-[#6da1ef4f] to-[#f6f8fa40] 
@@ -137,7 +187,6 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
                 style={{ left: `${percentage}%`, width: `${100 - percentage}%` }}
               ></div>
               
-              {/* Marker with hover effect */}
               <img 
                 className="absolute top-[-0.5px] w-[20px] h-[20px]
                   max-[1024px]:w-[16px] max-[1024px]:h-[16px] max-[1024px]:top-[-1px]
@@ -150,7 +199,6 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
               />
             </div>
             
-            {/* Optional: Progress labels for mobile */}
             <div className="flex justify-between text-[#c7c7c7] 
               text-[8px] tracking-[0.16px]
               max-[1024px]:text-[7px]

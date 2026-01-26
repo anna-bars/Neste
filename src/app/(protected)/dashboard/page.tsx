@@ -1105,9 +1105,10 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
             </div>
 
             <HighValueCargoWidget 
-              percentage={calculateHighValuePercentage(dashboardRows)}
-              mtdValue={`${Math.floor(performanceMetrics.totalInsured.total / 1000)}k`}
-            />
+  percentage={calculateCoverageUtilization(dashboardRows)}
+  mtdValue={calculateAverageCoverage(dashboardRows)}
+  widgetType="coverage-utilization" // Ավելացնել նոր prop
+/>
           </div>
 
           <div className="
@@ -1145,9 +1146,10 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
 
               <div className="w-full h-[240px]">
                 <HighValueCargoWidget 
-                  percentage={calculateHighValuePercentage(dashboardRows)}
-                  mtdValue={`${Math.floor(performanceMetrics.totalInsured.total / 1000)}k`}
-                />
+  percentage={calculateCoverageUtilization(dashboardRows)}
+  mtdValue={calculateAverageCoverage(dashboardRows)}
+  widgetType="coverage-utilization" // Ավելացնել նոր prop
+/>
               </div>
             </div>
           </div>
@@ -1160,7 +1162,49 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
 function calculateHighValuePercentage(data: any[]) {
   if (!data.length) return 0
   
-  const highValueThreshold = 10000
+  const highValueThreshold = 10000  // <-- Սա 10,000$ է
   const highValueCount = data.filter(item => item.value >= highValueThreshold).length
-  return (highValueCount / data.length) * 100
+  return (highValueCount / data.length) * 100  // <-- Բաժանում է բոլոր items-ների քանակի վրա
+}
+// Հաշվել ապահովագրական ծածկույթի օգտագործումը
+function calculateCoverageUtilization(data: any[]): number {
+  if (!data.length) return 0;
+  
+  // Հաշվել ակտիվ ապահովագրությունները
+  const activePolicies = data.filter(item => 
+    item.dataType === 'policy' && item.policyStatus === 'active'
+  ).length;
+  
+  // Հաշվել ընդհանուր quotes-ները (բացառել draft-ները)
+  const totalQuotes = data.filter(item => 
+    item.dataType === 'quote' && item.quoteStatus !== 'draft'
+  ).length;
+  
+  if (totalQuotes === 0) return 0;
+  
+  // Հաշվել տոկոսը
+  return (activePolicies / totalQuotes) * 100;
+}
+
+// Հաշվել միջին ապահովագրական գումարը
+function calculateAverageCoverage(data: any[]): string {
+  if (!data.length) return '0';
+  
+  // Ֆիլտրել միայն ակտիվ ապահովագրությունները
+  const activePolicies = data.filter(item => 
+    item.dataType === 'policy' && item.policyStatus === 'active'
+  );
+  
+  if (activePolicies.length === 0) return '0';
+  
+  // Հաշվել միջին գումարը
+  const totalValue = activePolicies.reduce((sum, item) => sum + item.value, 0);
+  const averageValue = totalValue / activePolicies.length;
+  
+  // Ձևաչափել
+  if (averageValue >= 1000) {
+    return `$${(averageValue / 1000).toFixed(1)}k`;
+  }
+  
+  return `$${Math.round(averageValue).toLocaleString()}`;
 }
