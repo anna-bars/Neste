@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import DashboardHeader from '@/app/components/dashboard/DashboardHeader';
 import { useUser } from '@/app/context/UserContext';
+import { quotes } from '@/lib/supabase/quotes';
+import { policies } from '@/lib/supabase/policies';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -44,38 +46,51 @@ export default function CheckoutPage() {
 
     const draft = JSON.parse(draftData);
     setQuoteData(draft);
-  }, []);
+  }, [router]);
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!quoteData || !quoteId) return;
+    if (!quoteData || !quoteId || !user) return;
 
     setIsProcessing(true);
 
     try {
-      // Process payment
-      // await payments.create({
-      //   quote_id: quoteId,
-      //   amount: quoteData.finalPremium,
-      //   currency: 'USD',
-      //   payment_method: paymentMethod,
-      //   status: 'completed'
-      // });
+      // 1. QUOTE-Ի STATUS-Ը ԹԱՐՄԱՑՈՒՄ ✅
+      await quotes.update(quoteId, {
+        status: 'approved',
+        payment_status: 'paid',
+        approved_at: new Date().toISOString(),
+        paid_at: new Date().toISOString()
+      });
 
-      // Create policy
-      // await policies.create({
-      //   quote_id: quoteId,
-      //   premium_amount: quoteData.finalPremium,
-      //   coverage_amount: quoteData.shipmentValue,
-      //   deductible: quoteData.deductible,
-      //   status: 'active'
-      // });
+      // 2. Policy-ի ստեղծում
+      await policies.create({
+        user_id: user.id,
+        quote_id: quoteId,
+        policy_number: `POL-${Date.now().toString().slice(-6)}`,
+        premium_amount: quoteData.finalPremium || 0,
+        coverage_amount: parseFloat(quoteData.shipmentValue) || 0,
+        deductible: quoteData.deductible || 500,
+        status: 'active',
+        payment_status: 'paid',
+        coverage_start: quoteData.startDate,
+        coverage_end: quoteData.endDate,
+        cargo_type: quoteData.cargoType === 'other' ? quoteData.otherCargoType : quoteData.cargoType,
+        transportation_mode: quoteData.transportationMode,
+        origin: quoteData.origin,
+        destination: quoteData.destination,
+        insurance_certificate_url: 'https://example.com/certificate.pdf',
+        terms_url: 'https://example.com/terms.pdf',
+        receipt_url: 'https://example.com/receipt.pdf',
+        paid_at: new Date().toISOString(),
+        activated_at: new Date().toISOString()
+      });
 
-      // Clear draft
+      // 3. Մաքրում է localStorage-ից draft տվյալները
       localStorage.removeItem('quote_draft');
 
-      // Redirect to success page
+      // 4. Տանում է հաջողության էջ
       setTimeout(() => {
         router.push(`/quotes/${quoteId}/success`);
       }, 1000);

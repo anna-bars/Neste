@@ -29,8 +29,26 @@ export interface QuoteResponse {
   created_at: string;
 }
 
+
 export const quotes = {
   // Ստեղծել նոր quote
+  // quotes.ts-ում ավելացրու
+async update(id: string, data: any) {
+  const supabase = createClient();
+  
+  const { data: result, error } = await supabase
+    .from('quotes')
+    .update({
+      ...data,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return result;
+}, 
   async create(input: CreateQuoteInput): Promise<QuoteResponse> {
     const supabase = createClient();
     
