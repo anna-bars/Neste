@@ -12,7 +12,8 @@ import {
   HelpCircle,
   CheckCircle2,
   AlertCircle,
-  Zap
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import DashboardHeader from '@/app/components/dashboard/DashboardHeader';
 import { useUser } from '@/app/context/UserContext';
@@ -25,6 +26,7 @@ export default function ShipmentStepPage() {
   const [cargoType, setCargoType] = useState('');
   const [otherCargoType, setOtherCargoType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stepComplete, setStepComplete] = useState(false);
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,13 +41,16 @@ export default function ShipmentStepPage() {
       return;
     }
 
-    const draftData = {
-      cargoType,
-      otherCargoType,
-      step: 1
-    };
-    localStorage.setItem('quote_draft', JSON.stringify(draftData));
-    router.push('/quotes/new/details');
+    setStepComplete(true);
+    setTimeout(() => {
+      const draftData = {
+        cargoType,
+        otherCargoType,
+        step: 1
+      };
+      localStorage.setItem('quote_draft', JSON.stringify(draftData));
+      router.push('/quotes/new/details');
+    }, 300);
   };
 
   // Load draft
@@ -58,176 +63,244 @@ export default function ShipmentStepPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (cargoType) {
+      setStepComplete(true);
+    }
+  }, [cargoType]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 text-gray-900">
-      <DashboardHeader userEmail={user?.email} />
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900">
+      {/* Subtle background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-100 rounded-full blur-3xl opacity-30"></div>
+      </div>
+
+      <DashboardHeader userEmail={user?.email}/>
       
-      <div className="relative max-w-7xl mx-auto px-4 py-6">
-        {/* Minimal Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
+      <div className="relative max-w-[98%] mx-auto px-4 py-8">
+        {/* Modern Header */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-8">
             <button 
               onClick={() => router.push('/quotes')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm group"
+              className="group flex items-center gap-3 text-gray-600 hover:text-gray-900 transition-all duration-300"
             >
-              <div className="p-1.5 rounded-lg bg-white border border-gray-200 group-hover:border-gray-300 shadow-sm group-hover:shadow transition-all">
-                <ArrowLeft className="w-3 h-3" />
+              <div className="p-2 rounded-xl bg-white border border-gray-200 shadow-sm group-hover:border-gray-300 group-hover:shadow transition-all">
+                <ArrowLeft className="w-4 h-4" />
               </div>
-              <span className="hidden sm:inline font-medium">Back to Quotes</span>
+              <span className="text-sm font-medium">
+                Back to Quotes
+              </span>
             </button>
             
-            {/* Minimal Progress Indicator */}
-            <div className="flex items-center gap-3">
-              <div className="text-xs text-gray-500 font-medium">Step 1 of 5</div>
-              <div className="flex items-center gap-1">
-                {[1,2,3,4,5].map((num) => (
-                  <div 
-                    key={num}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${
-                      num === 1 
-                        ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
-                        : 'bg-gray-300'
-                    }`}
-                  />
-                ))}
+            {/* Modern Progress Indicator */}
+            <div className="flex items-center gap-4">
+              <div className="text-sm font-mono text-gray-500">01/05</div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="w-10 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-700 ${
+                        stepComplete ? 'w-full' : 'w-1/4'
+                      }`}
+                    ></div>
+                  </div>
+                  <div className="absolute -top-1.5 left-1/4 transform -translate-x-1/2 w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
+                </div>
+                <Sparkles className="w-4 h-4 text-blue-500" />
               </div>
             </div>
           </div>
+
+         
         </div>
 
-        {/* Main Content Grid - Reversed order */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Side - Main Cargo Selection (80%) */}
-          <div className="lg:col-span-9 order-2 lg:order-1">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-8">
-              {/* Main Header */}
-              <div className="mb-8">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
-                    <Zap className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Select Cargo Type</h1>
-                    <p className="text-gray-600 text-sm mt-1">
-                      Choose what you're shipping for accurate coverage calculation
-                    </p>
+          <div className="lg:col-span-8 order-2 lg:order-1">
+            <div className="relative group">
+              {/* Subtle Glow Border */}
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-100 via-cyan-100 to-blue-100 rounded-3xl blur opacity-50 group-hover:opacity-70 transition-opacity"></div>
+              
+              <div className="relative bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
+                {/* Card Header */}
+                <div className="p-8 border-b border-gray-100">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-4 mb-3">
+                        <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                          <Zap className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900">Cargo Type Selection</h2>
+                          <p className="text-gray-600 text-sm mt-1">
+                            What type of goods are you shipping?
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* AI Badge */}
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-cyan-50 border border-cyan-200">
+                        <Sparkles className="w-3 h-3 text-cyan-600" />
+                        <span className="text-xs font-medium text-cyan-700">AI-Powered Matching</span>
+                      </div>
+                    </div>
+                    
+                    {/* Step Indicator */}
+                    <div className="hidden lg:block">
+                      <div className="text-xs font-mono text-gray-500 mb-1">STEP 01</div>
+                      <div className="text-sm font-bold text-gray-900 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                        Cargo Selection
+                      </div>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Required Indicator */}
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-xs text-blue-700 mb-6">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                  Required for premium calculation
+
+                {/* Form Content */}
+                <div className="p-8">
+                  <CargoTypeSelector 
+                    cargoType={cargoType}
+                    otherCargoType={otherCargoType}
+                    onCargoTypeSelect={setCargoType}
+                    onOtherCargoTypeChange={setOtherCargoType}
+                  />
+
+                  {/* Continue Button */}
+                  <div className="mt-12 pt-8 border-t border-gray-100">
+                    <button
+                      onClick={handleNext}
+                      disabled={!cargoType || (cargoType === 'other' && !otherCargoType)}
+                      className={`
+                        relative group/btn w-full lg:w-auto px-10 py-4 rounded-2xl font-bold text-white 
+                        overflow-hidden transition-all duration-500 shadow-lg hover:shadow-xl
+                        ${(!cargoType || (cargoType === 'other' && !otherCargoType))
+                          ? 'opacity-50 cursor-not-allowed bg-gray-100 border border-gray-300 text-gray-400'
+                          : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500'
+                        }
+                      `}
+                    >
+                      {/* Animated Background */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-cyan-500/0 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-1000"></div>
+                      
+                      <div className="relative flex items-center justify-center gap-3">
+                        <span className="text-lg">Continue to Details</span>
+                        <ChevronRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
+                      </div>
+                      
+                      {/* Keyboard Shortcut */}
+                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <kbd className="px-2 py-1 text-xs rounded-lg bg-white/20 border border-white/30 text-white">
+                          ↵ Enter
+                        </kbd>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Cargo Selection Grid via Component */}
-              <CargoTypeSelector 
-                cargoType={cargoType}
-                otherCargoType={otherCargoType}
-                onCargoTypeSelect={setCargoType}
-                onOtherCargoTypeChange={setOtherCargoType}
-              />
-
-              {/* Continue Button - Smaller */}
-              <div className="flex justify-end mt-8 pt-6 border-t border-gray-100">
-                <button
-                  onClick={handleNext}
-                  disabled={!cargoType || (cargoType === 'other' && !otherCargoType)}
-                  className={`
-                    group px-8 py-3 rounded-xl font-semibold text-white 
-                    bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 
-                    disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300
-                    flex items-center gap-2 shadow-lg hover:shadow-xl
-                  `}
-                >
-                  <span className="text-base">Continue to Details</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
               </div>
             </div>
           </div>
 
-          {/* Right Side - Useful Information Cards (20%) */}
-          <div className="lg:col-span-3 space-y-6 order-1 lg:order-2">
-            {/* Why Cargo Type Matters */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/10 to-cyan-500/10">
-                  <Lightbulb className="w-4 h-4 text-blue-600" />
+          {/* Right Side - Information Panel (20%) */}
+          <div className="lg:col-span-4 space-y-6 order-1 lg:order-2">
+            {/* Why It Matters */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50">
+                  <Lightbulb className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="font-bold text-gray-900 text-sm">Why Cargo Type Matters</h3>
+                <h3 className="font-bold text-gray-900 text-base">Why Cargo Type Matters</h3>
               </div>
               
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-1.5 rounded-lg bg-blue-50 flex-shrink-0 mt-0.5">
-                    <Calculator className="w-3 h-3 text-blue-600" />
+                {[
+                  {
+                    icon: Calculator,
+                    title: 'Premium Calculation',
+                    desc: 'Directly affects insurance costs',
+                    color: 'text-blue-600',
+                    bg: 'bg-blue-50'
+                  },
+                  {
+                    icon: Shield,
+                    title: 'Risk Assessment',
+                    desc: 'Determines coverage eligibility',
+                    color: 'text-purple-600',
+                    bg: 'bg-purple-50'
+                  },
+                  {
+                    icon: TrendingUp,
+                    title: 'Coverage Options',
+                    desc: 'Influences available protection plans',
+                    color: 'text-green-600',
+                    bg: 'bg-green-50'
+                  }
+                ].map((item, index) => (
+                  <div key={index} className="group/item p-3 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition-all">
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${item.bg}`}>
+                        <item.icon className={`w-4 h-4 ${item.color}`} />
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900 text-sm mb-1">{item.title}</div>
+                        <div className="text-xs text-gray-600">{item.desc}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 mb-0.5">Premium Calculation</div>
-                    <div className="text-xs text-gray-600">Directly affects insurance costs</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="p-1.5 rounded-lg bg-purple-50 flex-shrink-0 mt-0.5">
-                    <Shield className="w-3 h-3 text-purple-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 mb-0.5">Risk Assessment</div>
-                    <div className="text-xs text-gray-600">Determines coverage eligibility</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="p-1.5 rounded-lg bg-green-50 flex-shrink-0 mt-0.5">
-                    <TrendingUp className="w-3 h-3 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 mb-0.5">Coverage Options</div>
-                    <div className="text-xs text-gray-600">Influences available protection plans</div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
             {/* Quick Tips */}
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="w-4 h-4 text-blue-600" />
-                <h3 className="font-bold text-gray-900 text-sm">Quick Tips</h3>
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-200 shadow-lg p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <AlertCircle className="w-5 h-5 text-blue-600" />
+                <h3 className="font-bold text-gray-900 text-base">Quick Tips</h3>
               </div>
               
-              <ul className="space-y-2">
+              <div className="space-y-3">
                 {[
                   'Select the most accurate cargo type',
                   'Custom option available for unique shipments',
                   'Changes can be made in later steps'
                 ].map((tip, index) => (
-                  <li key={index} className="flex items-start gap-2 text-xs text-gray-700">
-                    <CheckCircle2 className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>{tip}</span>
-                  </li>
+                  <div key={index} className="flex items-start gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">{tip}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
 
             {/* Need Help? */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6">
               <div className="text-center">
-                <div className="inline-flex p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 mb-3">
-                  <HelpCircle className="w-4 h-4 text-white" />
+                <div className="inline-flex p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 mb-4 shadow-lg">
+                  <HelpCircle className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="font-bold text-gray-900 text-sm mb-2">Need Help?</h3>
-                <p className="text-xs text-gray-600 mb-4">
+                <h3 className="font-bold text-gray-900 text-base mb-2">Need Help?</h3>
+                <p className="text-sm text-gray-600 mb-5">
                   Our team is here to assist with cargo classification
                 </p>
-                <button className="w-full py-2 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 rounded-lg transition-colors">
+                <button className="w-full py-3 text-sm font-medium text-blue-600 hover:text-blue-700 bg-white hover:bg-gray-50 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-300 shadow-sm hover:shadow">
                   Contact Support
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Bottom Microcopy */}
+        <div className="mt-12 text-center">
+          <div className="inline-flex items-center gap-3 text-sm text-gray-500">
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse delay-75"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse delay-150"></div>
+            </div>
+            <span>Press <kbd className="px-2 py-1 mx-1 rounded bg-gray-100 border border-gray-300">Tab</kbd> to navigate between options</span>
           </div>
         </div>
       </div>
