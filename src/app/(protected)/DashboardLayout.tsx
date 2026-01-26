@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { redirect, usePathname } from 'next/navigation'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
-import MobileBottomNav from '../components/dashboard/MobileBottomNav'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -15,18 +14,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
 
-
-const [activeNavItem, setActiveNavItem] = useState('Dashboard')
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
-    { id: 'quotes', label: 'Quotes', href: '/quotes', icon: 'quotes' },
-    { id: 'shipments', label: 'Shipments', href: '/shipments', icon: 'shipments' },
-    { id: 'documents', label: 'Documents', href: '/documents', icon: 'documents' }
-  ]
-  
-  const handleNavClick = (itemLabel: string) => {
-    setActiveNavItem(itemLabel)
-  }
   useEffect(() => {
     const fetchUser = async () => {
       const supabase = createClient()
@@ -82,9 +69,8 @@ const [activeNavItem, setActiveNavItem] = useState('Dashboard')
         <div className='bg-white shadow-sm'>
           <DashboardHeader userEmail={user?.email} />
         </div>
-        <h1>dd</h1>
         <main className={quoteBackgroundClass}>
-         
+          {children}
         </main>
       </div>
     )
@@ -100,7 +86,6 @@ const [activeNavItem, setActiveNavItem] = useState('Dashboard')
         <main className="flex-1 mt-[-12px] bg-[#f3f3f6]">
           {children}
         </main>
-       
       </div>
     )
   }
@@ -126,7 +111,6 @@ const [activeNavItem, setActiveNavItem] = useState('Dashboard')
         `}>
           {children}
         </main>
-        
       </div>
     </div>
   )

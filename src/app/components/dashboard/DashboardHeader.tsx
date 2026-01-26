@@ -19,6 +19,7 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const pathname = usePathname()
   
+  // Թարմացնենք notifications-ը
   const [notifications, setNotifications] = useState([
     {
       id: '1',
@@ -54,10 +55,26 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
   }, [notifications])
   
   useEffect(() => {
-    const currentPath = pathname.split('/').pop() || 'dashboard'
-    const navItem = navItems.find(item => item.id === currentPath)
-    if (navItem) {
-      setActiveNavItem(navItem.label)
+    // Ավելի ճշգրիտ pathname վերլուծություն
+    console.log('Current pathname:', pathname)
+    
+    if (pathname === '/dashboard') {
+      setActiveNavItem('Dashboard')
+    } else if (pathname === '/quotes') {
+      setActiveNavItem('Quotes')
+    } else if (pathname === '/shipments') {
+      setActiveNavItem('Shipments')
+    } else if (pathname === '/documents') {
+      setActiveNavItem('Documents')
+    } else if (pathname.includes('/shipments')) {
+      setActiveNavItem('Shipments')
+    } else if (pathname.includes('/quotes')) {
+      setActiveNavItem('Quotes')
+    } else if (pathname.includes('/documents')) {
+      setActiveNavItem('Documents')
+    } else {
+      // Եթե ուրիշ էջ է, պահպանել ընթացիկ ակտիվը
+      console.log('Unknown pathname, keeping current active nav:', activeNavItem)
     }
   }, [pathname])
   
@@ -87,14 +104,16 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
     setIsUserDropdownOpen(false)
   }
   
+  // Nav items-ը թարմացնենք այնպես, որ Shipments-ը ունենա ճիշտ href
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     { id: 'quotes', label: 'Quotes', href: '/quotes', icon: 'quotes' },
-    { id: 'policies', label: 'Shipments', href: '/shipments', icon: 'policies' },
+    { id: 'shipments', label: 'Shipments', href: '/shipments', icon: 'policies' }, // Փոխելով policies-ից shipments
     { id: 'documents', label: 'Documents', href: '/documents', icon: 'documents' }
   ]
   
   const handleNavClick = (itemLabel: string) => {
+    console.log('Nav clicked:', itemLabel)
     setActiveNavItem(itemLabel)
   }
   
@@ -244,4 +263,4 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
       `}</style>
     </>
   )
-} 
+}
