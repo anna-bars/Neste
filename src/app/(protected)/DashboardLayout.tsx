@@ -67,7 +67,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
       <div className="font-montserrat">
         <div className='bg-white shadow-sm'>
-          <DashboardHeader userEmail={user?.email} />
+          {/* Ավելացրեք userId prop-ը */}
+          <DashboardHeader userId={user?.id} userEmail={user?.email} />
         </div>
         <main className={quoteBackgroundClass}>
           {children}
@@ -81,7 +82,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
       <div className="font-montserrat">
         <div className='bg-[#F3F3F6]'>
-          <DashboardHeader userEmail={user?.email} />
+          {/* Ավելացրեք userId prop-ը */}
+          <DashboardHeader userId={user?.id} userEmail={user?.email} />
         </div>
         <main className="flex-1 mt-[-12px] bg-[#f3f3f6]">
           {children}
@@ -95,7 +97,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className={getPageLayoutClass()}>
       <div className="md:h-[116vh] md:min-h-[116vh] font-montserrat flex flex-col">
         <div className='block-1'>
-          <DashboardHeader userEmail={user?.email} />
+          {/* Ավելացրեք userId prop-ը */}
+          <DashboardHeader userId={user?.id} userEmail={user?.email} />
         </div>
       
         <main className={`

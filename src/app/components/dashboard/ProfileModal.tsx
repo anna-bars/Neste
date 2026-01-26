@@ -2,21 +2,27 @@
 
 import Link from 'next/link'
 import LogoutButton from './LogoutButton'
+import type { Profile } from './DashboardHeader' // Import Profile type
 
 interface ProfileModalProps {
   isOpen: boolean
   onClose: () => void
   userDisplayName: string
   userEmail?: string
+  profile?: Profile | null
 }
 
 export default function ProfileModal({ 
   isOpen, 
   onClose, 
   userDisplayName, 
-  userEmail 
+  userEmail,
+  profile 
 }: ProfileModalProps) {
   if (!isOpen) return null
+  
+  // Օգտագործեք profile-ից avatar_url-ը
+  const avatarUrl = profile?.avatar_url || '/dashboard/avatar-img.png'
   
   return (
     <div className="fixed inset-0 z-[9999] transition-opacity duration-300">
@@ -25,7 +31,6 @@ export default function ProfileModal({
         onClick={onClose}
       ></div>
       <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-5 transition-transform duration-300 animate-slideUp">
-        {/* Close button */}
         <div className="flex justify-end mb-6">
           <button 
             className="w-[44px] h-[44px] bg-[#f7f7f7] rounded-lg border border-white/22 flex items-center justify-center cursor-pointer text-2xl text-black hover:bg-gray-100 transition-colors duration-300"
@@ -35,12 +40,14 @@ export default function ProfileModal({
           </button>
         </div>
         
-        {/* User Info */}
         <div className="flex items-center gap-3 mb-6 p-4 bg-[#f7f7f7] rounded-lg">
           <img 
-            src="/dashboard/avatar-img.png" 
+            src={avatarUrl}
             alt="User Avatar"
             className="w-12 h-12 rounded-lg object-cover"
+            onError={(e) => {
+              e.currentTarget.src = '/dashboard/avatar-img.png'
+            }}
           />
           <div>
             <div className="font-inter text-base font-medium text-black">
@@ -52,7 +59,6 @@ export default function ProfileModal({
           </div>
         </div>
         
-        {/* Profile Setting Button */}
         <Link 
           href="/profile"
           onClick={onClose}
@@ -66,7 +72,6 @@ export default function ProfileModal({
           <span className="font-inter text-base font-medium text-gray-800">Profile Setting</span>
         </Link>
         
-        {/* Logout Button */}
         <div onClick={onClose}>
           <LogoutButton mobileVersion />
         </div>

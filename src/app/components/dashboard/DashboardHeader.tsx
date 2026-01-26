@@ -7,17 +7,37 @@ import MobileBottomNav from './MobileBottomNav'
 import DesktopNav from './DesktopNav'
 import ProfileModal from './ProfileModal'
 import UserDropdown from './UserDropdown'
+import { createClient } from '@/lib/supabase/client' // Օգտագործեք Ձեր ստորագրությունը
+
+export interface Profile {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  email: string | null
+  company_name: string | null
+  phone: string | null
+  address: string | null
+  created_at: string
+  updated_at: string
+}
 
 interface DashboardHeaderProps {
   userEmail?: string
+  userId?: string
 }
 
-export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
+export default function DashboardHeader({ userEmail, userId }: DashboardHeaderProps) {
   const [activeNavItem, setActiveNavItem] = useState('Dashboard')
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string>('/dashboard/avatar-img.png')
+  const [isLoading, setIsLoading] = useState(true)
   const pathname = usePathname()
+  
+  // Ստեղծել Supabase կլիենտ
+  const supabase = createClient()
   
   // Թարմացնենք notifications-ը
   const [notifications, setNotifications] = useState([
@@ -49,15 +69,104 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
   
   const [unreadCount, setUnreadCount] = useState(0)
   
+  // Fetch user profile from Supabase
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!userId) {
+        setIsLoading(false)
+        return
+      }
+      
+      try {
+        setIsLoading(true)
+        
+        // Ֆետչ անել profile-ը user_id-ի հիման վրա
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+        
+        if (error) {
+          console.error('Error fetching profile:', error)
+          
+          // Եթե error է, փորձել ստանալ auth user-ից
+          const { data: authData } = await supabase.auth.getUser()
+          if (authData.user) {
+            // Ստեղծել պարզ profile օբյեկտ auth տվյալներից
+            const basicProfile: Profile = {
+              id: authData.user.id,
+              full_name: authData.user.user_metadata?.full_name || null,
+              avatar_url: authData.user.user_metadata?.avatar_url || null,
+              email: authData.user.email || null,
+              company_name: null,
+              phone: null,
+              address: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+            setProfile(basicProfile)
+            
+            // Սահմանել avatar_url
+            if (authData.user.user_metadata?.avatar_url) {
+              setAvatarUrl(authData.user.user_metadata.avatar_url)
+            }
+          }
+        } else if (data) {
+          setProfile(data)
+          
+          // Սահմանել avatar_url եթե կա
+          if (data.avatar_url) {
+            setAvatarUrl(data.avatar_url)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchProfile()
+  }, [userId, supabase])
+  
+  // Subscribe to profile changes for real-time updates
+  useEffect(() => {
+    if (!userId) return
+    
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`
+        },
+        (payload: any) => { // Ավելացրեք any type
+          const updatedProfile = payload.new as Profile
+          setProfile(updatedProfile)
+          
+          // Update avatar if changed
+          if (updatedProfile.avatar_url) {
+            setAvatarUrl(updatedProfile.avatar_url)
+          }
+        }
+      )
+      .subscribe()
+    
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [userId, supabase])
+  
   useEffect(() => {
     const count = notifications.filter(n => !n.read).length
     setUnreadCount(count)
   }, [notifications])
   
   useEffect(() => {
-    // Ավելի ճշգրիտ pathname վերլուծություն
-    console.log('Current pathname:', pathname)
-    
     if (pathname === '/dashboard') {
       setActiveNavItem('Dashboard')
     } else if (pathname === '/quotes') {
@@ -72,9 +181,6 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
       setActiveNavItem('Quotes')
     } else if (pathname.includes('/documents')) {
       setActiveNavItem('Documents')
-    } else {
-      // Եթե ուրիշ էջ է, պահպանել ընթացիկ ակտիվը
-      console.log('Unknown pathname, keeping current active nav:', activeNavItem)
     }
   }, [pathname])
   
@@ -104,26 +210,27 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
     setIsUserDropdownOpen(false)
   }
   
-  // Nav items-ը թարմացնենք այնպես, որ Shipments-ը ունենա ճիշտ href
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     { id: 'quotes', label: 'Quotes', href: '/quotes', icon: 'quotes' },
-    { id: 'shipments', label: 'Shipments', href: '/shipments', icon: 'policies' }, // Փոխելով policies-ից shipments
+    { id: 'shipments', label: 'Shipments', href: '/shipments', icon: 'policies' },
     { id: 'documents', label: 'Documents', href: '/documents', icon: 'documents' }
   ]
   
   const handleNavClick = (itemLabel: string) => {
-    console.log('Nav clicked:', itemLabel)
     setActiveNavItem(itemLabel)
   }
   
-  const userDisplayName = userEmail?.split('@')[0] || 'User'
+  const userDisplayName = profile?.full_name || userEmail?.split('@')[0] || 'User'
+  const displayEmail = profile?.email || userEmail || ''
+
+  const handleAvatarError = () => {
+    setAvatarUrl('/dashboard/avatar-img.png')
+  }
   
   return (
     <>
-      {/* Fixed width container */}
       <div className="max-w-[88%] sm:max-w-[96%] mx-auto pt-3">
-        {/* Header */}
         <header className="flex justify-between items-center h-[68px] mb-0 md:mb-3">
           <div className="flex items-center gap-3">
             <img 
@@ -131,22 +238,18 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
               alt="Cargo Guard Logo" 
               className="w-[22px] h-[29px] object-cover"
             />
-            {/* Hide text on mobile, show only on desktop */}
             <h2 className="hidden sm:block font-montserrat text-[18px] sm:text-[24px] font-normal text-[#0a3d62]">
               Cargo Guard
             </h2>
           </div>
           
-          {/* Desktop Navigation */}
           <DesktopNav 
             navItems={navItems}
             activeNavItem={activeNavItem}
             onNavClick={handleNavClick}
           />
           
-          {/* Header Actions */}
           <div className="flex items-center gap-2.5">
-            {/* Notifications Button */}
             <div className="relative">
               <button 
                 className="w-[44px] h-[44px] sm:w-[54px] sm:h-[54px] bg-[#f7f7f7] rounded-lg border border-white/22 flex items-center justify-center relative cursor-pointer hover:bg-white transition-colors duration-300"
@@ -175,71 +278,84 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
               />
             </div>
             
-            {/* Desktop User Avatar with Dropdown */}
             <div className="hidden xl:block relative">
               <div 
                 className="relative cursor-pointer"
                 onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
               >
-                <img 
-                  src="/dashboard/avatar-img.png" 
-                  alt="User Avatar"
-                  className="w-[54px] h-[54px] rounded-lg object-cover hover:opacity-90 transition-opacity duration-300"
-                />
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200">
-                  <svg 
-                    className={`w-3 h-3 text-gray-600 transition-transform duration-200 ${isUserDropdownOpen ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24" 
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+                {isLoading ? (
+                  <div className="w-[54px] h-[54px] rounded-lg bg-gray-200 animate-pulse flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">...</span>
+                  </div>
+                ) : (
+                  <>
+                    <img 
+                      src={avatarUrl}
+                      alt="User Avatar"
+                      className="w-[54px] h-[54px] rounded-lg object-cover hover:opacity-90 transition-opacity duration-300"
+                      onError={handleAvatarError}
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200">
+                      <svg 
+                        className={`w-3 h-3 text-gray-600 transition-transform duration-200 ${isUserDropdownOpen ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24" 
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </>
+                )}
               </div>
               
               <UserDropdown 
                 isOpen={isUserDropdownOpen}
                 onClose={closeUserDropdown}
                 userDisplayName={userDisplayName}
-                userEmail={userEmail}
+                userEmail={displayEmail}
+                profile={profile}
               />
             </div>
             
-            {/* Mobile User Avatar - Click opens profile modal */}
             <div className="xl:hidden relative">
               <div 
                 className="relative cursor-pointer"
                 onClick={toggleProfileModal}
               >
-                <img 
-                  src="/dashboard/avatar-img.png" 
-                  alt="User Avatar"
-                  className="w-[44px] h-[44px] rounded-lg object-cover hover:opacity-90 transition-opacity duration-300"
-                />
+                {isLoading ? (
+                  <div className="w-[44px] h-[44px] rounded-lg bg-gray-200 animate-pulse flex items-center justify-center">
+                    <span className="text-gray-400 text-xs">...</span>
+                  </div>
+                ) : (
+                  <img 
+                    src={avatarUrl}
+                    alt="User Avatar"
+                    className="w-[44px] h-[44px] rounded-lg object-cover hover:opacity-90 transition-opacity duration-300"
+                    onError={handleAvatarError}
+                  />
+                )}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Profile Modal for Mobile */}
         <ProfileModal 
           isOpen={isProfileModalOpen}
           onClose={closeProfileModal}
           userDisplayName={userDisplayName}
-          userEmail={userEmail}
+          userEmail={displayEmail}
+          profile={profile}
         />
       </div>
 
-      {/* Mobile Bottom Navigation */}
       <MobileBottomNav 
         navItems={navItems}
         activeNavItem={activeNavItem}
         onNavClick={handleNavClick}
       />
 
-      {/* Global Styles */}
       <style jsx global>{`
         @keyframes slideUp {
           from {
@@ -254,7 +370,6 @@ export default function DashboardHeader({ userEmail }: DashboardHeaderProps) {
           animation: slideUp 0.3s ease-out;
         }
         
-        /* Add padding to main content to avoid overlap with bottom nav */
         @media (max-width: 1279px) {
           main {
             padding-bottom: 60px !important;

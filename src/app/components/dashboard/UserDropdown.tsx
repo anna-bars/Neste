@@ -3,19 +3,22 @@
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import LogoutButton from './LogoutButton'
+import type { Profile } from './DashboardHeader' // Import Profile type
 
 interface UserDropdownProps {
   isOpen: boolean
   onClose: () => void
   userDisplayName: string
   userEmail?: string
+  profile?: Profile | null
 }
 
 export default function UserDropdown({ 
   isOpen, 
   onClose, 
   userDisplayName, 
-  userEmail 
+  userEmail,
+  profile 
 }: UserDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   
