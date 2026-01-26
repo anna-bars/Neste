@@ -380,39 +380,45 @@ export default function ShipmentsPage() {
 // Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ԼՐԻՎ ՈՒՂՂՎԱԾ
 // Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ԼՐԻՎ ՈՒՂՂՎԱԾ ԻՆՔՆԱԳՈՐԾՈՒՆ ԼՈԳԵՐՈՎ
 // Docs compliance տվյալներ (ըստ ժամանակահատվածների) - ԼՐԻՎ ՈՒՂՂՎԱԾ coverage period-ով
+// Փոխարինեք calculateDocsComplianceByTimePeriod ֆունկցիան այսով
+
+// ԵՎՃԵՐՏԵՐՏ ԹԱՐԲԵՐԱԿ - ԱՌԱՆՁ ԲԱՐԲԵՐ ՇԱԲԱԹՆԵՐ
 const calculateDocsComplianceByTimePeriod = () => {
   const now = new Date()
+  console.log('=== DOCS COMPLIANCE (SIMPLE RANGES) ===')
+  console.log('Current Date:', now.toDateString())
   
-  console.log('=== DOCS COMPLIANCE CALCULATION STARTED (COVERAGE PERIOD) ===')
-  console.log('Now:', now.toISOString())
-  console.log('Today date:', now.getDate(), now.getMonth() + 1, now.getFullYear())
+  // Սահմանել ժամանակահատվածներ՝ հիմնվելով ընթացիկ ամսաթվի վրա
+  const getDateRange = (daysFromNow: number, durationDays: number) => {
+    const start = new Date(now)
+    start.setDate(start.getDate() + daysFromNow)
+    
+    const end = new Date(start)
+    end.setDate(end.getDate() + durationDays)
+    
+    return { start, end }
+  }
   
-  // Սահմանել շաբաթների միջակայքերը
-  // This Week: 19.01 - 25.01
-  const thisWeekStart = new Date(2026, 0, 19) // 19 հունվար
-  const thisWeekEnd = new Date(2026, 0, 25)   // 25 հունվար
+  // Սահմանել ժամանակահատվածները
+  const ranges = {
+    thisWeek: getDateRange(0, 6),      // Այսօր + 6 օր
+    nextWeek: getDateRange(7, 6),       // 1 շաբաթից + 6 օր
+    in24Weeks: getDateRange(14, 14),    // 2 շաբաթից + 14 օր (2-4 շաբաթ)
+    nextMonth: getDateRange(30, 30)     // 1 ամսից + 30 օր
+  }
   
-  // Next Week: 26.01 - 01.02
-  const nextWeekStart = new Date(2026, 0, 26) // 26 հունվար  
-  const nextWeekEnd = new Date(2026, 1, 1)    // 1 փետրվար
+  console.log('\n=== DATE RANGES FROM TODAY ===')
+  console.log('This Week:', ranges.thisWeek.start.toDateString(), '-', ranges.thisWeek.end.toDateString())
+  console.log('Next Week:', ranges.nextWeek.start.toDateString(), '-', ranges.nextWeek.end.toDateString())
+  console.log('In 2-4 Weeks:', ranges.in24Weeks.start.toDateString(), '-', ranges.in24Weeks.end.toDateString())
+  console.log('Next Month:', ranges.nextMonth.start.toDateString(), '-', ranges.nextMonth.end.toDateString())
   
-  // In 2-4 Weeks: 02.02 - 22.02
-  const in24WeeksStart = new Date(2026, 1, 2)  // 2 փետրվար
-  const in24WeeksEnd = new Date(2026, 1, 22)   // 22 փետրվար
-  
-  // Next Month: 23.02 - 24.03 (մոտավորապես)
-  const nextMonthStart = new Date(2026, 1, 23) // 23 փետրվար
-  const nextMonthEnd = new Date(2026, 2, 24)   // 24 մարտ
-  
-  console.log('This Week:', thisWeekStart.toDateString(), '-', thisWeekEnd.toDateString())
-  console.log('Next Week:', nextWeekStart.toDateString(), '-', nextWeekEnd.toDateString())
-  
-  // Ֆիլտրել միայն ակտիվ պոլիսիները
+  // Ֆիլտրել ակտիվ պոլիսիները
   const activePolicies = policiesRows.filter(policy => 
     policy.rawData?.status === 'active'
   )
   
-  console.log('Total active policies:', activePolicies.length)
+  console.log('\nActive Policies:', activePolicies.length)
   
   const complianceData = {
     thisWeek: { missingDocs: 0, total: 0 },
@@ -421,103 +427,46 @@ const calculateDocsComplianceByTimePeriod = () => {
     nextMonth: { missingDocs: 0, total: 0 }
   }
 
-  // Վերլուծել յուրաքանչյուր ակտիվ պոլիսի
-  activePolicies.forEach((policy, index) => {
+  // Հաշվել յուրաքանչյուր ժամանակահատվածի համար
+  activePolicies.forEach((policy) => {
     const rawData = policy.rawData
     if (!rawData) return
-
-    const coverageStart = rawData.coverage_start
-    const coverageEnd = rawData.coverage_end
     
-    if (!coverageStart || !coverageEnd) {
-      console.log(`Policy ${policy.id}: No coverage dates`)
-      return
-    }
-
+    const isMissingDocs = policy.missingDocs?.text?.includes('Missing') || 
+                         policy.missingDocs?.text === 'No Docs' ||
+                         policy.missingDocs?.text?.includes('Rejected')
+    
     try {
-      // Ստեղծել ամսաթվերը
-      const startDate = new Date(coverageStart)
-      const endDate = new Date(coverageEnd)
+      const coverageStart = rawData.coverage_start ? new Date(rawData.coverage_start) : null
+      const coverageEnd = rawData.coverage_end ? new Date(rawData.coverage_end) : null
       
-      // Ստուգել, թե coverage period-ը ընկնում է որ ժամանակահատվածում
-      // Policy-ի coverage period-ը համընկնում է, եթե այն հատվում է շաբաթի հետ
-      const overlapsWithThisWeek = (
-        (startDate <= thisWeekEnd && endDate >= thisWeekStart) ||
-        (startDate <= thisWeekStart && endDate >= thisWeekEnd)
-      )
+      if (!coverageStart || !coverageEnd) return
       
-      const overlapsWithNextWeek = (
-        (startDate <= nextWeekEnd && endDate >= nextWeekStart) ||
-        (startDate <= nextWeekStart && endDate >= nextWeekEnd)
-      )
+      // Ստուգել յուրաքանչյուր ժամանակահատված
+      Object.entries(ranges).forEach(([key, range]) => {
+        const overlaps = (
+          (coverageStart <= range.end && coverageEnd >= range.start) ||
+          (coverageStart >= range.start && coverageEnd <= range.end)
+        )
+        
+        if (overlaps) {
+          complianceData[key as keyof typeof complianceData].total++
+          if (isMissingDocs) {
+            complianceData[key as keyof typeof complianceData].missingDocs++
+          }
+        }
+      })
       
-      const overlapsWith24Weeks = (
-        (startDate <= in24WeeksEnd && endDate >= in24WeeksStart) ||
-        (startDate <= in24WeeksStart && endDate >= in24WeeksEnd)
-      )
-      
-      const overlapsWithNextMonth = (
-        (startDate <= nextMonthEnd && endDate >= nextMonthStart) ||
-        (startDate <= nextMonthStart && endDate >= nextMonthEnd)
-      )
-      
-      const isMissingDocs = policy.missingDocs?.text?.includes('Missing') || 
-                           policy.missingDocs?.text === 'No Docs' ||
-                           policy.missingDocs?.text?.includes('Rejected') ||
-                           (policy.missingDocs?.text !== 'Approved' && 
-                            !policy.missingDocs?.text?.includes('Under Review') &&
-                            !policy.missingDocs?.text?.includes('Docs'))
-      
-      console.log(`\n--- Policy ${index + 1}: ${policy.id} ---`)
-      console.log('Coverage Period:', policy.expirationDate)
-      console.log('Start Date:', startDate.toDateString())
-      console.log('End Date:', endDate.toDateString())
-      console.log('Docs Status:', policy.missingDocs?.text)
-      console.log('Is Missing Docs:', isMissingDocs)
-      
-      // Ստուգել համընկնումները
-      if (overlapsWithThisWeek) {
-        complianceData.thisWeek.total++
-        if (isMissingDocs) complianceData.thisWeek.missingDocs++
-        console.log(`✅ Overlaps with This Week`)
-      }
-      
-      if (overlapsWithNextWeek) {
-        complianceData.nextWeek.total++
-        if (isMissingDocs) complianceData.nextWeek.missingDocs++
-        console.log(`✅ Overlaps with Next Week`)
-      }
-      
-      if (overlapsWith24Weeks) {
-        complianceData.in24Weeks.total++
-        if (isMissingDocs) complianceData.in24Weeks.missingDocs++
-        console.log(`✅ Overlaps with In 2-4 Weeks`)
-      }
-      
-      if (overlapsWithNextMonth) {
-        complianceData.nextMonth.total++
-        if (isMissingDocs) complianceData.nextMonth.missingDocs++
-        console.log(`✅ Overlaps with Next Month`)
-      }
-      
-      if (!overlapsWithThisWeek && !overlapsWithNextWeek && 
-          !overlapsWith24Weeks && !overlapsWithNextMonth) {
-        console.log(`➖ Does not overlap with any time period`)
-      }
     } catch (error) {
-      console.error(`Error processing policy ${policy.id}:`, error)
+      console.error('Error processing policy:', error)
     }
   })
 
-  console.log('\n=== FINAL COMPLIANCE DATA ===')
-  console.log('This Week:', complianceData.thisWeek)
-  console.log('Next Week:', complianceData.nextWeek)
-  console.log('In 2-4 Weeks:', complianceData.in24Weeks)
-  console.log('Next Month:', complianceData.nextMonth)
+  console.log('\n=== COMPLIANCE DATA ===')
+  console.log(complianceData)
   
   return complianceData
 }
-
 const timeBasedComplianceData = calculateDocsComplianceByTimePeriod()
 
 // Փոփոխական տվյալներ tabs-ների համար
