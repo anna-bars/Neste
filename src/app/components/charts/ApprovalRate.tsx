@@ -25,16 +25,21 @@ export interface ApprovalRateProps {
     progressEnd?: string;
     textPrimary?: string;
     textSecondary?: string;
+    progressDisabled?: string;
   };
   /** Ցուցադրել առաջադեմ ցուցիչը */
   showAdvancedIndicator?: boolean;
+  /** Progress bar-ը դարձնել disabled/blurred */
+  disabledProgress?: boolean;
+  /** Disabled progress bar-ի համար custom message */
+  disabledMessage?: string;
 }
 
 export const ApprovalRate: React.FC<ApprovalRateProps> = ({
   title = 'Document Approval Rate',
-  subtitle = 'Approved quotes percentage',
-  approvalPercentage = 85,
-  approvedCount = 85,
+  subtitle = 'Approved documents percentage.',
+  approvalPercentage = 0,
+  approvedCount = 0,
   typeLabel = 'Document',
   autoUpdate = false,
   updateInterval = 5000,
@@ -44,10 +49,13 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
     secondary: '#c7c7c7',
     progressStart: 'rgba(216, 228, 254, 0.52)',
     progressEnd: 'rgba(39, 100, 235, 0.35)',
-    textPrimary: '#000000',
-    textSecondary: '#c7c7c7'
+    textPrimary: '#2d3748',
+    textSecondary: '#4a5568',
+    progressDisabled: '#e2e8f0'
   },
-  showAdvancedIndicator = true
+  showAdvancedIndicator = true,
+  disabledProgress = false,
+  disabledMessage = 'Upload documents to track progress'
 }) => {
   const [percentage, setPercentage] = useState(approvalPercentage);
   const [count, setCount] = useState(approvedCount);
@@ -56,19 +64,24 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
-  // Ավտոմատ թարմացում
+  // Սկզբնական արժեքների սահմանում
   useEffect(() => {
-    if (!autoUpdate) return;
+    setPercentage(approvalPercentage);
+    setCount(approvedCount);
+  }, [approvalPercentage, approvedCount]);
+
+  // Ավտոմատ թարմացում (միացնել միայն եթե disabled չէ)
+  useEffect(() => {
+    if (!autoUpdate || disabledProgress) return;
 
     const interval = setInterval(() => {
-      const randomChange = Math.floor(Math.random() * 5) - 2; // -2-ից +2
+      const randomChange = Math.floor(Math.random() * 5) - 2;
       const newPercentage = Math.max(0, Math.min(100, percentage + randomChange));
       const newCount = Math.max(0, Math.min(100, count + randomChange));
       
       setIsAnimating(true);
       setAnimationProgress(0);
       
-      // Անիմացիայի տևողությունը
       const animationDuration = 500;
       const steps = 60;
       const stepDuration = animationDuration / steps;
@@ -94,13 +107,7 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
     }, updateInterval);
 
     return () => clearInterval(interval);
-  }, [autoUpdate, updateInterval, percentage, count, onPercentageChange]);
-
-  // Սկզբնական արժեքների սահմանում
-  useEffect(() => {
-    setPercentage(approvalPercentage);
-    setCount(approvedCount);
-  }, [approvalPercentage, approvedCount]);
+  }, [autoUpdate, updateInterval, percentage, count, onPercentageChange, disabledProgress]);
 
   // Հաշվարկել անիմացիայի արժեքը
   const animatedPercentage = isAnimating 
@@ -111,8 +118,16 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
     ? Math.round(count + (approvedCount - count) * animationProgress)
     : count;
 
-  // Հաշվարկել առաջընթացի գույնը հովերի ժամանակ
+  // Հաշվարկել progress bar-ի գույնը
   const getProgressGradient = () => {
+    if (disabledProgress) {
+      return `linear-gradient(
+        180deg,
+        ${colors.progressDisabled || '#e2e8f0'} 0%,
+        ${colors.progressDisabled ? `${colors.progressDisabled}CC` : '#cbd5e0'} 100%
+      )`;
+    }
+    
     if (isAnimating) {
       const intensity = 0.5 + 0.5 * Math.sin(animationProgress * Math.PI * 4);
       return `linear-gradient(
@@ -139,8 +154,8 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
 
   return (
     <article 
-      className="frame approval-rate-container w-full box-border relative flex flex-col items-start gap-6 p-4 border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl p-4 hover:shadow-sm transition-shadow duration-300"
-      onMouseEnter={() => setIsHovered(true)}
+      className="frame approval-rate-container w-full box-border relative flex flex-col items-start gap-6 p-4 border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl hover:shadow-sm transition-shadow duration-300"
+      onMouseEnter={() => !disabledProgress && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Վերնագիր և ենթավերնագիր */}
@@ -172,16 +187,21 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
           <span 
             className="percentage-symbol w-[9px] h-3 font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-normal text-[10px] tracking-[0.20px] leading-normal whitespace-nowrap pt-1.5"
             aria-hidden="true"
-            style={{ color: colors.textPrimary }}
+            style={{ 
+              color: disabledProgress ? colors.textSecondary : colors.textPrimary,
+              opacity: disabledProgress ? 0.5 : 1
+            }}
           >
             %
           </span>
           <span 
             className="percentage-value mt-0.5 w-[59px] h-9 font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-normal text-[48px] tracking-[0.96px] leading-9 whitespace-nowrap transition-all duration-300 ease-in-out"
             style={{ 
-              color: colors.textPrimary,
-              transition: isAnimating ? 'all 0.3s ease' : 'none',
-              transform: isAnimating ? 'scale(1.05)' : 'scale(1)'
+              color: disabledProgress ? colors.textSecondary : colors.textPrimary,
+              transition: isAnimating && !disabledProgress ? 'all 0.3s ease' : 'none',
+              transform: isAnimating && !disabledProgress ? 'scale(1.05)' : 'scale(1)',
+              filter: disabledProgress ? 'blur(0.8px)' : 'none',
+              opacity: disabledProgress ? 0.6 : 1
             }}
           >
             {Math.round(animatedPercentage)}
@@ -189,7 +209,10 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
         </div>
         <span 
           className="type-label absolute top-[25px] left-[91px] font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-medium text-[12px] tracking-[0.24px] leading-normal"
-          style={{ color: colors.textSecondary }}
+          style={{ 
+            color: disabledProgress ? colors.textSecondary : colors.textPrimary,
+            opacity: disabledProgress ? 0.6 : 1
+          }}
         >
           {typeLabel}
         </span>
@@ -212,7 +235,10 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
             >
               <span 
                 className="progress-title relative w-fit font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-medium text-[12px] tracking-[0.24px] leading-normal"
-                style={{ color: colors.textPrimary }}
+                style={{ 
+                  color: colors.textPrimary,
+                  opacity: disabledProgress ? 0.6 : 1
+                }}
               >
                 Documents Approved
               </span>
@@ -220,7 +246,9 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
                 className="progress-count relative w-fit mt-[-1px] font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-normal text-[14px] tracking-[0.28px] leading-normal transition-all duration-300 ease-in-out"
                 style={{ 
                   color: colors.textSecondary,
-                  transition: isAnimating ? 'all 0.3s ease' : 'none'
+                  transition: isAnimating && !disabledProgress ? 'all 0.3s ease' : 'none',
+                  filter: disabledProgress ? 'blur(0.5px)' : 'none',
+                  opacity: disabledProgress ? 0.6 : 1
                 }}
               >
                 {animatedCount}
@@ -228,7 +256,7 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
             </div>
           </div>
 
-          {/* Առաջընթացի տող */}
+          {/* Առաջընթացի տող - հիմնական մասը */}
           <div 
             ref={progressBarRef}
             className="progress-bar-container mt-1.5 w-full h-6 rounded overflow-hidden relative flex"
@@ -239,29 +267,36 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
               aria-valuenow={animatedPercentage}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label="Document approval progress bar"
+              aria-label={disabledProgress ? "Progress tracking disabled - upload documents" : "Document approval progress bar"}
               style={{
                 width: `${animatedPercentage}%`,
                 background: getProgressGradient(),
-                transition: isAnimating ? 'width 0.5s ease, background 0.3s ease' : 'width 0.3s ease, background 0.3s ease',
-                boxShadow: isAnimating ? '0 0 10px rgba(255, 200, 100, 0.5)' : isHovered ? '0 0 12px rgba(39, 100, 235, 0.25)' : 'none',
-                zIndex: 2
+                transition: disabledProgress ? 'none' : isAnimating ? 'width 0.5s ease, background 0.3s ease' : 'width 0.3s ease, background 0.3s ease',
+                boxShadow: disabledProgress ? 'none' : isAnimating ? '0 0 10px rgba(255, 200, 100, 0.5)' : isHovered ? '0 0 12px rgba(39, 100, 235, 0.25)' : 'none',
+                zIndex: 2,
+                // Blur/muted effects միայն progress bar-ի վրա
+                backdropFilter: disabledProgress ? 'blur(4px) saturate(0.5)' : 'none',
+                filter: disabledProgress ? 'blur(1px) opacity(0.8)' : 'none',
+                borderRight: disabledProgress ? '1px solid rgba(255, 255, 255, 0.3)' : 'none'
               }}
             >
-              <div 
-                className="progress-indicator absolute right-[3px] top-1/2 transform -translate-y-1/2 w-[3px] h-[18px] bg-[#f6f8fa] rounded-[1px] transition-all duration-200 ease-out"
-                style={{
-                  ...(isHovered ? {
-                    background: '#ffffff',
-                    boxShadow: '0 0 6px rgba(255, 255, 255, 0.8)',
-                    width: '4px',
-                    height: '20px'
-                  } : {})
-                }}
-              />
+              {/* Progress indicator - միայն եթե enabled է */}
+              {!disabledProgress && (
+                <div 
+                  className="progress-indicator absolute right-[3px] top-1/2 transform -translate-y-1/2 w-[3px] h-[18px] bg-[#f6f8fa] rounded-[1px] transition-all duration-200 ease-out"
+                  style={{
+                    ...(isHovered ? {
+                      background: '#ffffff',
+                      boxShadow: '0 0 6px rgba(255, 255, 255, 0.8)',
+                      width: '4px',
+                      height: '20px'
+                    } : {})
+                  }}
+                />
+              )}
               
-              {/* Shimmer effect on hover */}
-              {isHovered && (
+              {/* Shimmer effect - միայն եթե enabled է */}
+              {!disabledProgress && isHovered && (
                 <div 
                   className="progress-shimmer absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 hover:opacity-100"
                   style={{
@@ -269,22 +304,61 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
                   }}
                 />
               )}
+              
+              {/* Disabled վիճակի համար overlay և տեքստ */}
+              {disabledProgress && (
+                <div 
+                  className="disabled-overlay absolute inset-0 w-full h-full flex items-center justify-center"
+                >
+                  <div 
+                    className="disabled-text-content px-2 py-0.5 rounded-full bg-white/40 backdrop-blur-sm"
+                    style={{
+                      transform: 'translateX(-50%)'
+                    }}
+                  >
+                    <span 
+                      className="disabled-message font-['Montserrat'] font-medium text-[10px] tracking-[0.2px] whitespace-nowrap"
+                      style={{
+                        color: colors.textSecondary,
+                        textShadow: '0 1px 2px rgba(255, 255, 255, 0.8)'
+                      }}
+                    >
+                      {disabledMessage}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Առաջադեմ ցուցիչ (գծիկներ) */}
-            {showAdvancedIndicator && (
+            {showAdvancedIndicator && !disabledProgress && (
               <div 
                 className="advanced-indicator-container top-0 left-0 h-full inline-flex gap-[4.5px] ml-[2px] justify-start items-center overflow-hidden z-10 -ml-0.5"
-                style={{ width: `${100 - animatedPercentage}%` }}
+                style={{ 
+                  width: `${100 - animatedPercentage}%`,
+                  filter: disabledProgress ? 'blur(0.5px) opacity(0.5)' : 'none'
+                }}
               >
                 {Array.from({ length: 40 }).map((_, index) => (
                   <div
                     key={index}
                     className="indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.7]"
+                    style={{
+                      opacity: disabledProgress ? 0.4 : 1
+                    }}
                   />
                 ))}
               </div>
             )}
+            
+            {/* Background track - նույնպես blurred եթե disabled */}
+            <div 
+              className="progress-track absolute inset-0 w-full h-full bg-gray-100 rounded"
+              style={{
+                filter: disabledProgress ? 'blur(0.5px) opacity(0.6)' : 'none',
+                zIndex: 1
+              }}
+            />
           </div>
 
           {/* Սանդղակ */}
@@ -293,13 +367,19 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
           >
             <span 
               className="text-[10px] scale-min relative w-fit mt-[-1px] font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-normal tracking-[0.28px] leading-normal"
-              style={{ color: colors.textSecondary }}
+              style={{ 
+                color: colors.textSecondary,
+                opacity: disabledProgress ? 0.5 : 1
+              }}
             >
               0
             </span>
             <span 
               className="text-[10px] scale-max relative w-fit mt-[-1px] font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-normal tracking-[0.28px] leading-normal"
-              style={{ color: colors.textSecondary }}
+              style={{ 
+                color: colors.textSecondary,
+                opacity: disabledProgress ? 0.5 : 1
+              }}
             >
               100
             </span>
@@ -327,12 +407,23 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
           }
         }
         
+        @keyframes subtle-pulse {
+          0%, 100% {
+            opacity: 0.4;
+          }
+          50% {
+            opacity: 0.6;
+          }
+        }
+        
         .approval-rate-container {
           transition: all 0.3s ease;
         }
         
         .progress-bar-fill {
-          animation: ${isAnimating ? 'pulse 0.5s ease-in-out infinite' : isHovered ? 'pulse 1s ease-in-out infinite' : 'none'};
+          animation: ${disabledProgress ? 'subtle-pulse 2s ease-in-out infinite' : 
+                    isAnimating ? 'pulse 0.5s ease-in-out infinite' : 
+                    isHovered ? 'pulse 1s ease-in-out infinite' : 'none'};
         }
         
         .progress-shimmer {
