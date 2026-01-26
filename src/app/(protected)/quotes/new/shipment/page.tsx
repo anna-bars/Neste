@@ -91,22 +91,23 @@ export default function ShipmentStepPage() {
             </button>
             
             {/* Modern Progress Indicator */}
-            <div className="flex items-center gap-4">
-              <div className="text-sm font-mono text-gray-500">01/05</div>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <div className="w-10 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-700 ${
-                        stepComplete ? 'w-full' : 'w-1/4'
-                      }`}
-                    ></div>
-                  </div>
-                  <div className="absolute -top-1.5 left-1/4 transform -translate-x-1/2 w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
-                </div>
-                <Sparkles className="w-4 h-4 text-blue-500" />
-              </div>
-            </div>
+{/* Modern Progress Indicator */}
+<div className="flex items-center gap-4">
+  <div className="text-sm font-mono text-gray-500">01/05</div>
+  <div className="flex items-center gap-2">
+    <div className="relative">
+      <div className="w-10 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-700"
+          style={{ width: stepComplete ? '20%' : '20%' }}
+        ></div>
+      </div>
+      <div className="absolute -top-1.5 left-[20%] transform -translate-x-1/2 w-3 h-3 rounded-full bg-blue-500 border-2 border-white"></div>
+    </div>
+    <Sparkles className="w-4 h-4 text-blue-500" />
+  </div>
+</div>
+
           </div>
 
          
