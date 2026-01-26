@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronDown, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 
 interface CustomDatePickerProps {
   value: string;
@@ -45,7 +45,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   const handleDateSelect = (day: number) => {
     const selected = new Date(
@@ -72,15 +72,10 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
-      year: 'numeric',
+      weekday: 'short',
       month: 'short',
       day: 'numeric'
     });
-  };
-
-  const isToday = (day: number) => {
-    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    return date.toDateString() === today.toDateString();
   };
 
   const isSelected = (day: number) => {
@@ -94,6 +89,11 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     if (min && date < min) return true;
     if (max && date > max) return true;
     return false;
+  };
+
+  const isToday = (day: number) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    return date.toDateString() === today.toDateString();
   };
 
   useEffect(() => {
@@ -111,47 +111,65 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-12 px-4 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-colors flex items-center justify-between bg-white"
+        className={`
+          w-full h-14 px-4 rounded-xl border-2 transition-all duration-300
+          flex items-center justify-between bg-white
+          ${isOpen
+            ? 'border-[#0066FF] bg-blue-50'
+            : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+          }
+        `}
       >
         <div className="flex items-center gap-3">
-          <Calendar className="h-5 w-5 text-gray-400" />
-          <span className={`${value ? "text-gray-900" : "text-gray-500"} text-sm md:text-base truncate max-w-[160px] md:max-w-none`}>
+          <div className={`
+            p-2.5 rounded-lg
+            ${isOpen 
+              ? 'bg-[#0066FF] text-white' 
+              : 'bg-gray-100 text-gray-500'
+            }
+          `}>
+            <Calendar className="h-4 w-4" />
+          </div>
+          <span className={`${value ? "text-gray-900 font-medium" : "text-gray-500"} text-sm`}>
             {value ? formatDate(new Date(value)) : placeholder}
           </span>
         </div>
-        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 bg-white rounded-xl shadow-lg border border-gray-200 p-4 w-full md:w-80">
+        <div className="absolute z-50 mt-2 bg-white rounded-xl border-2 border-gray-300 shadow-xl p-4 w-full md:w-72">
+          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
               onClick={prevMonth}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4 text-gray-600" />
             </button>
-            <div className="font-semibold text-gray-900 text-sm md:text-base">
+            <div className="font-bold text-gray-900 text-sm">
               {months[currentMonth.getMonth()]} {currentMonth.getFullYear()}
             </div>
             <button
               type="button"
               onClick={nextMonth}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </button>
           </div>
 
+          {/* Days Header */}
           <div className="grid grid-cols-7 gap-1 mb-2">
             {days.map(day => (
-              <div key={day} className="text-center text-xs md:text-sm font-medium text-gray-500 py-1">
+              <div key={day} className="text-center text-xs font-semibold text-gray-500 py-1">
                 {day}
               </div>
             ))}
           </div>
 
+          {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: firstDayOfMonth }).map((_, index) => (
               <div key={`empty-${index}`} />
@@ -160,8 +178,8 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
             {Array.from({ length: daysInMonth }).map((_, index) => {
               const day = index + 1;
               const disabled = isDisabled(day);
-              const isTodayDate = isToday(day);
               const selected = isSelected(day);
+              const todayDate = isToday(day);
               
               return (
                 <button
@@ -170,23 +188,29 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                   onClick={() => handleDateSelect(day)}
                   disabled={disabled}
                   className={`
-                    h-8 rounded-lg text-xs md:text-sm transition-all duration-200
+                    h-9 rounded-lg text-sm transition-all duration-200 relative font-medium
                     ${selected
-                      ? 'bg-blue-500 text-white hover:bg-blue-600'
-                      : isTodayDate
-                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                      : 'hover:bg-gray-100 text-gray-900'
+                      ? 'bg-[#0066FF] text-white shadow-sm'
+                      : todayDate
+                      ? 'bg-blue-100 text-[#0066FF] hover:bg-blue-200 font-bold'
+                      : 'text-gray-700 hover:bg-gray-100'
                     }
                     ${disabled ? 'opacity-30 cursor-not-allowed hover:bg-transparent' : ''}
                   `}
                 >
                   {day}
+                  {selected && (
+                    <div className="absolute -top-1 -right-1">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-100">
+          {/* Today Button */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={() => {
@@ -194,7 +218,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                 onChange(today.toISOString().split('T')[0]);
                 setIsOpen(false);
               }}
-              className="w-full py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="w-full py-2.5 text-sm font-bold text-[#0066FF] hover:text-[#0052CC] hover:bg-blue-50 rounded-lg transition-colors"
             >
               Select Today
             </button>

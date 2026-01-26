@@ -1,4 +1,4 @@
-import { CheckCircle } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 interface MobileTipsCardProps {
   completionPercentage: number;
@@ -6,41 +6,31 @@ interface MobileTipsCardProps {
 
 const MobileTipsCard: React.FC<MobileTipsCardProps> = ({ completionPercentage }) => {
   return (
-    <div className="md:hidden bg-[url('/quotes/new/shipping-wd-back.png')] bg-cover bg-center flex flex-col gap-6 rounded-2xl shadow-lg border border-gray-200 p-5 mb-6 text-white">
+    <div className="md:hidden bg-blue-50 rounded border border-blue-100 p-4 mb-4">
       <div className="flex items-center gap-2 mb-2">
-        <h3 className="text-lg font-semibold">Smart Quote Tips</h3>
+        <Info className="w-4 h-4 text-blue-600" />
+        <h3 className="font-medium text-blue-900">Important</h3>
       </div>
       
-      <div className="space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <CheckCircle className="w-3 h-3" />
-          </div>
-          <p className="text-sm leading-relaxed">
-            <span className="font-semibold">Full Coverage:</span> Include all freight charges and duties in shipment value for complete protection.
-          </p>
-        </div>
-        
-        <div className="flex items-start gap-3">
-          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <CheckCircle className="w-3 h-3" />
-          </div>
-          <p className="text-sm leading-relaxed">
-            <span className="font-semibold">Lower Premiums:</span> Accurate cargo classification can reduce premiums by up to 30%.
-          </p>
-        </div>
+      <div className="space-y-1">
+        <p className="text-sm text-blue-800">
+          • Include all costs in shipment value
+        </p>
+        <p className="text-sm text-blue-800">
+          • Accurate classification reduces premiums
+        </p>
       </div>
 
-      <div className="pt-4 border-t border-white/20">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-white/90">Progress</span>
-          <span className="text-sm font-semibold text-white">
-            {Math.round(completionPercentage/100*7)} of 7 fields
+      <div className="mt-3 pt-3 border-t border-blue-200">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-blue-700">Progress</span>
+          <span className="text-xs font-medium text-blue-900">
+            {Math.round(completionPercentage/100*7)} of 7
           </span>
         </div>
-        <div className="w-full bg-white/20 rounded-full h-2">
+        <div className="w-full bg-blue-200 rounded-full h-1">
           <div 
-            className="bg-white h-2 rounded-full transition-all duration-300"
+            className="bg-blue-600 h-1 rounded-full transition-all duration-300"
             style={{ width: `${completionPercentage}%` }}
           />
         </div>
