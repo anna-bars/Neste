@@ -70,19 +70,14 @@ export default function ShipmentStepPage() {
   }, [cargoType]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900">
-      {/* Subtle background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-100 rounded-full blur-3xl opacity-30"></div>
-      </div>
+    <div className="min-h-screen bg-[#F3F3F6] text-gray-900">
 
       <DashboardHeader userEmail={user?.email}/>
       
-      <div className="relative max-w-[98%] mx-auto px-4 py-8">
+      <div className="relative max-w-[88%] mx-auto pt-2 pb-4 py-8">
         {/* Modern Header */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-8">
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-0">
             <button 
               onClick={() => router.push('/quotes')}
               className="group flex items-center gap-3 text-gray-600 hover:text-gray-900 transition-all duration-300"
@@ -118,9 +113,9 @@ export default function ShipmentStepPage() {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left Side - Main Cargo Selection (80%) */}
-          <div className="lg:col-span-8 order-2 lg:order-1">
+          <div className="lg:col-span-9 order-2 lg:order-1">
             <div className="relative group">
               {/* Subtle Glow Border */}
               <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-100 via-cyan-100 to-blue-100 rounded-3xl blur opacity-50 group-hover:opacity-70 transition-opacity"></div>
@@ -169,7 +164,7 @@ export default function ShipmentStepPage() {
                   />
 
                   {/* Continue Button */}
-                  <div className="mt-12 pt-8 border-t border-gray-100">
+                  <div className="mt-12 pt-8 border-t border-gray-100 flex flex-end justify-end">
                     <button
                       onClick={handleNext}
                       disabled={!cargoType || (cargoType === 'other' && !otherCargoType)}
@@ -185,17 +180,12 @@ export default function ShipmentStepPage() {
                       {/* Animated Background */}
                       <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-cyan-500/0 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-1000"></div>
                       
-                      <div className="relative flex items-center justify-center gap-3">
+                      <div className="relative flex items-end justify-end gap-3">
                         <span className="text-lg">Continue to Details</span>
                         <ChevronRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
                       </div>
                       
-                      {/* Keyboard Shortcut */}
-                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                        <kbd className="px-2 py-1 text-xs rounded-lg bg-white/20 border border-white/30 text-white">
-                          ↵ Enter
-                        </kbd>
-                      </div>
+                    
                     </button>
                   </div>
                 </div>
@@ -204,7 +194,7 @@ export default function ShipmentStepPage() {
           </div>
 
           {/* Right Side - Information Panel (20%) */}
-          <div className="lg:col-span-4 space-y-6 order-1 lg:order-2">
+          <div className="lg:col-span-3 space-y-6 order-1 lg:order-2">
             {/* Why It Matters */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6">
               <div className="flex items-center gap-3 mb-5">
