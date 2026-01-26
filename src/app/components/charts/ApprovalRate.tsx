@@ -194,8 +194,9 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
           >
             %
           </span>
-          <span 
-            className="percentage-value mt-0.5 w-[59px] h-9 font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-normal text-[48px] tracking-[0.96px] leading-9 whitespace-nowrap transition-all duration-300 ease-in-out"
+          <div className='flex gap-[12px] items-end'>
+            <span 
+            className="percentage-value mt-0.5 w-fit h-9 font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-normal text-[48px] tracking-[0.96px] leading-9 whitespace-nowrap transition-all duration-300 ease-in-out"
             style={{ 
               color: disabledProgress ? colors.textSecondary : colors.textPrimary,
               transition: isAnimating && !disabledProgress ? 'all 0.3s ease' : 'none',
@@ -206,16 +207,18 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
           >
             {Math.round(animatedPercentage)}
           </span>
+          <span 
+            className="type-label  bottom-[25px] left-[91px] font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-medium text-[12px] tracking-[0.24px] leading-normal"
+            style={{ 
+              color: disabledProgress ? colors.textSecondary : colors.textPrimary,
+              opacity: disabledProgress ? 0.6 : 1
+            }}
+          >
+            {typeLabel}
+          </span>
+          </div>
         </div>
-        <span 
-          className="type-label absolute top-[25px] left-[91px] font-['Montserrat',_Helvetica,_Arial,_sans-serif] font-medium text-[12px] tracking-[0.24px] leading-normal"
-          style={{ 
-            color: disabledProgress ? colors.textSecondary : colors.textPrimary,
-            opacity: disabledProgress ? 0.6 : 1
-          }}
-        >
-          {typeLabel}
-        </span>
+        
       </section>
 
       {/* Առաջընթացի տող */}
@@ -333,10 +336,10 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
             {/* Առաջադեմ ցուցիչ (գծիկներ) */}
             {showAdvancedIndicator && !disabledProgress && (
               <div 
-                className="advanced-indicator-container top-0 left-0 h-full inline-flex gap-[4.5px] ml-[2px] justify-start items-center overflow-hidden z-10 -ml-0.5"
+                className="advanced-indicator-container filter  opacity-30 top-0 left-0 h-full inline-flex gap-[4.5px] ml-[2px] justify-start items-center overflow-hidden z-10 -ml-0.5"
                 style={{ 
                   width: `${100 - animatedPercentage}%`,
-                  filter: disabledProgress ? 'blur(0.5px) opacity(0.5)' : 'none'
+                  filter: disabledProgress ? ' opacity(0)' : 'drop-shadow-[2px_4px_6px_blue]'
                 }}
               >
                 {Array.from({ length: 40 }).map((_, index) => (
@@ -353,7 +356,7 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
             
             {/* Background track - նույնպես blurred եթե disabled */}
             <div 
-              className="progress-track absolute inset-0 w-full h-full bg-gray-100 rounded"
+              className="progress-track absolute inset-0 w-full h-full rounded"
               style={{
                 filter: disabledProgress ? 'blur(0.5px) opacity(0.6)' : 'none',
                 zIndex: 1

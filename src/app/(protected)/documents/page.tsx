@@ -594,6 +594,7 @@ export default function DocumentsPage() {
                   textPrimary: '#2d3748',
                   textSecondary: '#4a5568'
                 }}
+                disabledProgress={false}
               />
             </div>
             </div>
@@ -671,6 +672,7 @@ export default function DocumentsPage() {
                   textPrimary: '#2d3748',
                   textSecondary: '#4a5568'
                 }}
+                disabledProgress={false}
               />
             </div>
 
@@ -765,6 +767,7 @@ export default function DocumentsPage() {
                       textPrimary: '#2d3748',
                       textSecondary: '#4a5568'
                     }}
+                    disabledProgress={false}
                   />
                 </div>
               </div>
