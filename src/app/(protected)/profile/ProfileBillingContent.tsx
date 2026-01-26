@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/app/context/UserContext';
+import Image from 'next/image';
 
 interface ProfileBillingContentProps {
   profileData: any;
@@ -13,7 +14,9 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
   const supabase = createClient();
   
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -22,11 +25,22 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
     address: '',
   });
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Initialize form data from profileData
   useEffect(() => {
     if (profileData?.profile) {
       const { profile, policies, payments } = profileData;
       
+      // Set avatar URL
+      if (profile.avatar_url) {
+        setAvatarUrl(profile.avatar_url);
+      } else if (user?.user_metadata?.avatar_url) {
+        setAvatarUrl(user.user_metadata.avatar_url);
+      } else if (user?.user_metadata?.picture) {
+        setAvatarUrl(user.user_metadata.picture); // For Google auth
+      }
+
       // Format payment methods from payments data
       const formattedPaymentMethods = (payments || []).map((payment: any, index: number) => ({
         id: payment.id || `payment-${index}`,
@@ -60,7 +74,7 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
       });
 
       setFormData({
-        full_name: profile.full_name || 'User',
+        full_name: profile.full_name || user?.user_metadata?.full_name || 'User',
         phone: profile.phone || '',
         email: profile.email || user?.email || '',
         company_name: profile.company_name || '',
@@ -74,6 +88,141 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
 
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('You must select an image to upload.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        throw new Error('Please upload a valid image file (JPEG, PNG, GIF, WebP).');
+      }
+
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        throw new Error('File size must be less than 2MB.');
+      }
+
+      // Upload to Supabase Storage
+      const { error: uploadError, data } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user?.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update local state
+      setAvatarUrl(publicUrl);
+
+      // Optionally update user metadata in auth.users
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl }
+      });
+
+      if (authError) {
+        console.warn('Could not update auth user metadata:', authError);
+      }
+
+      alert('Profile picture updated successfully!');
+      
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      alert(`Error uploading avatar: ${error.message}`);
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!avatarUrl || !confirm('Are you sure you want to remove your profile picture?')) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      
+      // Extract file path from URL
+      const urlParts = avatarUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      const filePath = `avatars/${fileName}`;
+
+      // Delete from storage
+      const { error: deleteError } = await supabase.storage
+        .from('avatars')
+        .remove([filePath]);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Update profile to remove avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', user?.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update local state
+      setAvatarUrl(null);
+
+      // Optionally update user metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { avatar_url: null }
+      });
+
+      if (authError) {
+        console.warn('Could not update auth user metadata:', authError);
+      }
+
+      alert('Profile picture removed successfully!');
+      
+    } catch (error: any) {
+      console.error('Error deleting avatar:', error);
+      alert(`Error deleting avatar: ${error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!user) return;
@@ -93,27 +242,15 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         });
 
       if (error) {
-        console.error('Error updating profile:', error);
-        alert('Error updating profile. Please try again.');
-      } else {
-        alert('Profile updated successfully!');
-        setEditMode(false);
-        
-        // Refresh profile data
-        if (profileData) {
-          const updatedProfileData = {
-            ...profileData,
-            profile: {
-              ...profileData.profile,
-              ...formData,
-            }
-          };
-          // You might want to trigger a refetch here
-        }
+        throw error;
       }
-    } catch (error) {
+
+      alert('Profile updated successfully!');
+      setEditMode(false);
+      
+    } catch (error: any) {
       console.error('Error updating profile:', error);
-      alert('Error updating profile. Please try again.');
+      alert(`Error updating profile: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -146,34 +283,89 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
 
   return (
     <div className="flex flex-col w-full items-start gap-6 p-4 sm:p-6 relative bg-[#fbfbf6] rounded-2xl border border-[#e5e7eb]">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleAvatarUpload}
+        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+        className="hidden"
+      />
+
       {/* User Profile Section */}
       <div className="flex flex-col sm:flex-row items-start gap-4 relative self-stretch w-full">
         {/* Profile image with edit button */}
-        <div className="relative mb-4 sm:mb-0">
-          <div className="relative w-16 h-16 sm:w-[81px] sm:h-[81px] rounded-[8px] border border-[#f3f3f6] bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center overflow-hidden">
-            {user?.user_metadata?.avatar_url ? (
-              <img
-                className="w-full h-full object-cover"
+        <div className="relative mb-4 sm:mb-0 group">
+          <div 
+            onClick={handleAvatarClick}
+            className="relative w-16 h-16 sm:w-[81px] sm:h-[81px] rounded-[8px] border-2 border-[#f3f3f6] bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-300 transition-all duration-200"
+          >
+            {uploading ? (
+              <div className="flex items-center justify-center w-full h-full bg-blue-50">
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : avatarUrl ? (
+              <Image
+                src={avatarUrl}
                 alt="Profile picture"
-                src={user.user_metadata.avatar_url}
+                width={81}
+                height={81}
+                className="w-full h-full object-cover"
+                onError={() => setAvatarUrl(null)} // Fallback if image fails to load
               />
             ) : (
-              <div className="text-2xl font-semibold text-blue-600">
-                {formData.full_name?.charAt(0) || 'U'}
+              <div className="text-2xl sm:text-3xl font-semibold text-blue-600">
+                {formData.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
             )}
+            
+            {/* Hover overlay */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <div className="text-white text-xs font-medium">Change</div>
+            </div>
           </div>
+          
           {/* Edit button - positioned at bottom right */}
-          <button 
-            onClick={() => setEditMode(!editMode)}
-            className="absolute bottom-0 right-0 flex justify-center items-center w-6 h-6 sm:w-7 sm:h-7 bg-white px-1 sm:px-1.5 py-[0px] rounded-md border-[0.7px] border-solid border-[#EFF4FC] hover:bg-blue-50 transition-colors shadow-sm"
-          >
-            <img 
-              className="w-4 h-4 sm:w-6 sm:h-6" 
-              alt="Edit profile"
-              src="/profile/pen-01-stroke-rounded.svg"
-            />
-          </button>
+          <div className="absolute -bottom-1 -right-1 flex gap-1">
+            <button 
+              onClick={handleAvatarClick}
+              className="flex justify-center items-center w-6 h-6 sm:w-7 sm:h-7 bg-white px-1 sm:px-1.5 py-[0px] rounded-md border-[0.7px] border-solid border-[#EFF4FC] hover:bg-blue-50 transition-colors shadow-sm"
+              title="Change profile picture"
+              disabled={uploading}
+            >
+              {uploading ? (
+                <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <img 
+                  className="w-3 h-3 sm:w-4 sm:h-4" 
+                  alt="Edit profile"
+                  src="/profile/pen-01-stroke-rounded.svg"
+                />
+              )}
+            </button>
+            
+            {avatarUrl && (
+              <button 
+                onClick={handleDeleteAvatar}
+                className="flex justify-center items-center w-6 h-6 sm:w-7 sm:h-7 bg-white px-1 sm:px-1.5 py-[0px] rounded-md border-[0.7px] border-solid border-red-200 hover:bg-red-50 transition-colors shadow-sm"
+                title="Remove profile picture"
+                disabled={uploading}
+              >
+                <img 
+                  className="w-3 h-3 sm:w-4 sm:h-4" 
+                  alt="Delete profile picture"
+                  src="/profile/delete-02-stroke-rounded.svg"
+                />
+              </button>
+            )}
+          </div>
+          
+          {/* Uploading indicator */}
+          {uploading && (
+            <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] px-2 py-1 rounded-full animate-pulse">
+              Uploading...
+            </div>
+          )}
         </div>
         
         <div className="flex flex-col items-start justify-between px-0 py-[5px] relative flex-1 self-stretch grow">
@@ -195,6 +387,16 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
           </div>
         </div>
       </div>
+
+      {/* Upload Instructions (only show on hover or when no avatar) */}
+      {!avatarUrl && !uploading && (
+        <div className="w-full p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-blue-700 text-sm">
+            <strong>Tip:</strong> Click on the profile picture to upload a new one. 
+            Supported formats: JPEG, PNG, GIF, WebP (max 2MB)
+          </p>
+        </div>
+      )}
 
       {/* Personal Information Fields */}
       <div className="flex flex-col lg:flex-row items-start justify-between gap-6 relative self-stretch w-full">
@@ -245,15 +447,23 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
           <button
             onClick={() => setEditMode(false)}
             className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={loading}
           >
             Cancel
           </button>
           <button
             onClick={handleUpdateProfile}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            {loading ? 'Saving...' : 'Save Changes'}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
           </button>
         </div>
       )}
