@@ -28,7 +28,7 @@ export const WelcomeWidget: React.FC<WelcomeWidgetProps> = ({
       group
     ">
       <img 
-        src="https://c.animaapp.com/mjiggi0jSqvoj5/img/frame-76.png" 
+        src="/welcome-widget/bg.png" 
         alt="Background" 
         className="
           absolute inset-0 w-full h-full object-cover
@@ -104,7 +104,7 @@ export const WelcomeWidget: React.FC<WelcomeWidgetProps> = ({
             aria-label="Get new quote"
           >
             <img 
-              src="https://c.animaapp.com/mjiggi0jSqvoj5/img/group-84.png" 
+              src="/welcome-widget/plus-icon.svg" 
               alt="Arrow" 
               className="w-full h-full"
             />
