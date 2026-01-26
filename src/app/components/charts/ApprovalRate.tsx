@@ -340,14 +340,14 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
             {showAdvancedIndicator && !disabledProgress && (
               <div 
                 className={`
-  advanced-indicator-container
-  filter opacity-30 top-0 left-0 h-full
-  inline-flex gap-[4.5px] ml-[2px]
-  justify-start items-center
-  overflow-hidden z-10 -ml-0.5
-  ${animatedPercentage === 0 ? 'drop-shadow-[2px_4px_6px_blue]' : ''}
-`}
-style={{ 
+                  advanced-indicator-container
+                  filter opacity-30 top-0 left-0 h-full
+                  inline-flex gap-[4.5px] ml-[2px]
+                  justify-start items-center
+                  overflow-hidden z-10 -ml-0.5
+                  ${animatedPercentage === 0 ? 'drop-shadow-[2px_4px_6px_blue]' : ''}
+                `}
+                style={{ 
                   width: `${100 - animatedPercentage}%`,
                   // filter: animatedPercentage ? ' opacity(1) drop-shadow-[2px_4px_6px_blue]' : 'drop-shadow-[2px_4px_6px_blue]';
 
