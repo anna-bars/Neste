@@ -100,7 +100,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Ավելացրեք userId prop-ը */}
           <DashboardHeader userId={user?.id} userEmail={user?.email} />
         </div>
-      
+      {/*  */}
         <main className={`
           block-2 
           omblock 
