@@ -424,7 +424,7 @@ const defaultEmptyState = (
       {rows.length === 0 && !searchQuery ? (
         // Նոր օգտատերի համար - "Get Started" կոճակ
         <button 
-          onClick={() => window.location.href = '/create-quote'} // Կամ այլ նավարկություն
+          onClick={() => window.location.href = '/quotes/new/shipment'} // Կամ այլ նավարկություն
           className="
             relative
             px-5 py-2.5

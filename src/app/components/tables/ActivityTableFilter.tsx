@@ -84,7 +84,7 @@ export const ActivityTableFilter: React.FC<ActivityTableFilterProps> = ({
   }, [showDesktopFilters]);
 
   const handleGetNewQuote = () => {
-    router.push('/quotes/new/shipping');
+    router.push('/quotes/new/shipment');
   };
 
   const activityOptions = filterConfig.activityOptions || ['All Activity', 'Pending', 'Active', 'Expiring', 'Missing', 'Declined'];
