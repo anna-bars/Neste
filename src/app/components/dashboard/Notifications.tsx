@@ -1,7 +1,7 @@
 // app/components/Notifications.tsx
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 
 interface Notification {
   id: string
@@ -35,6 +35,8 @@ export default function Notifications({
 }: NotificationsProps) {
   const notificationsRef = useRef<HTMLDivElement>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [readTimeouts, setReadTimeouts] = useState<Record<string, NodeJS.Timeout>>({})
+  const [autoMarkReadEnabled, setAutoMarkReadEnabled] = useState(true)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,6 +52,65 @@ export default function Notifications({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen, onClose])
 
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(readTimeouts).forEach(timeout => {
+        clearTimeout(timeout)
+      })
+    }
+  }, [readTimeouts])
+
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    if (notification.read || !autoMarkReadEnabled) return
+
+    // Clear existing timeout if any
+    if (readTimeouts[notification.id]) {
+      clearTimeout(readTimeouts[notification.id])
+    }
+
+    // Set new timeout to mark as read after 5 seconds
+    const timeoutId = setTimeout(() => {
+      onMarkAsRead(notification.id)
+      
+      // Remove timeout from state
+      setReadTimeouts(prev => {
+        const newTimeouts = { ...prev }
+        delete newTimeouts[notification.id]
+        return newTimeouts
+      })
+    }, 5000) // 5 seconds
+
+    // Store timeout ID
+    setReadTimeouts(prev => ({
+      ...prev,
+      [notification.id]: timeoutId
+    }))
+
+    // Show visual feedback
+    const notificationElement = document.querySelector(`[data-notification-id="${notification.id}"]`)
+    if (notificationElement) {
+      notificationElement.classList.add('notification-clicked')
+      
+      // Remove feedback class after animation
+      setTimeout(() => {
+        notificationElement.classList.remove('notification-clicked')
+      }, 2000)
+    }
+
+  }, [onMarkAsRead, readTimeouts, autoMarkReadEnabled])
+
+  const handleCancelAutoRead = useCallback((notificationId: string) => {
+    if (readTimeouts[notificationId]) {
+      clearTimeout(readTimeouts[notificationId])
+      setReadTimeouts(prev => {
+        const newTimeouts = { ...prev }
+        delete newTimeouts[notificationId]
+        return newTimeouts
+      })
+    }
+  }, [readTimeouts])
+
   const getTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -63,7 +124,6 @@ export default function Notifications({
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     
-    // If more than a week, show date
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
@@ -143,6 +203,9 @@ export default function Notifications({
   const handleDelete = async (id: string) => {
     if (!onDelete) return
     
+    // Clear timeout if exists
+    handleCancelAutoRead(id)
+    
     setDeletingId(id)
     try {
       await onDelete(id)
@@ -151,6 +214,31 @@ export default function Notifications({
     } finally {
       setDeletingId(null)
     }
+  }
+
+  const handleMarkAsRead = (id: string) => {
+    // Clear any pending timeout
+    handleCancelAutoRead(id)
+    onMarkAsRead(id)
+  }
+
+  const handleMarkAllAsReadWithClear = () => {
+    // Clear all timeouts
+    Object.values(readTimeouts).forEach(timeout => {
+      clearTimeout(timeout)
+    })
+    setReadTimeouts({})
+    
+    // Mark all as read
+    onMarkAllAsRead()
+  }
+
+  // Calculate time remaining for auto-mark
+  const getTimeRemaining = (notificationId: string) => {
+    if (!readTimeouts[notificationId]) return null
+    
+    // We can't get exact remaining time, but we can show progress
+    return "5s"
   }
 
   if (!isOpen) return null
@@ -168,15 +256,43 @@ export default function Notifications({
             {isLoading ? 'Loading...' : unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
           </p>
         </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={onMarkAllAsRead}
-            className="font-inter text-sm text-[#2563eb] hover:text-[#1d4ed8] transition-colors disabled:opacity-50"
-            disabled={isLoading}
-          >
-            Mark all as read
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {unreadCount > 0 && (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  {autoMarkReadEnabled && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  )}
+                  <span className={`relative inline-flex rounded-full h-3 w-3 ${autoMarkReadEnabled ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
+                </span>
+                <span className="font-inter text-xs text-gray-500">Auto-read</span>
+              </div>
+              <button
+                onClick={handleMarkAllAsReadWithClear}
+                className="font-inter text-sm text-[#2563eb] hover:text-[#1d4ed8] transition-colors disabled:opacity-50"
+                disabled={isLoading}
+              >
+                Mark all as read
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Auto-read toggle */}
+      <div className="px-4 py-2 bg-blue-50/50 border-b border-blue-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="font-inter text-xs text-blue-700">
+            Click notifications to auto-mark as read (5s)
+          </span>
+        </div>
+        <button
+          onClick={() => setAutoMarkReadEnabled(!autoMarkReadEnabled)}
+          className={`font-inter text-xs ${autoMarkReadEnabled ? 'text-blue-600' : 'text-gray-500'}`}
+        >
+          {autoMarkReadEnabled ? 'Disable' : 'Enable'}
+        </button>
       </div>
 
       {/* Notifications List */}
@@ -188,65 +304,111 @@ export default function Notifications({
           </div>
         ) : notifications.length > 0 ? (
           <div className="divide-y divide-gray-100">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-4 hover:bg-gray-50 transition-colors ${!notification.read ? 'bg-blue-50/50' : ''}`}
-              >
-                <div className="flex gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${getNotificationColor(notification.type)}`}>
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-inter text-sm font-medium text-gray-900 truncate">
-                        {notification.title}
-                      </h4>
-                      <div className="flex items-center gap-1">
-                        <span className="font-inter text-xs text-gray-500 whitespace-nowrap ml-2">
-                          {getTimeAgo(notification.created_at)}
-                        </span>
-                        {onDelete && (
-                          <button
-                            onClick={() => handleDelete(notification.id)}
-                            className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors"
-                            disabled={deletingId === notification.id}
-                            aria-label="Delete notification"
-                          >
-                            {deletingId === notification.id ? (
-                              <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
-                            ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                              </svg>
+            {notifications.map((notification) => {
+              const hasAutoReadTimeout = !!readTimeouts[notification.id]
+              const isAutoReadInProgress = hasAutoReadTimeout && !notification.read
+              
+              return (
+                <div
+                  key={notification.id}
+                  data-notification-id={notification.id}
+                  className={`p-4 hover:bg-gray-50 transition-all duration-300 cursor-pointer ${!notification.read ? 'bg-blue-50/50' : ''} ${isAutoReadInProgress ? 'notification-auto-read-active' : ''}`}
+                  onClick={() => !notification.read && handleNotificationClick(notification)}
+                >
+                  <div className="flex gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${getNotificationColor(notification.type)} relative`}>
+                      {getNotificationIcon(notification.type)}
+                      {isAutoReadInProgress && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-[8px]">{getTimeRemaining(notification.id)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-inter text-sm font-medium text-gray-900 truncate">
+                            {notification.title}
+                          </h4>
+                          {isAutoReadInProgress && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                              Auto-reading...
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-inter text-xs text-gray-500 whitespace-nowrap ml-2">
+                            {getTimeAgo(notification.created_at)}
+                          </span>
+                          {onDelete && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDelete(notification.id)
+                              }}
+                              className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors"
+                              disabled={deletingId === notification.id}
+                              aria-label="Delete notification"
+                            >
+                              {deletingId === notification.id ? (
+                                <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="font-inter text-sm text-gray-600 mt-1 line-clamp-2">
+                        {notification.message}
+                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        {!notification.read && (
+                          <div className="inline-flex items-center gap-2">
+                            <div className="inline-flex items-center gap-1">
+                              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                              <span className="font-inter text-xs text-blue-600">Unread</span>
+                            </div>
+                            {isAutoReadInProgress && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleCancelAutoRead(notification.id)
+                                }}
+                                className="font-inter text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                              >
+                                Cancel auto-read
+                              </button>
                             )}
+                          </div>
+                        )}
+                        {!notification.read && !isAutoReadInProgress && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleMarkAsRead(notification.id)
+                            }}
+                            className="font-inter text-xs text-[#2563eb] hover:text-[#1d4ed8] transition-colors"
+                          >
+                            Mark as read
                           </button>
                         )}
                       </div>
                     </div>
-                    <p className="font-inter text-sm text-gray-600 mt-1 line-clamp-2">
-                      {notification.message}
-                    </p>
-                    <div className="flex items-center justify-between mt-2">
-                      {!notification.read && (
-                        <div className="inline-flex items-center gap-1">
-                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                          <span className="font-inter text-xs text-blue-600">Unread</span>
-                        </div>
-                      )}
-                      {!notification.read && (
-                        <button
-                          onClick={() => onMarkAsRead(notification.id)}
-                          className="font-inter text-xs text-[#2563eb] hover:text-[#1d4ed8] transition-colors"
-                        >
-                          Mark as read
-                        </button>
-                      )}
-                    </div>
                   </div>
+                  
+                  {/* Auto-read progress bar */}
+                  {isAutoReadInProgress && (
+                    <div className="mt-3 w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full animate-progress-bar"></div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="p-8 text-center">
@@ -302,6 +464,48 @@ export default function Notifications({
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+        
+        @keyframes progress-bar {
+          0% {
+            width: 0%;
+          }
+          100% {
+            width: 100%;
+          }
+        }
+        
+        .animate-progress-bar {
+          animation: progress-bar 5s linear forwards;
+        }
+        
+        .notification-auto-read-active {
+          animation: pulse-bg 2s ease-in-out;
+        }
+        
+        @keyframes pulse-bg {
+          0%, 100% {
+            background-color: rgba(59, 130, 246, 0.05);
+          }
+          50% {
+            background-color: rgba(59, 130, 246, 0.15);
+          }
+        }
+        
+        .notification-clicked {
+          animation: click-feedback 0.5s ease-out;
+        }
+        
+        @keyframes click-feedback {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(0.98);
+          }
+          100% {
+            transform: scale(1);
           }
         }
         
