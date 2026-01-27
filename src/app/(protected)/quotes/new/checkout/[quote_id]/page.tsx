@@ -334,7 +334,7 @@ export default function CheckoutPage() {
 
       // 3. Create payment record
       const paymentData = {
-        quote_id: quoteId,
+        quote_id: quoteId, 
         user_id: user.id,
         amount: calculateTotal(),
         currency: 'USD',
@@ -437,16 +437,15 @@ export default function CheckoutPage() {
       setIsProcessing(false);
     }
   };
-
-  const calculateTotal = () => {
-    if (!quoteData?.finalPremium) return 0;
-    
-    const premium = quoteData.finalPremium;
-    const serviceFee = premium * 0.1;
-    const taxes = (premium + serviceFee) * 0.08;
-    
-    return premium + serviceFee + taxes;
-  };
+const calculateTotal = () => {
+  if (!quoteData?.finalPremium) return 0;
+  
+  const premium = quoteData.finalPremium;
+  const serviceFee = 99; // ֆիքսված
+  const taxes = Math.round(premium * 0.08);
+  
+  return premium + serviceFee + taxes;
+};
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -478,9 +477,9 @@ export default function CheckoutPage() {
   }
 
   const premium = quoteData.finalPremium;
-  const serviceFee = premium * 0.1;
-  const taxes = (premium + serviceFee) * 0.08;
-  const totalAmount = calculateTotal();
+  const serviceFee = 99;
+const taxes = Math.round(premium * 0.08);
+const totalAmount = calculateTotal();
 
   return (
     <div className="min-h-screen bg-[#F3F3F6] text-gray-900">

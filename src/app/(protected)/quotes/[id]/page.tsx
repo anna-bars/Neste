@@ -205,7 +205,7 @@ export default function QuoteDetailsPage() {
     
     router.push(`/quotes/new/checkout/${quoteData.id}`);
   };
-
+     
   const handleDeleteQuote = async () => {
     if (!quoteData) return;
     
