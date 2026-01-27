@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processQuoteReviews, checkAndExpireQuotes } from '@/lib/cron/quoteProcessor';
+// import { processQuoteReviews, checkAndExpireQuotes } from '@/lib/cron/quoteProcessor';
 
 // Add authentication token for cron job security
 const CRON_SECRET = process.env.CRON_SECRET || 'your-secret-token';
@@ -13,16 +13,14 @@ export async function GET(request: NextRequest) {
 
   try {
     // Process both review and expiration
-    const [reviewResult, expireResult] = await Promise.all([
-      processQuoteReviews(),
-      checkAndExpireQuotes()
-    ]);
+    // const [reviewResult, expireResult] = await Promise.all([
+    //   processQuoteReviews(),
+    //   checkAndExpireQuotes()
+    // ]);
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      reviews: reviewResult,
-      expiration: expireResult
     });
   } catch (error) {
     console.error('Cron job error:', error);
