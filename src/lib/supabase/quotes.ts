@@ -58,7 +58,7 @@ async update(id: string, data: any) {
     const quoteData = {
       quote_number: quoteNumber,
       user_id: input.user_id,
-      status: input.status || 'draft',
+      status:  'approved',
       payment_status: input.payment_status || 'pending',
       cargo_type: input.cargo_type,
       shipment_value: input.shipment_value,
