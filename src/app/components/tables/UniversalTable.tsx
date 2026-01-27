@@ -574,7 +574,7 @@ const defaultEmptyState = (
       return renderButton(row.button, row);
     }
     return (
-      <div className="font-poppins text-sm text-black truncate row-cell capitalize">
+      <div className="font-poppins text-sm text-black truncate row-cell capitalize ">
         {row[column.key]}
       </div>
     );
