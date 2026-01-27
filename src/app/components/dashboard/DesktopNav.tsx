@@ -22,13 +22,7 @@ export default function DesktopNav({
   
   return (
     <nav className="hidden xl:flex items-center gap-1">
-      <div className="w-[54px] h-[54px] bg-[#f7f7f7] rounded-lg border border-white/22 flex items-center justify-center">
-        <img 
-          src="https://c.animaapp.com/mjiggi0jSqvoj5/img/search-interface-symbol-1.png" 
-          alt="Search"
-          className="w-[18px] h-[18px] object-cover"
-        />
-      </div>
+      
       
       {navItems.map((item) => (
         <Link 
