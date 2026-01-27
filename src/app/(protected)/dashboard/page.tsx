@@ -290,76 +290,89 @@ export default function DashboardPage() {
     }
   }, [dashboardRows]);
 
-  const handleQuoteAction = (row: any, quote: any) => {
-    const quoteId = row.rawData?.id || row.id;
-    const status = quote.status;
-    const paymentStatus = quote.payment_status;
+  const handleQuoteAction = async (row: any) => {
+    const quote = row.rawData;
+    const quoteId = quote?.id || row.id;
+    const status = quote?.status;
+    const paymentStatus = quote?.payment_status;
     
-    const checkPolicyAndRedirect = async () => {
-      try {
-        const { data: policy } = await supabase
-          .from('policies')
-          .select('*')
-          .eq('quote_id', quoteId)
-          .maybeSingle();
-        
-        if (policy?.status === 'active') {
-          router.push(`/shipments/${policy.id}`)
-          return true;
-        }
-        
-        return false;
-      } catch (error) {
-        console.error('Error checking policy:', error)
-        return false;
-      }
+    if (!quoteId) {
+      console.error('No quote ID found');
+      return;
     }
     
-    switch (status) {
-      case 'draft':
-        router.push(`/quotes/new?quote_id=${quoteId}&continue=true`)
-        break
-      case 'submitted':
-      case 'under_review':
-      case 'waiting_for_review':
-      case 'documents_under_review':
-        router.push(`/quotes/${quoteId}`)
-        break
-      case 'approved':
-        if (paymentStatus === 'paid') {
-          checkPolicyAndRedirect().then((hasPolicy) => {
-            if (!hasPolicy) {
-              router.push(`/quotes/${quoteId}`)
-            }
-          })
-        } else {
-          router.push(`/quotes/${quoteId}`)
-        }
-        break
-      case 'rejected':
-      case 'fix_and_resubmit':
-        router.push(`/quotes/${quoteId}`)
-        break
-      case 'expired':
-        if (confirm('This quote has expired. Would you like to create a new one based on this?')) {
-          router.push(`/quotes/new?duplicate=${quoteId}`);
-        }
-        break
-      case 'pay_to_activate':
-        router.push(`/quotes/${quoteId}`)
-        break
-      default:
-        router.push(`/quotes/${quoteId}`)
+    console.log('Handling quote action:', { quoteId, status, paymentStatus });
+    
+    try {
+      // Check if there's an active policy for this quote
+      const { data: policy } = await supabase
+        .from('policies')
+        .select('*')
+        .eq('quote_id', quoteId)
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      console.log('Policy check result:', policy);
+      
+      // If there's an active policy, go to shipments page
+      if (policy) {
+        console.log('Redirecting to shipment:', policy.id);
+        router.push(`/shipments/${policy.id}`);
+        return;
+      }
+      
+      // Otherwise handle based on quote status
+      switch (status) {
+        case 'draft':
+          router.push(`/quotes/new?quote_id=${quoteId}&continue=true`);
+          break;
+        case 'submitted':
+        case 'under_review':
+        case 'waiting_for_review':
+        case 'documents_under_review':
+        case 'rejected':
+        case 'fix_and_resubmit':
+        case 'pay_to_activate':
+        case 'approved':
+          router.push(`/quotes/${quoteId}`);
+          break;
+        case 'expired':
+          if (confirm('This quote has expired. Would you like to create a new one based on this?')) {
+            router.push(`/quotes/new?duplicate=${quoteId}`);
+          }
+          break;
+        default:
+          router.push(`/quotes/${quoteId}`);
+      }
+    } catch (error) {
+      console.error('Error handling quote action:', error);
+      // Fallback to quotes page
+      router.push(`/quotes/${quoteId}`);
     }
   };
 
-  const handlePolicyAction = (row: any, policy: any) => {
-    const policyId = row.rawData?.id || row.id;
+  const handlePolicyAction = (row: any) => {
+    const policy = row.rawData;
+    const policyId = policy?.id || row.id;
+    const status = policy?.status;
     
-    if (policy.status === 'active') {
-      router.push(`/shipments/${policyId}`)
+    if (!policyId) {
+      console.error('No policy ID found');
+      return;
+    }
+    
+    console.log('Handling policy action:', { policyId, status });
+    
+    if (status === 'active') {
+      router.push(`/shipments/${policyId}`);
     } else {
-      router.push(`/quotes/${policy.quote_id}`)
+      // If policy is not active, go to the associated quote
+      if (policy?.quote_id) {
+        router.push(`/quotes/${policy.quote_id}`);
+      } else {
+        // Fallback - show the policy details
+        router.push(`/shipments/${policyId}`);
+      }
     }
   };
 
@@ -395,6 +408,30 @@ export default function DashboardPage() {
       behavior: 'smooth'
     })
   };
+
+  // Update UniversalTable usage to pass the correct handlers
+  const updatedDashboardColumns = dashboardColumns.map(col => {
+    if (col.key === 'button') {
+      return {
+        ...col,
+        renderDesktop: (button: any, row: any) => {
+          // Create a button config with the appropriate onClick handler
+          const buttonConfig = {
+            ...button,
+            onClick: () => {
+              if (row.dataType === 'quote') {
+                handleQuoteAction(row);
+              } else if (row.dataType === 'policy') {
+                handlePolicyAction(row);
+              }
+            }
+          };
+          return renderButton(buttonConfig, row);
+        }
+      };
+    }
+    return col;
+  });
 
   if (loading) {
     return (
@@ -506,7 +543,7 @@ export default function DashboardPage() {
               title="Recent Activity"
               showMobileHeader={false}
               rows={sortedRows}
-              columns={dashboardColumns}
+              columns={updatedDashboardColumns}
               filterConfig={{
                 showActivityFilter: true,
                 showTimeframeFilter: true,
