@@ -7,6 +7,10 @@ interface CoverageDetailsProps {
 }
 
 export default function CoverageDetails({ quoteData, formatCurrency }: CoverageDetailsProps) {
+  // Լռելյայն արժեքներ
+  const calculatedPremium = quoteData.calculated_premium ?? 0;
+  const deductible = quoteData.deductible ?? 0;
+
   return (
     <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-200 p-6">
       <div className="flex items-center gap-3 mb-6">
@@ -32,7 +36,7 @@ export default function CoverageDetails({ quoteData, formatCurrency }: CoverageD
             <div>
               <p className="text-sm text-gray-600">Premium Analysis</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(quoteData.calculated_premium)}
+                {formatCurrency(calculatedPremium)}
               </p>
             </div>
           </div>
@@ -52,7 +56,7 @@ export default function CoverageDetails({ quoteData, formatCurrency }: CoverageD
             <div>
               <p className="text-sm text-gray-600">Deductible</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(quoteData.deductible)}
+                {formatCurrency(deductible)}
               </p>
             </div>
           </div>

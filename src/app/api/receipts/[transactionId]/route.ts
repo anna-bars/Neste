@@ -4,10 +4,11 @@ import { generateReceiptPDF } from '@/lib/pdf/generator';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { transactionId: string } }
+  context: { params: Promise<{ transactionId: string }> }
 ) {
   try {
-    const transactionId = params.transactionId;
+    // Ավելացրեք await params-ի համար
+    const { transactionId } = await context.params;
     
     if (!transactionId) {
       return NextResponse.json({ 
@@ -108,7 +109,8 @@ export async function GET(
     }
     
     // 7. Update policy with receipt URL if it exists
-    if (payment.policies && payment.policies.length > 0) {
+    // Ուշադրություն դարձրեք ստուգմանը
+    if (payment.policies && Array.isArray(payment.policies) && payment.policies.length > 0) {
       await supabase
         .from('policies')
         .update({ 

@@ -3,10 +3,10 @@ import { createClient } from '@/lib/supabase/client';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { policyNumber: string } }
+  context: { params: Promise<{ policyNumber: string }> }
 ) {
   try {
-    const { policyNumber } = params;
+    const { policyNumber } = await context.params;
     
     const supabase = createClient();
     const { data: policy } = await supabase
@@ -19,7 +19,6 @@ export async function GET(
       return new NextResponse('Policy not found', { status: 404 });
     }
     
-    // Generate HTML preview of certificate
     const html = `
       <!DOCTYPE html>
       <html>
@@ -58,6 +57,7 @@ export async function GET(
     });
     
   } catch (error) {
+    console.error('Certificate generation error:', error);
     return new NextResponse('Server error', { status: 500 });
   }
 }

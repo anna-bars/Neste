@@ -31,6 +31,10 @@ export interface QuoteData {
   created_at: string;
   updated_at: string;
   user_id?: string;
+
+    // Ավելացրեք այս դաշտերը
+  shipper_name?: string;
+  reference_number?: string;
   
   // Add these fields
   policy_id?: string | null;

@@ -30,13 +30,17 @@ export async function generateCertificatePDF(
       doc.on('error', reject);
 
       // Add watermark
+      doc.save();
       doc.opacity(0.05);
       doc.fillColor('blue');
       doc.fontSize(120);
-      doc.text('CARGO GUARD', -200, 300, {
-        align: 'center',
-        angle: 45
-      });
+      
+      // Ջնջեք angle հատկությունը և օգտագործեք rotate
+      doc.translate(300, 400);
+      doc.rotate(45);
+      doc.text('CARGO GUARD', 0, 0, { align: 'center' });
+      doc.restore();
+      
       doc.opacity(1);
       doc.fillColor('black');
 
@@ -401,8 +405,10 @@ export async function generateReceiptPDF(
          .text('Policy Information')
          .moveDown(0.5);
 
-      if (payment.policy && payment.policy.length > 0) {
-        const policy = payment.policy[0];
+      // Ստուգեք, որ policy-ը ճիշտ է
+      const policy = Array.isArray(payment.policies) ? payment.policies[0] : payment.policy || {};
+      
+      if (policy.policy_number) {
         doc.fillColor('#4b5563')
            .fontSize(11)
            .font('Helvetica-Bold')
@@ -421,8 +427,10 @@ export async function generateReceiptPDF(
            .moveDown(0.7);
       }
 
-      if (payment.quote && payment.quote.length > 0) {
-        const quote = payment.quote[0];
+      // Ստուգեք, որ quote-ը ճիշտ է
+      const quote = Array.isArray(payment.quotes) ? payment.quotes[0] : payment.quote || {};
+      
+      if (quote.quote_number) {
         doc.fillColor('#4b5563')
            .font('Helvetica-Bold')
            .text('Quote Number:', 50, doc.y, { continued: false })
