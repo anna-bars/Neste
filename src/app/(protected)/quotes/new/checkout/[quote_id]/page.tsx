@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import DashboardHeader from '@/app/components/dashboard/DashboardHeader';
+import { useUser } from '@/app/context/UserContext';
 import { 
   ArrowLeft,
   ChevronRight,
@@ -17,87 +20,420 @@ import {
   CheckCircle2,
   DollarSign,
   FileText,
-  Calendar
+  Calendar,
+  Package,
+  MapPin
 } from 'lucide-react';
-import DashboardHeader from '@/app/components/dashboard/DashboardHeader';
-import { useUser } from '@/app/context/UserContext';
 import { quotes } from '@/lib/supabase/quotes';
 import { policies } from '@/lib/supabase/policies';
+import toast from 'react-hot-toast';
+
+interface QuoteData {
+  id: string;
+  finalPremium: number;
+  shipmentValue: number;
+  deductible: number;
+  selectedPlan: string;
+  startDate: string;
+  endDate: string;
+  cargoType: string;
+  otherCargoType?: string;
+  transportationMode: string;
+  origin: any;
+  destination: any;
+  quote_number?: string;
+}
+
+interface CardDetails {
+  number: string;
+  expiry: string;
+  cvv: string;
+  name: string;
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
   const params = useParams();
   const { user } = useUser();
+  const supabase = createClient();
   
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'bank'>('card');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [quoteData, setQuoteData] = useState<any>(null);
-  const [stepComplete, setStepComplete] = useState(true);
+  const [quoteData, setQuoteData] = useState<QuoteData | null>(null);
+  const [cardDetails, setCardDetails] = useState<CardDetails>({
+    number: '',
+    expiry: '',
+    cvv: '',
+    name: '',
+  });
 
   const quoteId = params.quote_id as string;
 
   useEffect(() => {
-    // Load draft data
+    loadQuoteData();
+  }, [quoteId, user]);
+
+  const loadQuoteData = async () => {
     const draftData = localStorage.getItem('quote_draft');
+    
+    if (!draftData && quoteId) {
+      try {
+        const { data: quote, error } = await supabase
+          .from('quotes')
+          .select('*')
+          .eq('id', quoteId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (quote) {
+          const formattedQuote: QuoteData = {
+            id: quote.id,
+            finalPremium: quote.calculated_premium || 0,
+            shipmentValue: quote.shipment_value || 0,
+            deductible: quote.deductible || 500,
+            selectedPlan: quote.selected_coverage || 'standard',
+            startDate: quote.start_date || new Date().toISOString(),
+            endDate: quote.end_date || new Date().toISOString(),
+            cargoType: quote.cargo_type || 'general',
+            transportationMode: quote.transportation_mode || 'road',
+            origin: quote.origin || {},
+            destination: quote.destination || {},
+            quote_number: quote.quote_number
+          };
+          
+          setQuoteData(formattedQuote);
+          return;
+        }
+      } catch (error) {
+        console.error('Error loading quote from DB:', error);
+      }
+    }
+
     if (!draftData) {
       router.push('/quotes');
       return;
     }
 
-    const draft = JSON.parse(draftData);
-    setQuoteData(draft);
-  }, [router]);
+    try {
+      const draft = JSON.parse(draftData);
+      setQuoteData(draft);
+    } catch (error) {
+      console.error('Error parsing draft data:', error);
+      router.push('/quotes');
+    }
+  };
+
+  const formatCardNumber = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = matches && matches[0] || '';
+    const parts = [];
+    
+    for (let i = 0, len = match.length; i < len; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    
+    if (parts.length) {
+      return parts.join(' ');
+    } else {
+      return value;
+    }
+  };
+
+  const formatExpiry = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    if (v.length >= 2) {
+      return `${v.substring(0, 2)}/${v.substring(2, 4)}`;
+    }
+    return v;
+  };
+
+  const getCardBrand = (cardNumber: string): string => {
+    const number = cardNumber.replace(/\s/g, '');
+    if (number.startsWith('4')) return 'visa';
+    if (number.match(/^5[1-5]/)) return 'mastercard';
+    if (number.startsWith('34') || number.startsWith('37')) return 'amex';
+    if (number.startsWith('6')) return 'discover';
+    return 'unknown';
+  };
+
+  const generatePolicyNumber = () => {
+    return `POL-${Math.floor(100000 + Math.random() * 900000)}`;
+  };
+
+  const generateTransactionId = () => {
+    return `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  const generateCertificateAsync = async (
+    policyNumber: string, 
+    policyId: string
+  ) => {
+    try {
+      if (!quoteData || !user) return;
+
+      const response = await fetch('/api/generate-pdf-certificate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          policyNumber,
+          quoteData,
+          user
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('Certificate generation failed:', result.error);
+        throw new Error(result.error || 'Failed to generate certificate');
+      }
+      
+      if (result.success && result.certificateUrl) {
+        console.log('Certificate generated:', result.certificateUrl);
+        
+        await supabase
+          .from('policies')
+          .update({ 
+            insurance_certificate_url: result.certificateUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', policyId);
+        
+        console.log('Policy updated with certificate URL');
+        
+      } else {
+        console.warn('Certificate generation warning:', result.error || 'Unknown error');
+        
+        const fallbackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/certificate-${policyNumber}.pdf`;
+        
+        await supabase
+          .from('policies')
+          .update({ 
+            insurance_certificate_url: fallbackUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', policyId);
+        
+        console.log('Used fallback URL:', fallbackUrl);
+      }
+      
+    } catch (error) {
+      console.error('Certificate generation failed:', error);
+      
+      try {
+        const fallbackUrl = `https://storage.cargoguard.com/certificates/generic.pdf`;
+        
+        await supabase
+          .from('policies')
+          .update({ 
+            insurance_certificate_url: fallbackUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', policyId);
+        
+        console.log('Used generic certificate URL as ultimate fallback');
+      } catch (fallbackError) {
+        console.error('Even fallback failed:', fallbackError);
+      }
+    }
+  };
+
+  const generateReceiptAsync = async (
+    transactionId: string,
+    policyNumber: string,
+    policyId: string
+  ) => {
+    try {
+      const response = await fetch('/api/generate-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactionId,
+          policyNumber,
+          amount: calculateTotal(),
+          user
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('Receipt generation failed:', result.error);
+        throw new Error(result.error || 'Failed to generate receipt');
+      }
+      
+      if (result.success && result.receiptUrl) {
+        console.log('Receipt generated:', result.receiptUrl);
+        
+        await supabase
+          .from('policies')
+          .update({ 
+            receipt_url: result.receiptUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', policyId);
+        
+        console.log('Receipt URL updated');
+      }
+      
+    } catch (error) {
+      console.error('Receipt generation failed:', error);
+    }
+  };
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!quoteData || !quoteId || !user) return;
+    if (!quoteData || !quoteId || !user) {
+      toast.error('Missing required data');
+      return;
+    }
+
+    if (paymentMethod === 'card') {
+      if (!cardDetails.number || cardDetails.number.replace(/\s/g, '').length !== 16) {
+        toast.error('Please enter a valid 16-digit card number');
+        return;
+      }
+      if (!cardDetails.expiry || !cardDetails.expiry.includes('/')) {
+        toast.error('Please enter a valid expiry date (MM/YY)');
+        return;
+      }
+      if (!cardDetails.cvv || cardDetails.cvv.length !== 3) {
+        toast.error('Please enter a valid CVV');
+        return;
+      }
+      if (!cardDetails.name) {
+        toast.error('Please enter the name on card');
+        return;
+      }
+    }
 
     setIsProcessing(true);
+    toast.loading('Processing payment...');
 
     try {
-      // 1. QUOTE-Ի STATUS-Ը ԹԱՐՄԱՑՈՒՄ ✅
-      await quotes.update(quoteId, {
-        status: 'approved',
-        payment_status: 'paid',
-        approved_at: new Date().toISOString(),
-        paid_at: new Date().toISOString()
-      });
+      // 1. Update quote status
+      const { error: quoteUpdateError } = await supabase
+        .from('quotes')
+        .update({
+          status: 'approved',
+          payment_status: 'paid',
+          approved_at: new Date().toISOString(),
+          paid_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', quoteId);
+      
+      if (quoteUpdateError) throw quoteUpdateError;
 
-      // 2. Policy-ի ստեղծում
-      await policies.create({
-        user_id: user.id,
+      // 2. Generate unique IDs
+      const policyNumber = generatePolicyNumber();
+      const transactionId = generateTransactionId();
+
+      // 3. Create payment record
+      const paymentData = {
         quote_id: quoteId,
-        policy_number: `POL-${Date.now().toString().slice(-6)}`,
-        premium_amount: quoteData.finalPremium || 0,
-        coverage_amount: parseFloat(quoteData.shipmentValue) || 0,
-        deductible: quoteData.deductible || 500,
+        user_id: user.id,
+        amount: calculateTotal(),
+        currency: 'USD',
+        payment_method: paymentMethod === 'card' ? 'credit_card' : 'bank_transfer',
+        payment_status: 'completed',
+        ...(paymentMethod === 'card' && {
+          card_last_four: cardDetails.number.replace(/\s/g, '').slice(-4),
+          card_brand: getCardBrand(cardDetails.number),
+        }),
+        ...(paymentMethod === 'bank' && {
+          bank_name: 'Global Cargo Bank',
+          bank_account_last_four: '3456',
+        }),
+        transaction_id: transactionId,
+        gateway: 'demo',
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString()
+      };
+
+      const { data: newPayment, error: paymentError } = await supabase
+        .from('payments')
+        .insert([paymentData])
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error('Payment creation error:', paymentError);
+      }
+
+      // 4. Create policy
+      const startDate = new Date(quoteData.startDate);
+      const endDate = new Date(quoteData.endDate);
+      
+      const placeholderCertificateUrl = `/api/documents/generate-certificate`;
+      const termsUrl = `https://storage.cargoguard.com/legal/terms-and-conditions-v1.0.pdf`;
+      const placeholderReceiptUrl = `/api/generate-receipt`;
+
+      const policyData = {
+        quote_id: quoteId,
+        user_id: user.id,
+        policy_number: policyNumber,
         status: 'active',
         payment_status: 'paid',
-        coverage_start: quoteData.startDate,
-        coverage_end: quoteData.endDate,
+        premium_amount: quoteData.finalPremium || 0,
+        coverage_amount: parseFloat(quoteData.shipmentValue.toString()) || 0,
+        deductible: quoteData.deductible || 500,
         cargo_type: quoteData.cargoType === 'other' ? quoteData.otherCargoType : quoteData.cargoType,
         transportation_mode: quoteData.transportationMode,
         origin: quoteData.origin,
         destination: quoteData.destination,
-        insurance_certificate_url: 'https://example.com/certificate.pdf',
-        terms_url: 'https://example.com/terms.pdf',
-        receipt_url: 'https://example.com/receipt.pdf',
-        paid_at: new Date().toISOString(),
-        activated_at: new Date().toISOString()
-      });
+        coverage_start: startDate.toISOString().split('T')[0],
+        coverage_end: endDate.toISOString().split('T')[0],
+        insurance_certificate_url: placeholderCertificateUrl,
+        terms_url: termsUrl,
+        receipt_url: placeholderReceiptUrl,
+        activated_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-      // 3. Մաքրում է localStorage-ից draft տվյալները
+      const { data: newPolicy, error: policyError } = await supabase
+        .from('policies')
+        .insert([policyData])
+        .select()
+        .single();
+
+      if (policyError) {
+        console.error('Policy creation error:', policyError);
+        throw new Error('Failed to create policy');
+      }
+
+      const createdPolicyId = newPolicy.id;
+
+      // 5. Generate documents async
+      generateCertificateAsync(policyNumber, createdPolicyId)
+        .catch(error => console.error('Certificate generation error:', error));
+
+      if (newPayment) {
+        generateReceiptAsync(transactionId, policyNumber, createdPolicyId)
+          .catch(error => console.error('Receipt generation error:', error));
+      }
+
+      // 6. Clean up and redirect
       localStorage.removeItem('quote_draft');
+      toast.dismiss();
+      toast.success('Payment successful! Your insurance is now active.');
 
-      // 4. Տանում է հաջողության էջ
       setTimeout(() => {
-        router.push(`/quotes/${quoteId}/success`);
-      }, 1000);
+        if (createdPolicyId) {
+          router.push(`/shipments/${createdPolicyId}`);
+        } else {
+          router.push(`/quotes/${quoteId}/success`);
+        }
+      }, 1500);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment error:', error);
-      alert('Payment failed. Please try again.');
+      toast.dismiss();
+      toast.error('Payment failed. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -106,10 +442,28 @@ export default function CheckoutPage() {
     if (!quoteData?.finalPremium) return 0;
     
     const premium = quoteData.finalPremium;
-    const serviceFee = premium * 0.1; // 10% service fee
-    const taxes = (premium + serviceFee) * 0.08; // 8% tax
+    const serviceFee = premium * 0.1;
+    const taxes = (premium + serviceFee) * 0.08;
     
     return premium + serviceFee + taxes;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   if (!quoteData) {
@@ -287,7 +641,10 @@ export default function CheckoutPage() {
                             </label>
                             <input
                               type="text"
+                              value={cardDetails.number}
+                              onChange={(e) => setCardDetails({...cardDetails, number: formatCardNumber(e.target.value)})}
                               placeholder="1234 5678 9012 3456"
+                              maxLength={19}
                               className="w-full h-14 px-4 rounded-xl border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none text-base font-medium shadow-sm"
                               required
                             />
@@ -300,7 +657,10 @@ export default function CheckoutPage() {
                               </label>
                               <input
                                 type="text"
+                                value={cardDetails.expiry}
+                                onChange={(e) => setCardDetails({...cardDetails, expiry: formatExpiry(e.target.value)})}
                                 placeholder="MM/YY"
+                                maxLength={5}
                                 className="w-full h-14 px-4 rounded-xl border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none text-base font-medium shadow-sm"
                                 required
                               />
@@ -310,12 +670,20 @@ export default function CheckoutPage() {
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 CVV <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="text"
-                                placeholder="•••"
-                                className="w-full h-14 px-4 rounded-xl border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none text-base font-medium shadow-sm"
-                                required
-                              />
+                              <div className="relative">
+                                <input
+                                  type="password"
+                                  value={cardDetails.cvv}
+                                  onChange={(e) => setCardDetails({...cardDetails, cvv: e.target.value.replace(/\D/g, '')})}
+                                  placeholder="•••"
+                                  maxLength={3}
+                                  className="w-full h-14 px-4 rounded-xl border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none text-base font-medium shadow-sm"
+                                  required
+                                />
+                                <div className="absolute right-4 top-4">
+                                  <Lock className="w-4 h-4 text-gray-400" />
+                                </div>
+                              </div>
                             </div>
 
                             <div>
@@ -324,6 +692,8 @@ export default function CheckoutPage() {
                               </label>
                               <input
                                 type="text"
+                                value={cardDetails.name}
+                                onChange={(e) => setCardDetails({...cardDetails, name: e.target.value})}
                                 placeholder="John Doe"
                                 className="w-full h-14 px-4 rounded-xl border-2 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none text-base font-medium shadow-sm"
                                 required
@@ -356,7 +726,7 @@ export default function CheckoutPage() {
                             </div>
                             <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
                               <span className="text-gray-600">Reference:</span>
-                              <span className="font-medium text-gray-900">Quote-{quoteId.slice(0, 8)}</span>
+                              <span className="font-medium text-gray-900">Quote-{quoteData.quote_number || quoteId.slice(0, 8)}</span>
                             </div>
                           </div>
                         </div>
@@ -491,7 +861,7 @@ export default function CheckoutPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Coverage Amount</span>
                   <span className="font-medium text-gray-900">
-                    ${parseFloat(quoteData.shipmentValue).toLocaleString()}
+                    ${parseFloat(quoteData.shipmentValue.toString()).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -505,15 +875,18 @@ export default function CheckoutPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Policy Period</span>
                   <span className="font-medium text-gray-900">
-                    {new Date(quoteData.startDate).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })} - {new Date(quoteData.endDate).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
+                    {formatDate(quoteData.startDate)} - {formatDate(quoteData.endDate)}
                   </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Cargo Type</span>
+                  <span className="font-medium text-gray-900 capitalize">
+                    {quoteData.cargoType === 'other' ? quoteData.otherCargoType : quoteData.cargoType}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Transport Mode</span>
+                  <span className="font-medium text-gray-900 capitalize">{quoteData.transportationMode}</span>
                 </div>
               </div>
             </div>
@@ -546,7 +919,7 @@ export default function CheckoutPage() {
                   {
                     icon: FileText,
                     title: 'Instant Documents',
-                    desc: 'Policy documents available',
+                    desc: 'Policy & receipt PDF available',
                     color: 'text-purple-600',
                     bg: 'bg-purple-50'
                   }
@@ -584,24 +957,8 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span>24/7 support for claims processing</span>
+                  <span>PDF certificate & receipt will be generated</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Need Help? */}
-            <div className="border border-[#d1d1d154] bg-[#FDFEFF] rounded-2xl shadow-sm p-6">
-              <div className="text-center">
-                <div className="inline-flex p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 mb-4 shadow-lg">
-                  <HelpCircle className="w-5 h-5 text-white" />
-                </div>
-                <h3 className="font-bold text-gray-900 text-base mb-2">Payment Questions?</h3>
-                <p className="text-sm text-gray-600 mb-5">
-                  Our support team is available 24/7
-                </p>
-                <button className="w-full py-3 text-sm font-medium text-blue-600 hover:text-blue-700 bg-white hover:bg-gray-50 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-300 shadow-sm hover:shadow">
-                  Contact Support
-                </button>
               </div>
             </div>
           </div>
