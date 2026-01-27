@@ -26,7 +26,6 @@ export default function ProfilePage() {
       }
 
       try {
-        // 1. Load profile from profiles table
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -37,7 +36,6 @@ export default function ProfilePage() {
           console.error('Error loading profile:', profileError)
         }
 
-        // 2. Load user's policies
         const { data: policies, error: policiesError } = await supabase
           .from('policies')
           .select('*')
@@ -48,7 +46,6 @@ export default function ProfilePage() {
           console.error('Error loading policies:', policiesError)
         }
 
-        // 3. Load user's payment history
         const { data: payments, error: paymentsError } = await supabase
           .from('payments')
           .select('*')
@@ -89,10 +86,8 @@ export default function ProfilePage() {
     <DashboardLayout>
       <div className="bg-[#f3f3f6] w-full min-h-screen">
         <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
-          {/* Վերին բաժինը */}
           <ProfileNavigationSection />
           
-          {/* Հիմնական բաժինը */}
           <div className="mt-6 sm:mt-8 lg:mt-12">
             <ProfileContentSection 
               activeTab={activeTab} 

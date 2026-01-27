@@ -29,19 +29,16 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize form data from profileData
   useEffect(() => {
     if (profileData?.profile) {
       const { profile, policies } = profileData;
       
-      // Set avatar URL
       if (profile.avatar_url) {
         setAvatarUrl(profile.avatar_url);
       } else if (user?.user_metadata?.avatar_url) {
         setAvatarUrl(user.user_metadata.avatar_url);
       }
 
-      // Set form data
       setFormData({
         full_name: profile.full_name || user?.user_metadata?.full_name || '',
         phone: profile.phone || '',
@@ -50,7 +47,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         address: profile.address || '',
       });
 
-      // Format billing history from policies
       const formattedBillingHistory = (policies || []).map((policy: any) => {
         const policyDate = policy.created_at || policy.activated_at || new Date();
         return {
@@ -92,18 +88,15 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
       const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
-      // Validate file type
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
         throw new Error('Please upload a valid image file (JPEG, PNG, GIF, WebP).');
       }
 
-      // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         throw new Error('File size must be less than 2MB.');
       }
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
@@ -115,12 +108,10 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         throw uploadError;
       }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Update profile with new avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
@@ -133,10 +124,8 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         throw updateError;
       }
 
-      // Update local state
       setAvatarUrl(publicUrl);
 
-      // Optionally update user metadata in auth.users
       await supabase.auth.updateUser({
         data: { avatar_url: publicUrl }
       });
@@ -162,7 +151,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
     try {
       setUploading(true);
       
-      // Update profile to remove avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
@@ -175,10 +163,8 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         throw updateError;
       }
 
-      // Update local state
       setAvatarUrl(null);
 
-      // Optionally update user metadata
       await supabase.auth.updateUser({
         data: { avatar_url: null }
       });
@@ -246,7 +232,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
 
   return (
     <div className="flex flex-col w-full items-start gap-6 p-4 sm:p-6 relative bg-[#fbfbf6] rounded-2xl border border-[#e5e7eb]">
-      {/* Hidden file input */}
       <input
         type="file"
         ref={fileInputRef}
@@ -255,7 +240,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         className="hidden"
       />
 
-      {/* Edit Button Header */}
       <div className="flex justify-between items-center w-full">
         <div className="w-full sm:w-[354px] relative h-[43px]">
           <h1 className="absolute top-0 left-0 [font-family:'Montserrat-Medium',Helvetica] font-medium text-black text-lg tracking-[0.36px] leading-[normal]">
@@ -305,9 +289,7 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         )}
       </div>
 
-      {/* User Profile Section */}
       <div className="flex flex-col sm:flex-row items-start gap-4 relative self-stretch w-full">
-        {/* Profile image with edit button */}
         <div className="relative mb-4 sm:mb-0 group">
           <div 
             onClick={handleAvatarClick}
@@ -332,13 +314,11 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
               </div>
             )}
             
-            {/* Hover overlay */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
               <div className="text-white text-xs font-medium">Change</div>
             </div>
           </div>
           
-          {/* Edit button - positioned at bottom right */}
           <div className="absolute -bottom-1 -right-1 flex gap-1">
             <button 
               onClick={handleAvatarClick}
@@ -373,7 +353,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
             )}
           </div>
           
-          {/* Uploading indicator */}
           {uploading && (
             <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] px-2 py-1 rounded-full animate-pulse">
               Uploading...
@@ -401,7 +380,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         </div>
       </div>
 
-      {/* Upload Instructions */}
       {!avatarUrl && !uploading && (
         <div className="w-full p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-blue-700 text-sm">
@@ -411,7 +389,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         </div>
       )}
 
-      {/* Personal Information Fields */}
       <div className="flex flex-col lg:flex-row items-start justify-between gap-6 relative self-stretch w-full">
         {[
           { 
@@ -461,7 +438,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
 
       <div className="relative self-stretch w-full h-px bg-gray-200" />
 
-      {/* Company Information */}
       <div className="inline-flex flex-col items-start gap-5 relative w-full">
         <div className="relative w-full sm:w-[272px] h-[43px]">
           <h2 className="absolute top-0 left-0 [font-family:'Montserrat-Medium',Helvetica] font-medium text-black text-lg tracking-[0.36px] leading-[normal]">
@@ -514,7 +490,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
 
       <div className="relative self-stretch w-full h-px bg-gray-200" />
 
-      {/* Billing History Header */}
       <div className="w-full sm:w-[354px] relative h-[43px]">
         <h1 className="absolute top-0 left-0 [font-family:'Montserrat-Medium',Helvetica] font-medium text-black text-lg tracking-[0.36px] leading-[normal]">
           Billing History
@@ -524,7 +499,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         </p>
       </div>
 
-      {/* Billing History Table (Desktop View) */}
       <div className="hidden lg:block w-full">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] border-collapse">
@@ -618,12 +592,10 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
         </div>
       </div>
 
-      {/* Billing History - Mobile View */}
       <div className="lg:hidden flex flex-col w-full items-start gap-4 relative">
         {billingHistory.length > 0 ? (
           billingHistory.map((item) => (
             <div key={item.id} className="flex flex-col w-full p-4 relative bg-white rounded-xl border border-gray-200 gap-3 hover:border-blue-300 transition-colors">
-              {/* Top Row - Policy Number and Status */}
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2">
                   <div className="relative [font-family:'Poppins-Regular',Helvetica] font-medium text-black text-sm">
@@ -638,7 +610,6 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
                 </div>
               </div>
 
-              {/* Middle Row - Date and Coverage */}
               <div className="flex items-center justify-between w-full">
                 <div className="relative [font-family:'Poppins-Regular',Helvetica] font-normal text-gray-600 text-sm">
                   {item.date}
@@ -648,14 +619,12 @@ export const ProfileBillingContent = ({ profileData }: ProfileBillingContentProp
                 </div>
               </div>
 
-              {/* Bottom Row - Premium and Documents */}
               <div className="flex items-center justify-between w-full">
                 <div className="relative [font-family:'Poppins-Regular',Helvetica] font-medium text-black text-sm">
                   Premium: {item.premium}
                 </div>
               </div>
 
-              {/* Document buttons */}
               <div className="flex gap-2 mt-2">
                 {item.certificateUrl && (
                   <button

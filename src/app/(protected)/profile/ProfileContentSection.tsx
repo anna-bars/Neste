@@ -17,7 +17,6 @@ export const ProfileContentSection = ({
 }: ProfileContentSectionProps) => {
   return (
     <>
-      {/* Մոբայլ նավիգացիա */}
       <div className="w-full mb-6 sm:hidden">
         <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
           <button
@@ -44,9 +43,7 @@ export const ProfileContentSection = ({
         </div>
       </div>
 
-      {/* Դեսքթոփ դասավորություն */}
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-        {/* Ձախ կողմ - նավիգացիա (դեսքթոփի համար) */}
         <div className="hidden lg:block w-full lg:w-[23%] lg:min-w-[300px]">
           <div className="rounded-2xl sticky top-8">
             <div className="space-y-2">
@@ -89,7 +86,6 @@ export const ProfileContentSection = ({
           </div>
         </div>
 
-        {/* Աջ կողմ - պարունակություն */}
         <div className="w-full lg:w-[77%]">
           {activeTab === 'profile' ? (
             <ProfileBillingContent profileData={profileData} />

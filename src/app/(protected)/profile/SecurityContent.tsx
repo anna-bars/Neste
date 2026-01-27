@@ -92,7 +92,6 @@ export const SecurityContent = () => {
 
   return (
     <div className="flex flex-col w-full items-start gap-6 p-4 sm:p-6 relative bg-[#fbfbf6] rounded-2xl border border-[#e5e7eb]">
-      {/* Change Password Section */}
       <div className="inline-flex flex-col items-start gap-5 relative w-full">
         <div className="flex flex-col sm:flex-row items-start justify-between relative self-stretch w-full gap-4">
           <div className="w-full sm:w-[278px] relative h-[43px]">
@@ -114,7 +113,6 @@ export const SecurityContent = () => {
           </button>
         </div>
 
-        {/* Error/Success Messages */}
         {error && (
           <div className="w-full p-3 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-600 text-sm">{error}</p>
@@ -173,7 +171,6 @@ export const SecurityContent = () => {
 
       <div className="relative self-stretch w-full h-px bg-gray-200" />
 
-      {/* Session Management */}
       <div className="inline-flex flex-col items-start gap-5 relative w-full">
         <div className="flex flex-col sm:flex-row items-start justify-between relative self-stretch w-full gap-4">
           <div className="w-full sm:w-[278px] relative h-[43px]">
@@ -206,7 +203,6 @@ export const SecurityContent = () => {
 
       <div className="relative self-stretch w-full h-px bg-gray-200" />
 
-      {/* Delete Account */}
       <div className="inline-flex flex-col items-start gap-5 relative self-stretch w-full p-4 sm:p-6 rounded-lg border border-solid border-red-200 bg-red-50">
         <div className="flex flex-col sm:flex-row items-start justify-between relative self-stretch w-full gap-4">
           <div className="w-full sm:w-[278px] relative h-[43px]">
