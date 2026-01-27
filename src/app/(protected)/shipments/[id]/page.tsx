@@ -1095,10 +1095,10 @@ const handleFileUpload = async (
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-12">
       <DashboardHeader />
       
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-[80px] py-7">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
