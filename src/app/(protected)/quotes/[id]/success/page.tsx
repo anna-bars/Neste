@@ -318,7 +318,7 @@ export default function SuccessPage() {
                     </button>
 
                     <Link
-                      href="/dashboard/policies"
+                      href="/shipments"
                       className="group p-4 rounded-xl bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all duration-300"
                     >
                       <div className="flex items-center justify-center gap-3">
@@ -376,39 +376,6 @@ export default function SuccessPage() {
 
           {/* Right Side - Information Panel (20%) */}
           <div className="lg:col-span-4 space-y-2 order-1 lg:order-2">
-            {/* Quick Actions */}
-            <div className="border border-[#d1d1d154] bg-[#FDFEFF] rounded-2xl shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
-                </div>
-                <h3 className="font-bold text-gray-900 text-base">Quick Actions</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <button className="w-full p-3 text-left rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition-all">
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">View Certificate</span>
-                  </div>
-                </button>
-                <button className="w-full p-3 text-left rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition-all">
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">Resend Email</span>
-                  </div>
-                </button>
-                <Link
-                  href="/support"
-                  className="block w-full p-3 text-left rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <ExternalLink className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">Contact Support</span>
-                  </div>
-                </Link>
-              </div>
-            </div>
 
             {/* Policy Details */}
             <div className="border border-[#d1d1d154] bg-[#FDFEFF] rounded-2xl shadow-sm p-6">
