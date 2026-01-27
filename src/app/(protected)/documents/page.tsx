@@ -626,7 +626,7 @@ export default function DocumentsPage() {
               </div>
 
               {/* Փաստաթղթերի ցուցադրում */}
-              <div className="overflow-y-auto max-h-[82vh] sm:max-h-[84%] rounded flex justify-start flex-wrap gap-y-3 sm:gap-2.5 p-2">
+              <div className="overflow-y-auto max-h-[82vh] sm:max-h-[100%] rounded flex justify-start flex-wrap gap-y-3 sm:gap-2.5 p-2">
                 {filteredDocuments.length > 0 ? (
                   filteredDocuments.map((doc, index) => (
                     <DocumentItem
@@ -767,7 +767,7 @@ export default function DocumentsPage() {
                       textPrimary: '#2d3748',
                       textSecondary: '#4a5568'
                     }}
-                    disabledProgress={false}
+                    
                   />
                 </div>
               </div>
