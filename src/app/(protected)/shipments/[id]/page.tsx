@@ -10,7 +10,8 @@ import {
   AlertCircle, Eye, Printer, FileUp, ArrowLeft,
   ChevronRight, Zap, BadgeCheck, Users, Phone, Lock,
   CreditCard, TrendingUp, FileCheck, FileWarning, CheckCircle2,
-  Loader2, Info, FileSignature, AlertTriangle, Bell
+  Loader2, Info, FileSignature, AlertTriangle, Bell,
+  FileSearch, EyeOff, Edit, Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -76,6 +77,28 @@ interface EligibilityCheck {
   missingDocs: string[];
 }
 
+interface ExistingClaim {
+  id: string;
+  claim_number: string;
+  claim_type: string;
+  incident_date: string;
+  incident_location_country: string;
+  incident_location_city: string;
+  description: string;
+  claimed_amount: number;
+  approved_amount: number | null;
+  deductible_applied: number | null;
+  net_payout: number | null;
+  status: string;
+  supporting_documents: string[];
+  submitted_at: string;
+  reviewed_at: string | null;
+  approved_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function ShipmentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -87,6 +110,7 @@ export default function ShipmentDetailPage() {
     progress: number;
   }>({ type: null, progress: 0 });
   const [notifications, setNotifications] = useState<PolicyNotification[]>([]);
+  const [existingClaim, setExistingClaim] = useState<ExistingClaim | null>(null);
   
   const [activeTab, setActiveTab] = useState<'information' | 'documents' | 'claim'>('information');
   
@@ -121,6 +145,7 @@ export default function ShipmentDetailPage() {
     if (policy) {
       checkEligibility();
       generateNotifications();
+      checkExistingClaims();
     }
   }, [policy, documents]);
 
@@ -230,6 +255,71 @@ export default function ShipmentDetailPage() {
     }
   };
 
+const checkExistingClaims = async () => {
+  if (!shipmentId) return;
+  
+  const supabase = createClient();
+  
+  try {
+    const { data: claims, error } = await supabase
+      .from('claims')
+      .select('*')
+      .eq('policy_id', shipmentId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (error) {
+      console.error('Error checking existing claims:', error);
+      return;
+    }
+    
+    if (claims && claims.length > 0) {
+      const claim = claims[0];
+      setExistingClaim({
+        id: claim.id,
+        claim_number: claim.claim_number,
+        claim_type: claim.claim_type,
+        incident_date: claim.incident_date,
+        incident_location_country: claim.incident_location_country,
+        incident_location_city: claim.incident_location_city,
+        description: claim.description,
+        claimed_amount: claim.claimed_amount,
+        approved_amount: claim.approved_amount,
+        deductible_applied: claim.deductible_applied,
+        net_payout: claim.net_payout,
+        status: claim.status,
+        supporting_documents: claim.supporting_documents || [],
+        submitted_at: claim.submitted_at,
+        reviewed_at: claim.reviewed_at,
+        approved_at: claim.approved_at,
+        paid_at: claim.paid_at,
+        created_at: claim.created_at,
+        updated_at: claim.updated_at
+      });
+      
+      // Ստուգել, արդյոք notification-ն արդեն կա
+      const existingNotificationIndex = notifications.findIndex(n => n.id === 'existing-claim');
+      
+      if (existingNotificationIndex === -1) {
+        // Ավելացնել notification գոյություն ունեցող claim-ի մասին
+        const newNotification: PolicyNotification = {
+          id: 'existing-claim',
+          type: 'document_approved',
+          title: `Claim ${claim.claim_number || '#'} Submitted`,
+          message: `Your claim was submitted on ${formatDate(claim.submitted_at)}. Our support team will contact you within 24-48 hours. Status: ${claim.status}`,
+          is_read: false,
+          created_at: claim.submitted_at
+        };
+        
+        setNotifications(prev => [newNotification, ...prev]);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching claims:', error);
+  }
+};
+
+
   const checkEligibility = () => {
     if (!policy || !documents) return;
 
@@ -255,10 +345,12 @@ export default function ShipmentDetailPage() {
 
     const documentsComplete = missingDocs.length === 0;
 
+    // Եթե արդեն կա claim, ապա չի կարող նոր claim ստեղծել
     const canFileClaim = checks.policyActive && 
                          checks.paymentCompleted && 
                          checks.coverageValid && 
-                         documentsComplete;
+                         documentsComplete &&
+                         !existingClaim; // Նոր պայման - չկա արդեն գոյություն ունեցող claim
 
     setEligibility({
       ...checks,
@@ -268,25 +360,27 @@ export default function ShipmentDetailPage() {
     });
   };
 
-  const generateNotifications = () => {
-    if (!policy || !documents) return;
+const generateNotifications = () => {
+  if (!policy || !documents) return;
 
-    const newNotifications: PolicyNotification[] = [];
-    const now = new Date();
-    const createdDate = new Date(policy.created_at);
-    const daysSinceCreation = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+  const newNotifications: PolicyNotification[] = [];
+  const now = new Date();
+  const createdDate = new Date(policy.created_at);
+  const daysSinceCreation = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    const docStatuses = [
-      { type: 'commercial_invoice', status: documents.commercial_invoice_status },
-      { type: 'packing_list', status: documents.packing_list_status },
-      { type: 'bill_of_lading', status: documents.bill_of_lading_status }
-    ];
+  const docStatuses = [
+    { type: 'commercial_invoice', status: documents.commercial_invoice_status },
+    { type: 'packing_list', status: documents.packing_list_status },
+    { type: 'bill_of_lading', status: documents.bill_of_lading_status }
+  ];
 
-    const pendingDocs = docStatuses.filter(doc => doc.status === 'pending');
-    const rejectedDocs = docStatuses.filter(doc => doc.status === 'rejected');
-    const approvedDocs = docStatuses.filter(doc => doc.status === 'approved');
+  const pendingDocs = docStatuses.filter(doc => doc.status === 'pending');
+  const rejectedDocs = docStatuses.filter(doc => doc.status === 'rejected');
+  const approvedDocs = docStatuses.filter(doc => doc.status === 'approved');
 
-    if (pendingDocs.length > 0) {
+  if (pendingDocs.length > 0) {
+    const existingNotificationIndex = newNotifications.findIndex(n => n.id === 'doc-required-1');
+    if (existingNotificationIndex === -1) {
       newNotifications.push({
         id: 'doc-required-1',
         type: 'document_required',
@@ -295,8 +389,11 @@ export default function ShipmentDetailPage() {
         is_read: false,
         created_at: new Date().toISOString()
       });
+    }
 
-      if (daysSinceCreation >= 3) {
+    if (daysSinceCreation >= 3) {
+      const existingWarningIndex = newNotifications.findIndex(n => n.id === 'policy-warning-1');
+      if (existingWarningIndex === -1) {
         newNotifications.push({
           id: 'policy-warning-1',
           type: 'policy_warning',
@@ -307,22 +404,30 @@ export default function ShipmentDetailPage() {
         });
       }
     }
+  }
 
-    if (rejectedDocs.length > 0) {
-      rejectedDocs.forEach((doc, index) => {
-        const docName = getDocumentName(doc.type);
+  if (rejectedDocs.length > 0) {
+    rejectedDocs.forEach((doc, index) => {
+      const docName = getDocumentName(doc.type);
+      const notificationId = `doc-rejected-${doc.type}`;
+      
+      const existingIndex = newNotifications.findIndex(n => n.id === notificationId);
+      if (existingIndex === -1) {
         newNotifications.push({
-          id: `doc-rejected-${index}`,
+          id: notificationId,
           type: 'document_rejected',
           title: `${docName} Rejected`,
           message: `Your ${docName.toLowerCase()} was rejected. Please upload a corrected version.`,
           is_read: false,
           created_at: new Date().toISOString()
         });
-      });
-    }
+      }
+    });
+  }
 
-    if (approvedDocs.length > 0 && approvedDocs.length < 3) {
+  if (approvedDocs.length > 0 && approvedDocs.length < 3) {
+    const existingIndex = newNotifications.findIndex(n => n.id === 'doc-approved-partial');
+    if (existingIndex === -1) {
       newNotifications.push({
         id: 'doc-approved-partial',
         type: 'document_approved',
@@ -332,8 +437,11 @@ export default function ShipmentDetailPage() {
         created_at: new Date().toISOString()
       });
     }
+  }
 
-    if (approvedDocs.length === 3) {
+  if (approvedDocs.length === 3) {
+    const existingIndex = newNotifications.findIndex(n => n.id === 'doc-all-approved');
+    if (existingIndex === -1) {
       newNotifications.push({
         id: 'doc-all-approved',
         type: 'document_approved',
@@ -343,285 +451,280 @@ export default function ShipmentDetailPage() {
         created_at: new Date().toISOString()
       });
     }
+  }
 
-    setNotifications(newNotifications);
-  };
-const handleFileUpload = async (
-  type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
-  file: File
-) => {
-  if (!policy) return;
-  
-  const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-  if (!validTypes.includes(file.type)) {
-    toast.error('Please upload PDF, JPEG, or PNG files only');
-    return;
-  }
-  
-  if (file.size > 5 * 1024 * 1024) {
-    toast.error('File size must be less than 5MB');
-    return;
-  }
-  
-  setUploading({ type, progress: 0 });
-  
-  // Declare variables outside try block so they're accessible in catch
-  let finalFilePath = '';
-  
-  try {
-    const supabase = createClient();
+  // Հեռացնել duplicate notifications
+  const uniqueNewNotifications = newNotifications.filter((notification, index, self) =>
+    index === self.findIndex(n => n.id === notification.id)
+  );
+
+  // Ավելացնել նոր notifications, բայց միայն եթե դրանք դեռ չկան
+  setNotifications(prev => {
+    const existingIds = prev.map(n => n.id);
+    const notificationsToAdd = uniqueNewNotifications.filter(n => !existingIds.includes(n.id));
+    return [...notificationsToAdd, ...prev];
+  });
+};
+
+  const handleFileUpload = async (
+    type: 'commercial_invoice' | 'packing_list' | 'bill_of_lading',
+    file: File
+  ) => {
+    if (!policy) return;
     
-    const sanitizeFileName = (fileName: string): string => {
-      return fileName
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
-    };
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload PDF, JPEG, or PNG files only');
+      return;
+    }
     
-    const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-    const safeFileName = `${timestamp}_${sanitizeFileName(file.name.slice(0, -fileExtension.length - 1))}.${fileExtension}`;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
     
-    finalFilePath = `documents/${policy.policy_number}/${type}/${safeFileName}`;
+    setUploading({ type, progress: 0 });
     
-    // Ստուգեք բաքեթի առկայությունը
+    let finalFilePath = '';
+    
     try {
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = buckets?.some(bucket => bucket.name === 'shipment-documents');
+      const supabase = createClient();
       
-      if (!bucketExists) {
-        await supabase.storage.createBucket('shipment-documents', {
-          public: true,
-          fileSizeLimit: 5242880,
-          allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
-        });
-      }
-    } catch (bucketError) {
-      console.warn('Bucket check failed:', bucketError);
-    }
-    
-    // Սիմուլացրեք upload progress
-    let currentProgress = 0;
-    const progressInterval = setInterval(() => {
-      currentProgress += 10;
-      if (currentProgress >= 90) clearInterval(progressInterval);
-      setUploading({ type, progress: currentProgress });
-    }, 200);
-    
-    // Upload ֆայլը storage-ում
-    const { error: uploadError } = await supabase.storage
-      .from('shipment-documents')
-      .upload(finalFilePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type
-      });
-    
-    clearInterval(progressInterval);
-    
-    if (uploadError) {
-      if (uploadError.message?.includes('already exists') || uploadError.message?.includes('duplicate')) {
-        const uniqueFileName = `${timestamp}_${Math.random().toString(36).substring(2, 9)}_${type}.${fileExtension}`;
-        finalFilePath = `documents/${policy.policy_number}/${type}/${uniqueFileName}`;
-        
-        const { error: retryError } = await supabase.storage
-          .from('shipment-documents')
-          .upload(finalFilePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: file.type
-          });
-        
-        if (retryError) {
-          throw retryError;
-        }
-      } else {
-        throw uploadError;
-      }
-    }
-    
-    setUploading({ type, progress: 100 });
-    
-    // Ստացեք public URL-ը
-    const { data: { publicUrl } } = supabase.storage
-      .from('shipment-documents')
-      .getPublicUrl(finalFilePath);
-    
-    // Պատրաստեք update տվյալները
-    const updateData: any = {
-      updated_at: new Date().toISOString()
-    };
-    
-    if (type === 'commercial_invoice') {
-      updateData.commercial_invoice_url = publicUrl;
-      updateData.commercial_invoice_status = 'uploaded';
-      updateData.commercial_invoice_rejected_reason = null;
-      updateData.commercial_invoice_rejected_message = null;
-    } else if (type === 'packing_list') {
-      updateData.packing_list_url = publicUrl;
-      updateData.packing_list_status = 'uploaded';
-      updateData.packing_list_rejected_reason = null;
-      updateData.packing_list_rejected_message = null;
-    } else if (type === 'bill_of_lading') {
-      updateData.bill_of_lading_url = publicUrl;
-      updateData.bill_of_lading_status = 'uploaded';
-      updateData.bill_of_lading_rejected_reason = null;
-      updateData.bill_of_lading_rejected_message = null;
-    }
-    
-    // 1. Ստուգեք արդյոք document գոյություն ունի
-    const { data: existingDoc, error: findDocError } = await supabase
-      .from('documents')
-      .select('id')
-      .eq('policy_id', policy.id)
-      .maybeSingle(); // Օգտագործեք maybeSingle()-ը
-    
-    if (findDocError) {
-      console.error('Error checking existing document:', findDocError);
-      throw findDocError;
-    }
-    
-    let updateResult;
-    
-    if (!existingDoc) {
-      // Document գոյություն չունի - ստեղծեք նորը
-      console.log('Creating new document record for policy:', policy.id);
-      updateResult = await supabase
-        .from('documents')
-        .insert({
-          policy_id: policy.id,
-          ...updateData,
-          // Ավելացրեք բացակայող դաշտերը
-          commercial_invoice_status: updateData.commercial_invoice_status || 'pending',
-          packing_list_status: updateData.packing_list_status || 'pending',
-          bill_of_lading_status: updateData.bill_of_lading_status || 'pending',
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-    } else {
-      // Document գոյություն ունի - թարմացրեք այն
-      console.log('Updating existing document record:', existingDoc.id);
-      updateResult = await supabase
-        .from('documents')
-        .update(updateData)
-        .eq('policy_id', policy.id)
-        .select()
-        .single();
-    }
-    
-    const { data: updatedDocument, error: updateError } = updateResult;
-    
-    if (updateError) {
-      throw updateError;
-    }
-    
-    if (updatedDocument) {
-      const completeUpdatedDocument: ShipmentDocument = {
-        id: updatedDocument.id,
-        policy_id: updatedDocument.policy_id || policy.id,
-        quote_id: updatedDocument.quote_id,
-        commercial_invoice_status: updatedDocument.commercial_invoice_status || 'pending',
-        commercial_invoice_url: updatedDocument.commercial_invoice_url || null,
-        commercial_invoice_rejected_reason: updatedDocument.commercial_invoice_rejected_reason,
-        commercial_invoice_rejected_message: updatedDocument.commercial_invoice_rejected_message,
-        packing_list_status: updatedDocument.packing_list_status || 'pending',
-        packing_list_url: updatedDocument.packing_list_url || null,
-        packing_list_rejected_reason: updatedDocument.packing_list_rejected_reason,
-        packing_list_rejected_message: updatedDocument.packing_list_rejected_message,
-        bill_of_lading_status: updatedDocument.bill_of_lading_status || 'pending',
-        bill_of_lading_url: updatedDocument.bill_of_lading_url || null,
-        bill_of_lading_rejected_reason: updatedDocument.bill_of_lading_rejected_reason,
-        bill_of_lading_rejected_message: updatedDocument.bill_of_lading_rejected_message,
-        created_at: updatedDocument.created_at || new Date().toISOString(),
-        updated_at: updatedDocument.updated_at || new Date().toISOString()
+      const sanitizeFileName = (fileName: string): string => {
+        return fileName
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-zA-Z0-9._-]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_+|_+$/g, '');
       };
       
-      setDocuments(completeUpdatedDocument);
-    }
-    
-    toast.success(`${getDocumentName(type)} uploaded successfully!`);
-    
-    // Reset upload state և թարմացրեք notifications
-    setTimeout(() => {
-      setUploading({ type: null, progress: 0 });
-      generateNotifications();
-    }, 1000);
-    
-  } catch (error: any) {
-    console.error('Upload error:', error);
-    
-    let errorMessage = 'Failed to upload document';
-    if (error.message?.includes('Invalid key') || error.message?.includes('invalid character')) {
-      errorMessage = 'File name contains invalid characters. Please use a simpler file name.';
-    } else if (error.message?.includes('File size limit exceeded')) {
-      errorMessage = 'File size exceeds 5MB limit';
-    } else if (error.message?.includes('Invalid file type')) {
-      errorMessage = 'Invalid file type. Please upload PDF, JPEG, or PNG only.';
-    } else if (error.code === '23505') {
-      // Unique constraint violation - policy_id-ն արդեն գոյություն ունի
-      errorMessage = 'Document record already exists for this policy. Please try again.';
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+      const safeFileName = `${timestamp}_${sanitizeFileName(file.name.slice(0, -fileExtension.length - 1))}.${fileExtension}`;
       
-      // Փորձեք update անել գոյություն ունեցող record-ը
+      finalFilePath = `documents/${policy.policy_number}/${type}/${safeFileName}`;
+      
       try {
-        const supabase = createClient();
+        const { data: buckets } = await supabase.storage.listBuckets();
+        const bucketExists = buckets?.some(bucket => bucket.name === 'shipment-documents');
         
-        // Ստուգեք արդյոք finalFilePath գոյություն ունի
-        if (finalFilePath && policy) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('shipment-documents')
-            .getPublicUrl(finalFilePath);
-          
-          const updateData: any = {
-            updated_at: new Date().toISOString()
-          };
-          
-          if (type === 'commercial_invoice') {
-            updateData.commercial_invoice_url = publicUrl;
-            updateData.commercial_invoice_status = 'uploaded';
-          } else if (type === 'packing_list') {
-            updateData.packing_list_url = publicUrl;
-            updateData.packing_list_status = 'uploaded';
-          } else if (type === 'bill_of_lading') {
-            updateData.bill_of_lading_url = publicUrl;
-            updateData.bill_of_lading_status = 'uploaded';
-          }
-          
-          const { error: updateError } = await supabase
-            .from('documents')
-            .update(updateData)
-            .eq('policy_id', policy.id);
-          
-          if (!updateError) {
-            errorMessage = 'Document uploaded successfully after conflict resolution!';
-            toast.success(errorMessage);
-            
-            // Վերալիցքավորեք տվյալները
-            loadData();
-            
-            setTimeout(() => {
-              setUploading({ type: null, progress: 0 });
-              generateNotifications();
-            }, 1000);
-            
-            return;
-          }
+        if (!bucketExists) {
+          await supabase.storage.createBucket('shipment-documents', {
+            public: true,
+            fileSizeLimit: 5242880,
+            allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+          });
         }
-      } catch (retryError) {
-        console.error('Retry failed:', retryError);
+      } catch (bucketError) {
+        console.warn('Bucket check failed:', bucketError);
       }
-    } else if (error.code === '42501') {
-      errorMessage = 'Permission denied. Please contact support.';
-    } else if (error.code === '404') {
-      errorMessage = 'Storage bucket not found. Please contact support.';
+      
+      let currentProgress = 0;
+      const progressInterval = setInterval(() => {
+        currentProgress += 10;
+        if (currentProgress >= 90) clearInterval(progressInterval);
+        setUploading({ type, progress: currentProgress });
+      }, 200);
+      
+      const { error: uploadError } = await supabase.storage
+        .from('shipment-documents')
+        .upload(finalFilePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+      
+      clearInterval(progressInterval);
+      
+      if (uploadError) {
+        if (uploadError.message?.includes('already exists') || uploadError.message?.includes('duplicate')) {
+          const uniqueFileName = `${timestamp}_${Math.random().toString(36).substring(2, 9)}_${type}.${fileExtension}`;
+          finalFilePath = `documents/${policy.policy_number}/${type}/${uniqueFileName}`;
+          
+          const { error: retryError } = await supabase.storage
+            .from('shipment-documents')
+            .upload(finalFilePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: file.type
+            });
+          
+          if (retryError) {
+            throw retryError;
+          }
+        } else {
+          throw uploadError;
+        }
+      }
+      
+      setUploading({ type, progress: 100 });
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('shipment-documents')
+        .getPublicUrl(finalFilePath);
+      
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+      
+      if (type === 'commercial_invoice') {
+        updateData.commercial_invoice_url = publicUrl;
+        updateData.commercial_invoice_status = 'uploaded';
+        updateData.commercial_invoice_rejected_reason = null;
+        updateData.commercial_invoice_rejected_message = null;
+      } else if (type === 'packing_list') {
+        updateData.packing_list_url = publicUrl;
+        updateData.packing_list_status = 'uploaded';
+        updateData.packing_list_rejected_reason = null;
+        updateData.packing_list_rejected_message = null;
+      } else if (type === 'bill_of_lading') {
+        updateData.bill_of_lading_url = publicUrl;
+        updateData.bill_of_lading_status = 'uploaded';
+        updateData.bill_of_lading_rejected_reason = null;
+        updateData.bill_of_lading_rejected_message = null;
+      }
+      
+      const { data: existingDoc, error: findDocError } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('policy_id', policy.id)
+        .maybeSingle();
+      
+      if (findDocError) {
+        console.error('Error checking existing document:', findDocError);
+        throw findDocError;
+      }
+      
+      let updateResult;
+      
+      if (!existingDoc) {
+        updateResult = await supabase
+          .from('documents')
+          .insert({
+            policy_id: policy.id,
+            ...updateData,
+            commercial_invoice_status: updateData.commercial_invoice_status || 'pending',
+            packing_list_status: updateData.packing_list_status || 'pending',
+            bill_of_lading_status: updateData.bill_of_lading_status || 'pending',
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+      } else {
+        updateResult = await supabase
+          .from('documents')
+          .update(updateData)
+          .eq('policy_id', policy.id)
+          .select()
+          .single();
+      }
+      
+      const { data: updatedDocument, error: updateError } = updateResult;
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      if (updatedDocument) {
+        const completeUpdatedDocument: ShipmentDocument = {
+          id: updatedDocument.id,
+          policy_id: updatedDocument.policy_id || policy.id,
+          quote_id: updatedDocument.quote_id,
+          commercial_invoice_status: updatedDocument.commercial_invoice_status || 'pending',
+          commercial_invoice_url: updatedDocument.commercial_invoice_url || null,
+          commercial_invoice_rejected_reason: updatedDocument.commercial_invoice_rejected_reason,
+          commercial_invoice_rejected_message: updatedDocument.commercial_invoice_rejected_message,
+          packing_list_status: updatedDocument.packing_list_status || 'pending',
+          packing_list_url: updatedDocument.packing_list_url || null,
+          packing_list_rejected_reason: updatedDocument.packing_list_rejected_reason,
+          packing_list_rejected_message: updatedDocument.packing_list_rejected_message,
+          bill_of_lading_status: updatedDocument.bill_of_lading_status || 'pending',
+          bill_of_lading_url: updatedDocument.bill_of_lading_url || null,
+          bill_of_lading_rejected_reason: updatedDocument.bill_of_lading_rejected_reason,
+          bill_of_lading_rejected_message: updatedDocument.bill_of_lading_rejected_message,
+          created_at: updatedDocument.created_at || new Date().toISOString(),
+          updated_at: updatedDocument.updated_at || new Date().toISOString()
+        };
+        
+        setDocuments(completeUpdatedDocument);
+      }
+      
+      toast.success(`${getDocumentName(type)} uploaded successfully!`);
+      
+      setTimeout(() => {
+        setUploading({ type: null, progress: 0 });
+        generateNotifications();
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      
+      let errorMessage = 'Failed to upload document';
+      if (error.message?.includes('Invalid key') || error.message?.includes('invalid character')) {
+        errorMessage = 'File name contains invalid characters. Please use a simpler file name.';
+      } else if (error.message?.includes('File size limit exceeded')) {
+        errorMessage = 'File size exceeds 5MB limit';
+      } else if (error.message?.includes('Invalid file type')) {
+        errorMessage = 'Invalid file type. Please upload PDF, JPEG, or PNG only.';
+      } else if (error.code === '23505') {
+        errorMessage = 'Document record already exists for this policy. Please try again.';
+        
+        try {
+          const supabase = createClient();
+          
+          if (finalFilePath && policy) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('shipment-documents')
+              .getPublicUrl(finalFilePath);
+            
+            const updateData: any = {
+              updated_at: new Date().toISOString()
+            };
+            
+            if (type === 'commercial_invoice') {
+              updateData.commercial_invoice_url = publicUrl;
+              updateData.commercial_invoice_status = 'uploaded';
+            } else if (type === 'packing_list') {
+              updateData.packing_list_url = publicUrl;
+              updateData.packing_list_status = 'uploaded';
+            } else if (type === 'bill_of_lading') {
+              updateData.bill_of_lading_url = publicUrl;
+              updateData.bill_of_lading_status = 'uploaded';
+            }
+            
+            const { error: updateError } = await supabase
+              .from('documents')
+              .update(updateData)
+              .eq('policy_id', policy.id);
+            
+            if (!updateError) {
+              errorMessage = 'Document uploaded successfully after conflict resolution!';
+              toast.success(errorMessage);
+              
+              loadData();
+              
+              setTimeout(() => {
+                setUploading({ type: null, progress: 0 });
+                generateNotifications();
+              }, 1000);
+              
+              return;
+            }
+          }
+        } catch (retryError) {
+          console.error('Retry failed:', retryError);
+        }
+      } else if (error.code === '42501') {
+        errorMessage = 'Permission denied. Please contact support.';
+      } else if (error.code === '404') {
+        errorMessage = 'Storage bucket not found. Please contact support.';
+      }
+      
+      toast.error(errorMessage);
+      setUploading({ type: null, progress: 0 });
     }
-    
-    toast.error(errorMessage);
-    setUploading({ type: null, progress: 0 });
-  }
-};
+  };
 
   const handleClaimFileUpload = (files: FileList) => {
     const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
@@ -738,6 +841,32 @@ const handleFileUpload = async (
 
       if (claimError) throw claimError;
 
+      // Թարմացնել existing claim-ը
+      const newExistingClaim: ExistingClaim = {
+        id: claim.id,
+        claim_number: claim.claim_number,
+        claim_type: claim.claim_type,
+        incident_date: claim.incident_date,
+        incident_location_country: claim.incident_location_country,
+        incident_location_city: claim.incident_location_city,
+        description: claim.description,
+        claimed_amount: claim.claimed_amount,
+        approved_amount: claim.approved_amount,
+        deductible_applied: claim.deductible_applied,
+        net_payout: claim.net_payout,
+        status: claim.status,
+        supporting_documents: claim.supporting_documents || [],
+        submitted_at: claim.submitted_at,
+        reviewed_at: claim.reviewed_at,
+        approved_at: claim.approved_at,
+        paid_at: claim.paid_at,
+        created_at: claim.created_at,
+        updated_at: claim.updated_at
+      };
+
+      setExistingClaim(newExistingClaim);
+
+      // Քլիր անել ձևը
       setClaimForm({
         claim_type: 'loss',
         incident_date: '',
@@ -750,7 +879,8 @@ const handleFileUpload = async (
 
       toast.success(`Claim ${claim.claim_number || '#'} submitted successfully! We will review it within 5-7 business days.`);
       
-      setActiveTab('documents');
+      // Թարմացնել eligibility-ն (այժմ արդեն չի կարող նոր claim ստեղծել)
+      checkEligibility();
 
     } catch (error: any) {
       console.error('Error submitting claim:', error);
@@ -864,6 +994,17 @@ const handleFileUpload = async (
     });
   };
 
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const getDocumentStats = () => {
     const totalDocs = 3;
     let uploadedDocs = 0;
@@ -885,6 +1026,44 @@ const handleFileUpload = async (
     }
 
     return { totalDocs, uploadedDocs, approvedDocs, rejectedDocs, pendingDocs };
+  };
+
+  const getClaimStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'submitted':
+        return 'bg-blue-100 text-blue-800';
+      case 'under_review':
+        return 'bg-amber-100 text-amber-800';
+      case 'requires_info':
+        return 'bg-orange-100 text-orange-800';
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'paid':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getClaimStatusText = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'submitted':
+        return 'Submitted';
+      case 'under_review':
+        return 'Under Review';
+      case 'requires_info':
+        return 'Requires Additional Information';
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      case 'paid':
+        return 'Paid';
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
   };
 
   const renderDocumentCard = (
@@ -1048,7 +1227,7 @@ const handleFileUpload = async (
       id: 'claim',
       name: 'File a Claim',
       icon: <FileSignature className="w-4 h-4" />,
-      enabled: eligibility.canFileClaim
+      enabled: eligibility.canFileClaim || existingClaim !== null
     }
   ];
 
@@ -1170,7 +1349,10 @@ const handleFileUpload = async (
                   >
                     {tab.icon}
                     {tab.name}
-                    {!tab.enabled && tab.id === 'claim' && (
+                    {!tab.enabled && tab.id === 'claim' && existingClaim && (
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                    )}
+                    {!tab.enabled && tab.id === 'claim' && !existingClaim && (
                       <AlertTriangle className="w-3 h-3 text-amber-500" />
                     )}
                   </button>
@@ -1433,292 +1615,533 @@ const handleFileUpload = async (
 
             {activeTab === 'claim' && (
               <div className="space-y-6">
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Eligibility Check</h3>
-                  
-                  <div className="space-y-4 mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        eligibility.policyActive ? 'bg-green-100' : 'bg-red-100'
-                      }`}>
-                        {eligibility.policyActive ? (
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Policy is active</p>
-                        <p className="text-sm text-gray-500">
-                          {eligibility.policyActive 
-                            ? 'Your policy is currently active' 
-                            : 'Your policy is not active'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        eligibility.paymentCompleted ? 'bg-green-100' : 'bg-red-100'
-                      }`}>
-                        {eligibility.paymentCompleted ? (
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Payment completed</p>
-                        <p className="text-sm text-gray-500">
-                          {eligibility.paymentCompleted 
-                            ? 'Premium payment completed' 
-                            : 'Premium payment pending'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        eligibility.coverageValid ? 'bg-green-100' : 'bg-red-100'
-                      }`}>
-                        {eligibility.coverageValid ? (
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Coverage period valid</p>
-                        <p className="text-sm text-gray-500">
-                          {eligibility.coverageValid 
-                            ? `Current date is within coverage period` 
-                            : 'Current date is outside coverage period'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        eligibility.documentsComplete ? 'bg-green-100' : 'bg-amber-100'
-                      }`}>
-                        {eligibility.documentsComplete ? (
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Required documents approved</p>
-                        <p className="text-sm text-gray-500">
-                          {eligibility.documentsComplete 
-                            ? 'All required documents are approved' 
-                            : `${eligibility.missingDocs.length} document${eligibility.missingDocs.length > 1 ? 's' : ''} pending approval`}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {!eligibility.canFileClaim && (
-                    <div className="p-4 bg-gradient-to-r from-red-50 to-amber-50 rounded-xl border border-amber-200">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+                {/* Եթե գոյություն ունի claim, ցույց տալ նրա մասին */}
+                {existingClaim ? (
+                  <>
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-6">
                         <div>
-                          <p className="font-semibold text-amber-700 mb-1">Action Required</p>
-                          {eligibility.missingDocs.length > 0 ? (
-                            <div>
-                              <p className="text-sm text-amber-600 mb-2">
-                                Upload and get approval for these documents:
-                              </p>
-                              <ul className="text-sm text-amber-600 space-y-1">
-                                {eligibility.missingDocs.map((doc, index) => (
-                                  <li key={index} className="flex items-center gap-2">
-                                    <FileWarning className="w-3 h-3" />
-                                    {doc}
-                                  </li>
-                                ))}
-                              </ul>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                              <FileSearch className="w-5 h-5 text-blue-600" />
                             </div>
-                          ) : (
-                            <p className="text-sm text-amber-600">
-                              Complete all eligibility requirements to file a claim
-                            </p>
-                          )}
-                          <button
-                            onClick={() => setActiveTab('documents')}
-                            className="mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
-                          >
-                            <Upload className="w-3 h-3" />
-                            {eligibility.missingDocs.length > 0 ? 'Upload Documents' : 'Check Policy Status'}
-                          </button>
+                            <div>
+                              <h2 className="text-xl font-bold text-gray-900">Existing Claim</h2>
+                              <p className="text-gray-600">Claim #{existingClaim.claim_number} - Submitted on {formatDateTime(existingClaim.submitted_at)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full ${getClaimStatusColor(existingClaim.status)}`}>
+                          <span className="text-sm font-medium">{getClaimStatusText(existingClaim.status)}</span>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
 
-                {eligibility.canFileClaim && (
-                  <>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white rounded-xl p-4 border border-gray-200">
+                            <p className="text-sm text-gray-500 mb-1">Claim Type</p>
+                            <p className="font-medium text-gray-900 capitalize">{existingClaim.claim_type}</p>
+                          </div>
+                          <div className="bg-white rounded-xl p-4 border border-gray-200">
+                            <p className="text-sm text-gray-500 mb-1">Claimed Amount</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(existingClaim.claimed_amount)}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-4 border border-gray-200">
+                          <p className="text-sm text-gray-500 mb-1">Incident Details</p>
+                          <p className="font-medium text-gray-900 mb-2">{formatDate(existingClaim.incident_date)} - {existingClaim.incident_location_city}, {existingClaim.incident_location_country}</p>
+                          <p className="text-gray-600">{existingClaim.description}</p>
+                        </div>
+
+                        {existingClaim.approved_amount && (
+                          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-green-700">Approved Amount</p>
+                                <p className="text-lg font-bold text-green-900">{formatCurrency(existingClaim.approved_amount)}</p>
+                                {existingClaim.deductible_applied && (
+                                  <p className="text-xs text-green-600 mt-1">
+                                    Deductible: {formatCurrency(existingClaim.deductible_applied)} applied
+                                  </p>
+                                )}
+                              </div>
+                              {existingClaim.net_payout && (
+                                <div className="text-right">
+                                  <p className="text-sm font-medium text-green-700">Net Payout</p>
+                                  <p className="text-lg font-bold text-green-900">{formatCurrency(existingClaim.net_payout)}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {existingClaim.supporting_documents && existingClaim.supporting_documents.length > 0 && (
+                          <div className="bg-white rounded-xl p-4 border border-gray-200">
+                            <p className="text-sm font-medium text-gray-900 mb-3">Supporting Documents</p>
+                            <div className="space-y-2">
+                              {existingClaim.supporting_documents.map((doc, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                  <div className="flex items-center gap-3">
+                                    <FileText className="w-4 h-4 text-gray-600" />
+                                    <span className="text-sm text-gray-700">Evidence {index + 1}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleViewDocument(doc)}
+                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                  >
+                                    View
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white rounded-xl p-4 border border-gray-200">
+                            <p className="text-sm text-gray-500 mb-1">Submitted</p>
+                            <p className="font-medium text-gray-900">{formatDateTime(existingClaim.submitted_at)}</p>
+                          </div>
+                          {existingClaim.reviewed_at && (
+                            <div className="bg-white rounded-xl p-4 border border-gray-200">
+                              <p className="text-sm text-gray-500 mb-1">Reviewed</p>
+                              <p className="font-medium text-gray-900">{formatDateTime(existingClaim.reviewed_at)}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {existingClaim.status === 'requires_info' && (
+                          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+                            <div className="flex items-start gap-3">
+                              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                              <div>
+                                <p className="font-semibold text-amber-700 mb-1">Additional Information Required</p>
+                                <p className="text-sm text-amber-600">Please check the review notes for details on what additional information is needed.</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Details</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Status Timeline</h3>
                       
                       <div className="space-y-6">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Claim Type
-                          </label>
-                          <select
-                            value={claimForm.claim_type}
-                            onChange={(e) => setClaimForm(prev => ({ ...prev, claim_type: e.target.value }))}
-                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                          >
-                            <option value="loss">Loss</option>
-                            <option value="damage">Damage</option>
-                            <option value="theft">Theft</option>
-                            <option value="delay">Delay</option>
-                          </select>
+                        <div className="flex items-start gap-4">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            existingClaim.status === 'submitted' || existingClaim.status === 'under_review' || 
+                            existingClaim.status === 'requires_info' || existingClaim.status === 'approved' || 
+                            existingClaim.status === 'rejected' || existingClaim.status === 'paid' 
+                              ? 'bg-emerald-100' : 'bg-gray-100'
+                          }`}>
+                            <CheckCircle className={`w-4 h-4 ${
+                              existingClaim.status === 'submitted' || existingClaim.status === 'under_review' || 
+                              existingClaim.status === 'requires_info' || existingClaim.status === 'approved' || 
+                              existingClaim.status === 'rejected' || existingClaim.status === 'paid' 
+                                ? 'text-emerald-600' : 'text-gray-400'
+                            }`} />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">Submitted</p>
+                            <p className="text-sm text-gray-500">{formatDateTime(existingClaim.submitted_at)}</p>
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Incident Date
-                            </label>
-                            <input
-                              type="date"
-                              value={claimForm.incident_date}
-                              onChange={(e) => setClaimForm(prev => ({ ...prev, incident_date: e.target.value }))}
-                              min={policy.coverage_start}
-                              max={policy.coverage_end}
-                              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Must be between {formatDate(policy.coverage_start)} and {formatDate(policy.coverage_end)}
-                            </p>
+                        <div className="flex items-start gap-4">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            existingClaim.status === 'under_review' || existingClaim.status === 'requires_info' || 
+                            existingClaim.status === 'approved' || existingClaim.status === 'rejected' || 
+                            existingClaim.status === 'paid' 
+                              ? 'bg-emerald-100' : 'bg-gray-100'
+                          }`}>
+                            {existingClaim.status === 'requires_info' ? (
+                              <AlertCircle className="w-4 h-4 text-amber-600" />
+                            ) : (
+                              <CheckCircle className={`w-4 h-4 ${
+                                existingClaim.status === 'under_review' || existingClaim.status === 'requires_info' || 
+                                existingClaim.status === 'approved' || existingClaim.status === 'rejected' || 
+                                existingClaim.status === 'paid' 
+                                  ? 'text-emerald-600' : 'text-gray-400'
+                              }`} />
+                            )}
                           </div>
-
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Claimed Amount (USD)
-                            </label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                                $
-                              </span>
-                              <input
-                                type="number"
-                                value={claimForm.claimed_amount}
-                                onChange={(e) => setClaimForm(prev => ({ ...prev, claimed_amount: e.target.value }))}
-                                min="0"
-                                max={policy.coverage_amount}
-                                step="0.01"
-                                className="w-full pl-8 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                placeholder="0.00"
-                              />
+                            <p className="font-medium text-gray-900">Under Review</p>
+                            {existingClaim.status === 'requires_info' ? (
+                              <p className="text-sm text-amber-600">Awaiting additional information</p>
+                            ) : existingClaim.reviewed_at ? (
+                              <p className="text-sm text-gray-500">Reviewed on {formatDate(existingClaim.reviewed_at)}</p>
+                            ) : (
+                              <p className="text-sm text-gray-500">Currently being reviewed</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {(existingClaim.status === 'approved' || existingClaim.status === 'rejected' || existingClaim.status === 'paid') && (
+                          <div className="flex items-start gap-4">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              existingClaim.status === 'approved' || existingClaim.status === 'rejected' || 
+                              existingClaim.status === 'paid' 
+                                ? existingClaim.status === 'rejected' ? 'bg-red-100' : 'bg-emerald-100' : 'bg-gray-100'
+                            }`}>
+                              {existingClaim.status === 'rejected' ? (
+                                <XCircle className="w-4 h-4 text-red-600" />
+                              ) : (
+                                <CheckCircle className={`w-4 h-4 ${
+                                  existingClaim.status === 'approved' || existingClaim.status === 'paid' 
+                                    ? 'text-emerald-600' : 'text-gray-400'
+                                }`} />
+                              )}
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Max: {formatCurrency(policy.coverage_amount)} coverage
-                            </p>
+                            <div>
+                              <p className={`font-medium ${
+                                existingClaim.status === 'rejected' ? 'text-red-700' : 'text-gray-900'
+                              }`}>
+                                {existingClaim.status === 'approved' ? 'Approved' : 'Rejected'}
+                              </p>
+                              {existingClaim.approved_at && (
+                                <p className="text-sm text-gray-500">
+                                  {existingClaim.status === 'rejected' ? 'Rejected' : 'Approved'} on {formatDate(existingClaim.approved_at)}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Country
-                            </label>
-                            <input
-                              type="text"
-                              value={claimForm.incident_location_country}
-                              onChange={(e) => setClaimForm(prev => ({ ...prev, incident_location_country: e.target.value }))}
-                              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                              placeholder="Enter country"
-                            />
+                        {existingClaim.status === 'paid' && (
+                          <div className="flex items-start gap-4">
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                              <CheckCircle className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">Paid</p>
+                              {existingClaim.paid_at && (
+                                <p className="text-sm text-gray-500">Paid on {formatDate(existingClaim.paid_at)}</p>
+                              )}
+                            </div>
                           </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              City
-                            </label>
-                            <input
-                              type="text"
-                              value={claimForm.incident_location_city}
-                              onChange={(e) => setClaimForm(prev => ({ ...prev, incident_location_city: e.target.value }))}
-                              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                              placeholder="Enter city"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Description of Incident
-                          </label>
-                          <textarea
-                            value={claimForm.description}
-                            onChange={(e) => setClaimForm(prev => ({ ...prev, description: e.target.value }))}
-                            rows={4}
-                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
-                            placeholder="Describe what happened in detail..."
-                          />
-                        </div>
+                        )}
                       </div>
                     </div>
-
+                  </>
+                ) : (
+                  <>
                     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-6">Supporting Evidence</h3>
-                      <p className="text-gray-600 mb-4">
-                        Upload photos or documents that support your claim (optional but recommended)
-                      </p>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Eligibility Check</h3>
                       
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                          <Eye className="w-8 h-8 text-blue-600" />
+                      <div className="space-y-4 mb-6">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            eligibility.policyActive ? 'bg-green-100' : 'bg-red-100'
+                          }`}>
+                            {eligibility.policyActive ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">Policy is active</p>
+                            <p className="text-sm text-gray-500">
+                              {eligibility.policyActive 
+                                ? 'Your policy is currently active' 
+                                : 'Your policy is not active'}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-gray-700 font-medium mb-2">Upload evidence files</p>
-                        <p className="text-sm text-gray-500 mb-4">
-                          Photos of damage, police reports, carrier reports, etc.
-                          <br />
-                          PDF, JPEG, or PNG (max 5MB each)
-                        </p>
-                        <label className="inline-block px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            multiple
-                            onChange={(e) => e.target.files && handleClaimFileUpload(e.target.files)}
-                          />
-                          Choose Files
-                        </label>
+                        
+                        <div className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            eligibility.paymentCompleted ? 'bg-green-100' : 'bg-red-100'
+                          }`}>
+                            {eligibility.paymentCompleted ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">Payment completed</p>
+                            <p className="text-sm text-gray-500">
+                              {eligibility.paymentCompleted 
+                                ? 'Premium payment completed' 
+                                : 'Premium payment pending'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            eligibility.coverageValid ? 'bg-green-100' : 'bg-red-100'
+                          }`}>
+                            {eligibility.coverageValid ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">Coverage period valid</p>
+                            <p className="text-sm text-gray-500">
+                              {eligibility.coverageValid 
+                                ? `Current date is within coverage period` 
+                                : 'Current date is outside coverage period'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            eligibility.documentsComplete ? 'bg-green-100' : 'bg-amber-100'
+                          }`}>
+                            {eligibility.documentsComplete ? (
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <AlertTriangle className="w-4 h-4 text-amber-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">Required documents approved</p>
+                            <p className="text-sm text-gray-500">
+                              {eligibility.documentsComplete 
+                                ? 'All required documents are approved' 
+                                : `${eligibility.missingDocs.length} document${eligibility.missingDocs.length > 1 ? 's' : ''} pending approval`}
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
-                      {supportingDocs.length > 0 && (
-                        <div className="mt-6">
-                          <h4 className="font-medium text-gray-900 mb-3">Selected Files</h4>
-                          <div className="space-y-2">
-                            {supportingDocs.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                  <FileText className="w-5 h-5 text-gray-600" />
-                                  <div>
-                                    <p className="font-medium text-gray-900">{file.name}</p>
-                                    <p className="text-xs text-gray-500">
-                                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                                    </p>
-                                  </div>
+                      {!eligibility.canFileClaim && (
+                        <div className="p-4 bg-gradient-to-r from-red-50 to-amber-50 rounded-xl border border-amber-200">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+                            <div>
+                              <p className="font-semibold text-amber-700 mb-1">Action Required</p>
+                              {eligibility.missingDocs.length > 0 ? (
+                                <div>
+                                  <p className="text-sm text-amber-600 mb-2">
+                                    Upload and get approval for these documents:
+                                  </p>
+                                  <ul className="text-sm text-amber-600 space-y-1">
+                                    {eligibility.missingDocs.map((doc, index) => (
+                                      <li key={index} className="flex items-center gap-2">
+                                        <FileWarning className="w-3 h-3" />
+                                        {doc}
+                                      </li>
+                                    ))}
+                                  </ul>
                                 </div>
-                                <button
-                                  onClick={() => removeSupportingDoc(index)}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <XCircle className="w-5 h-5" />
-                                </button>
-                              </div>
-                            ))}
+                              ) : (
+                                <p className="text-sm text-amber-600">
+                                  Complete all eligibility requirements to file a claim
+                                </p>
+                              )}
+                              <button
+                                onClick={() => setActiveTab('documents')}
+                                className="mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+                              >
+                                <Upload className="w-3 h-3" />
+                                {eligibility.missingDocs.length > 0 ? 'Upload Documents' : 'Check Policy Status'}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
                     </div>
+
+                    {eligibility.canFileClaim && (
+                      <>
+                        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-6">Claim Details</h3>
+                          
+                          <div className="space-y-6">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Claim Type
+                              </label>
+                              <select
+                                value={claimForm.claim_type}
+                                onChange={(e) => setClaimForm(prev => ({ ...prev, claim_type: e.target.value }))}
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                              >
+                                <option value="loss">Loss</option>
+                                <option value="damage">Damage</option>
+                                <option value="theft">Theft</option>
+                                <option value="delay">Delay</option>
+                              </select>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Incident Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={claimForm.incident_date}
+                                  onChange={(e) => setClaimForm(prev => ({ ...prev, incident_date: e.target.value }))}
+                                  min={policy.coverage_start}
+                                  max={policy.coverage_end}
+                                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Must be between {formatDate(policy.coverage_start)} and {formatDate(policy.coverage_end)}
+                                </p>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Claimed Amount (USD)
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    value={claimForm.claimed_amount}
+                                    onChange={(e) => setClaimForm(prev => ({ ...prev, claimed_amount: e.target.value }))}
+                                    min="0"
+                                    max={policy.coverage_amount}
+                                    step="0.01"
+                                    className="w-full pl-8 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Max: {formatCurrency(policy.coverage_amount)} coverage
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Country
+                                </label>
+                                <input
+                                  type="text"
+                                  value={claimForm.incident_location_country}
+                                  onChange={(e) => setClaimForm(prev => ({ ...prev, incident_location_country: e.target.value }))}
+                                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                  placeholder="Enter country"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  City
+                                </label>
+                                <input
+                                  type="text"
+                                  value={claimForm.incident_location_city}
+                                  onChange={(e) => setClaimForm(prev => ({ ...prev, incident_location_city: e.target.value }))}
+                                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                  placeholder="Enter city"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Description of Incident
+                              </label>
+                              <textarea
+                                value={claimForm.description}
+                                onChange={(e) => setClaimForm(prev => ({ ...prev, description: e.target.value }))}
+                                rows={4}
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+                                placeholder="Describe what happened in detail..."
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-6">Supporting Evidence</h3>
+                          <p className="text-gray-600 mb-4">
+                            Upload photos or documents that support your claim (optional but recommended)
+                          </p>
+                          
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                              <Eye className="w-8 h-8 text-blue-600" />
+                            </div>
+                            <p className="text-gray-700 font-medium mb-2">Upload evidence files</p>
+                            <p className="text-sm text-gray-500 mb-4">
+                              Photos of damage, police reports, carrier reports, etc.
+                              <br />
+                              PDF, JPEG, or PNG (max 5MB each)
+                            </p>
+                            <label className="inline-block px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                multiple
+                                onChange={(e) => e.target.files && handleClaimFileUpload(e.target.files)}
+                              />
+                              Choose Files
+                            </label>
+                          </div>
+
+                          {supportingDocs.length > 0 && (
+                            <div className="mt-6">
+                              <h4 className="font-medium text-gray-900 mb-3">Selected Files</h4>
+                              <div className="space-y-2">
+                                {supportingDocs.map((file, index) => (
+                                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                      <FileText className="w-5 h-5 text-gray-600" />
+                                      <div>
+                                        <p className="font-medium text-gray-900">{file.name}</p>
+                                        <p className="text-xs text-gray-500">
+                                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => removeSupportingDoc(index)}
+                                      className="text-red-600 hover:text-red-800"
+                                    >
+                                      <XCircle className="w-5 h-5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex justify-end gap-4">
+                          <button
+                            onClick={() => setActiveTab('documents')}
+                            className="px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-all"
+                          >
+                            Cancel
+                          </button>
+                          <button 
+                            onClick={handleSubmitClaim}
+                            disabled={submittingClaim}
+                            className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                          >
+                            {submittingClaim ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Submitting...
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="w-4 h-4" />
+                                Submit Claim
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -1807,7 +2230,7 @@ const handleFileUpload = async (
                 </div>
               </div>
 
-              {activeTab === 'claim' && eligibility.canFileClaim && (
+              {activeTab === 'claim' && eligibility.canFileClaim && !existingClaim && (
                 <button 
                   onClick={handleSubmitClaim}
                   disabled={submittingClaim}
@@ -1911,12 +2334,22 @@ const handleFileUpload = async (
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                      <TrendingUp className="w-4 h-4 text-gray-600" />
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      existingClaim ? 'bg-emerald-100' : 'bg-gray-100'
+                    }`}>
+                      {existingClaim ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <TrendingUp className="w-4 h-4 text-gray-600" />
+                      )}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Track Shipment</p>
-                      <p className="text-xs text-gray-500">Monitor your shipment progress</p>
+                      <p className="text-sm font-medium text-gray-900">Claim Status</p>
+                      <p className="text-xs text-gray-500">
+                        {existingClaim 
+                          ? `Claim ${existingClaim.claim_number} submitted` 
+                          : 'No claims submitted'}
+                      </p>
                     </div>
                   </div>
                 </div>
