@@ -203,7 +203,7 @@ export default function QuoteDetailsPage() {
       return;
     }
     
-    router.push(`/quotes/${quoteData.id}/payment`);
+    router.push(`/quotes/new/checkout/${quoteData.id}`);
   };
 
   const handleDeleteQuote = async () => {
