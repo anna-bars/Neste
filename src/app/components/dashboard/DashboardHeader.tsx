@@ -1,3 +1,4 @@
+// app/components/dashboard/DashboardHeader.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -7,7 +8,8 @@ import MobileBottomNav from './MobileBottomNav'
 import DesktopNav from './DesktopNav'
 import ProfileModal from './ProfileModal'
 import UserDropdown from './UserDropdown'
-import { createClient } from '@/lib/supabase/client' // Օգտագործեք Ձեր ստորագրությունը
+import { createClient } from '@/lib/supabase/client'
+import { useNotifications } from '@/app/hooks/useNotifications'
 
 export interface Profile {
   id: string
@@ -39,35 +41,15 @@ export default function DashboardHeader({ userEmail, userId }: DashboardHeaderPr
   // Ստեղծել Supabase կլիենտ
   const supabase = createClient()
   
-  // Թարմացնենք notifications-ը
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      title: 'New Quote Request',
-      message: 'You have a new quote request from Global Shipping Ltd.',
-      type: 'info' as const,
-      read: false,
-      created_at: new Date(Date.now() - 3600000).toISOString()
-    },
-    {
-      id: '2',
-      title: 'Shipment Update',
-      message: 'Your shipment #12345 has been dispatched',
-      type: 'success' as const,
-      read: false,
-      created_at: new Date(Date.now() - 7200000).toISOString()
-    },
-    {
-      id: '3',
-      title: 'Document Expiry',
-      message: 'Your insurance document expires in 7 days',
-      type: 'warning' as const,
-      read: true,
-      created_at: new Date(Date.now() - 86400000).toISOString()
-    }
-  ])
-  
-  const [unreadCount, setUnreadCount] = useState(0)
+  // Use the new notifications hook
+  const {
+    notifications: dbNotifications,
+    unreadCount,
+    loading: notificationsLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification
+  } = useNotifications()
   
   // Fetch user profile from Supabase
   useEffect(() => {
@@ -144,7 +126,7 @@ export default function DashboardHeader({ userEmail, userId }: DashboardHeaderPr
           table: 'profiles',
           filter: `id=eq.${userId}`
         },
-        (payload: any) => { // Ավելացրեք any type
+        (payload: any) => {
           const updatedProfile = payload.new as Profile
           setProfile(updatedProfile)
           
@@ -162,11 +144,6 @@ export default function DashboardHeader({ userEmail, userId }: DashboardHeaderPr
   }, [userId, supabase])
   
   useEffect(() => {
-    const count = notifications.filter(n => !n.read).length
-    setUnreadCount(count)
-  }, [notifications])
-  
-  useEffect(() => {
     if (pathname === '/dashboard') {
       setActiveNavItem('Dashboard')
     } else if (pathname === '/quotes') {
@@ -181,22 +158,12 @@ export default function DashboardHeader({ userEmail, userId }: DashboardHeaderPr
       setActiveNavItem('Quotes')
     } else if (pathname.includes('/documents')) {
       setActiveNavItem('Documents')
+    } else if (pathname.includes('/claims')) {
+      setActiveNavItem('Claims')
+    } else if (pathname.includes('/policies')) {
+      setActiveNavItem('Policies')
     }
   }, [pathname])
-  
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    )
-  }
-  
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    )
-  }
   
   const toggleProfileModal = () => {
     setIsProfileModalOpen(!isProfileModalOpen)
@@ -228,6 +195,18 @@ export default function DashboardHeader({ userEmail, userId }: DashboardHeaderPr
     setAvatarUrl('/dashboard/avatar-img.png')
   }
   
+  // Transform database notifications to component format
+  const transformNotifications = () => {
+    return dbNotifications.map((notification: { id: any; title: any; message: any; type: string; is_read: any; created_at: any }) => ({
+      id: notification.id,
+      title: notification.title,
+      message: notification.message,
+      type: (notification.type.toLowerCase() as any) || 'info',
+      read: notification.is_read,
+      created_at: notification.created_at
+    }))
+  }
+  
   return (
     <>
       <div className="max-w-[88%] sm:max-w-[96%] mx-auto pt-3">
@@ -255,6 +234,7 @@ export default function DashboardHeader({ userEmail, userId }: DashboardHeaderPr
                 className="w-[44px] h-[44px] sm:w-[54px] sm:h-[54px] bg-[#f7f7f7] rounded-lg border border-white/22 flex items-center justify-center relative cursor-pointer hover:bg-white transition-colors duration-300"
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                 aria-label="Notifications"
+                disabled={notificationsLoading}
               >
                 <img 
                   src="https://c.animaapp.com/mjiggi0jSqvoj5/img/bell-1.png" 
@@ -263,18 +243,23 @@ export default function DashboardHeader({ userEmail, userId }: DashboardHeaderPr
                 />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-[#f86464] text-white text-[10px] font-inter font-medium rounded-full flex items-center justify-center px-1">
-                    {unreadCount}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
+                )}
+                {notificationsLoading && unreadCount === 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
                 )}
               </button>
               
               <Notifications 
                 isOpen={isNotificationsOpen}
                 onClose={() => setIsNotificationsOpen(false)}
-                notifications={notifications}
+                notifications={transformNotifications()}
                 unreadCount={unreadCount}
                 onMarkAsRead={markAsRead}
                 onMarkAllAsRead={markAllAsRead}
+                onDelete={deleteNotification}
+                isLoading={notificationsLoading}
               />
             </div>
             
