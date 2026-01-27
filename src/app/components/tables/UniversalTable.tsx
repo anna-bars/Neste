@@ -762,11 +762,6 @@ const renderDashboardMobileDesign = (row: TableRow) => (
       {row.expiringDays !== undefined && row.expiringDays !== null && (
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
-            <img 
-              src="/table/calendar.svg" 
-              alt="Expiring" 
-              className="w-4 h-4 opacity-80 xs:w-[16px] xs:h-[16px] xs2:w-[14px] xs2:h-[14px]"
-            />
             <span className="font-poppins text-sm text-gray-700">Expiring</span>
           </div>
           <div className={`font-poppins text-sm ${
