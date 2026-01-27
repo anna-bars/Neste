@@ -1072,7 +1072,7 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
     showExpiringIcon: true // Ավելացնել նոր prop
   }}
   mobileDesignType="dashboard"
-  desktopGridCols="0.7fr 0.5fr 0.7fr 0.7fr 1fr 0.8fr 0.2fr 1fr"
+  desktopGridCols="0.55fr 0.35fr 0.55fr 0.45fr 0.8fr 0.6fr 0.8fr 0.7fr"
 />
           </div>
 
