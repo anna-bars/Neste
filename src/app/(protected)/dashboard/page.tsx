@@ -10,111 +10,16 @@ import { UniversalTable, renderStatus, renderButton } from '@/app/components/tab
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/app/context/UserContext';
 import { useRouter } from 'next/navigation';
-
-// Dashboard-ի columns
-const dashboardColumns = [
-  {
-    key: 'id',
-    label: 'ID',
-    sortable: true,
-    renderDesktop: (value: string) => (
-      <span className="font-poppins text-sm text-[#2563eb] underline hover:text-[#1d4ed8] transition-colors duration-300 cursor-pointer">
-        {value}
-      </span>
-    )
-  },
-  {
-    key: 'type',
-    label: 'Type',
-    sortable: true,
-    renderDesktop: (type: string) => (
-      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-        type === 'Quote' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-      }`}>
-        {type}
-      </div>
-    )
-  },
-  {
-    key: 'cargo',
-    label: 'Cargo',
-    sortable: true,
-    renderDesktop: (_: any, row: any) => (
-      <span className="font-poppins text-sm text-black">
-        {row.cargo}
-      </span>
-    )
-  },
-  {
-    key: 'value',
-    label: 'Value',
-    sortable: true,
-    renderDesktop: (_: any, row: any) => (
-      <span className="font-poppins text-sm text-black">
-        ${row.value?.toLocaleString('en-US') || '0'}
-      </span>
-    )
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    sortable: true,
-    renderDesktop: (status: any) => renderStatus(status)
-  },
-  {
-    key: 'expiring',
-    label: 'Expiring',
-    sortable: true,
-    renderDesktop: (_: any, row: any) => {
-      // Ստուգել, թե արդյոք կա expiringDays հատկությունը
-      if (row.expiringDays !== undefined) {
-        if (row.expiringDays === 0) {
-          return (
-            <span className="font-poppins text-sm text-amber-600 font-medium">
-              Today
-            </span>
-          );
-        } else if (row.expiringDays > 0) {
-          return (
-            <span className="font-poppins text-sm text-gray-700">
-              {row.expiringDays} day{row.expiringDays !== 1 ? 's' : ''} left
-            </span>
-          );
-        } else if (row.expiringDays < 0) {
-          const daysAgo = Math.abs(row.expiringDays);
-          return (
-            <span className="font-poppins text-sm text-rose-600">
-              {daysAgo} day{daysAgo !== 1 ? 's' : ''} ago
-            </span>
-          );
-        }
-      }
-      return (
-        <span className="font-poppins text-sm text-gray-400">
-          -
-        </span>
-      );
-    }
-  },
-  {
-    key: 'date',
-    label: 'Created',
-    sortable: true
-  },
-  {
-    key: 'button',
-    label: 'Action',
-    renderDesktop: (button: any, row: any) => renderButton(button, row),
-    className: 'flex justify-end'
-  }
-];
+import { formatCombinedData, calculateDaysUntilExpiry, getQuoteStatusConfig, getPolicyStatusConfig, formatQuoteId, formatDate } from './dashboardHelpers';
+import { calculateCoverageUtilization, calculateAverageCoverage, calculateArrowConfig } from './dashboardCalculations';
+import { dashboardColumns } from './dashboardColumns';
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [dashboardRows, setDashboardRows] = useState<any[]>([])
   const [userName, setUserName] = useState<string>('')
   const [sortedRows, setSortedRows] = useState<any[]>([]);
-  // Performance metrics
+  
   const [performanceMetrics, setPerformanceMetrics] = useState({
     totalInsured: { value: '84', decimal: '5k', total: 84500 },
     activePolicies: { count: 8, percentage: 47 },
@@ -130,7 +35,149 @@ export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Conversion data հաշվարկ
+  const [conversionData, setConversionData] = useState<Record<string, ConversionChartData>>({
+    'This Week': { approved: 0, declined: 0, expired: 0 },
+    'This Month': { approved: 0, declined: 0, expired: 0 },
+    'Last Month': { approved: 0, declined: 0, expired: 0 },
+    'Last Quarter': { approved: 0, declined: 0, expired: 0 }
+  });
+
+  const [activeConversionPeriod, setActiveConversionPeriod] = useState<string>('This Month');
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      if (!user) return
+      
+      try {
+        const { data: userProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', user.id)
+          .single()
+
+        if (profileError) {
+          const emailName = user?.email?.split('@')[0] || 'User'
+          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
+        } else if (userProfile?.full_name) {
+          const firstName = userProfile.full_name.split(' ')[0]
+          setUserName(firstName)
+        } else {
+          const emailName = userProfile?.email?.split('@')[0] || user?.email?.split('@')[0] || 'User'
+          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
+        }
+
+        const { data: quotes, error: quotesError } = await supabase
+          .from('quotes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        if (quotesError) throw quotesError
+
+        const { data: policies, error: policiesError } = await supabase
+          .from('policies')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        if (policiesError) throw policiesError
+
+        const formattedData = formatCombinedData(
+          quotes || [],
+          policies || [],
+          getQuoteStatusConfig,
+          getPolicyStatusConfig,
+          formatQuoteId,
+          formatDate,
+          calculateDaysUntilExpiry
+        )
+        setDashboardRows(formattedData)
+
+        const periods = ['This Week', 'This Month', 'Last Month', 'Last Quarter'];
+        const newConversionData: Record<string, ConversionChartData> = {};
+        
+        periods.forEach(period => {
+          newConversionData[period] = calculateConversionData(quotes || [], period);
+        });
+        
+        setConversionData(newConversionData);
+
+        const totalInsuredAmount = (policies || []).reduce((sum, policy) => 
+          sum + (parseFloat(policy.coverage_amount) || 0), 0);
+
+        const activePoliciesCount = (policies || []).filter(p => p.status === 'active').length;
+        const totalPoliciesCount = policies?.length || 1;
+
+        let requiredDocumentUploadsCount = 0;
+
+        try {
+          const userQuoteIds = (quotes || []).map(q => q.id);
+          const userPolicyIds = (policies || []).map(p => p.id);
+          
+          if (userQuoteIds.length > 0 || userPolicyIds.length > 0) {
+            const { data: userDocuments, error: userDocsError } = await supabase
+              .from('documents')
+              .select('*')
+              .or(`quote_id.in.(${userQuoteIds.join(',')}),policy_id.in.(${userPolicyIds.join(',')})`);
+
+            if (!userDocsError && userDocuments) {
+              requiredDocumentUploadsCount = userDocuments.filter(doc => {
+                return doc.commercial_invoice_status === 'pending' ||
+                       doc.packing_list_status === 'pending' ||
+                       doc.bill_of_lading_status === 'pending';
+              }).length;
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user documents:", error);
+        }
+
+        const underReviewCount = (quotes || []).filter(q => q.status === 'under_review').length;
+
+        const readyToPayCount = (quotes || []).filter(q => 
+          q.status === 'approved' && q.payment_status !== 'paid'
+        ).length;
+
+        const totalQuotes = quotes?.length || 1;
+
+        const totalInsuredInK = Math.floor(totalInsuredAmount / 1000);
+        const decimalPart = Math.round((totalInsuredAmount % 1000) / 10);
+
+        setPerformanceMetrics({
+          totalInsured: { 
+            value: totalInsuredInK.toString(), 
+            decimal: `${decimalPart}k`, 
+            total: totalInsuredAmount 
+          },
+          activePolicies: { 
+            count: activePoliciesCount, 
+            percentage: Math.round((activePoliciesCount / totalPoliciesCount) * 100) || 0
+          },
+          quotesAwaiting: {
+            count: requiredDocumentUploadsCount, 
+            percentage: Math.round((requiredDocumentUploadsCount / totalQuotes) * 100) || 0
+          },
+          underReview: {
+            count: underReviewCount, 
+            percentage: Math.round((underReviewCount / totalQuotes) * 100) || 0
+          },
+          readyToPay: { 
+            count: readyToPayCount, 
+            percentage: Math.round((readyToPayCount / totalQuotes) * 100) || 0
+          }
+        });
+      } catch (error) {
+        console.error('Error loading dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboardData()
+  }, [user])
+
   const calculateConversionData = (quotes: any[], period: string = 'This Month'): ConversionChartData => {
     if (!quotes || !quotes.length) {
       return { approved: 0, declined: 0, expired: 0 };
@@ -185,7 +232,6 @@ export default function DashboardPage() {
         startDate = new Date(currentYear, currentMonth, 1);
     }
 
-    // Ֆիլտրել quotes ըստ ժամանակահատվածի
     const filteredQuotes = quotes.filter(quote => {
       if (!quote.created_at) return false;
       const quoteDate = new Date(quote.created_at);
@@ -234,573 +280,22 @@ export default function DashboardPage() {
       expired: expiredCount
     };
   };
-// Ֆունկցիա՝ հաշվարկելու մնացած օրերը մինչև ժամկետի լրանալը
-// Ֆունկցիա՝ հաշվարկելու մնացած օրերը մինչև ժամկետի լրանալը
-const calculateDaysUntilExpiry = (item: any) => {
-  const now = new Date();
-  let expirationDate: Date | null = null;
-  
-  // Ստուգել, թե quote-ը rejected է կամ approved & paid
-  if (item.dataType === 'quote') {
-    const quote = item.rawData;
-    
-    // Եթե quote-ը rejected է, չցուցադրել expiration date
-    if (quote.status === 'rejected') {
-      return null;
-    }
-    
-    // Եթե quote-ը approved & paid է, չցուցադրել expiration date
-    if (quote.status === 'approved' && quote.payment_status === 'paid') {
-      return null;
-    }
-    
-    // Quote-ի համար օգտագործել quote_expires_at
-    if (quote.quote_expires_at) {
-      expirationDate = new Date(quote.quote_expires_at);
-    }
-  } else if (item.dataType === 'policy') {
-    // Policy-ի համար օգտագործել coverage_end
-    if (item.rawData?.coverage_end) {
-      expirationDate = new Date(item.rawData.coverage_end);
-    }
-  }
-  
-  if (!expirationDate) return null;
-  
-  const diffTime = expirationDate.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  return diffDays;
-};
-  const [conversionData, setConversionData] = useState<Record<string, ConversionChartData>>({
-    'This Week': { approved: 0, declined: 0, expired: 0 },
-    'This Month': { approved: 0, declined: 0, expired: 0 },
-    'Last Month': { approved: 0, declined: 0, expired: 0 },
-    'Last Quarter': { approved: 0, declined: 0, expired: 0 }
-  });
-
-  const [activeConversionPeriod, setActiveConversionPeriod] = useState<string>('This Month');
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      if (!user) return
-      
-      try {
-        // Ստանալ օգտատիրոջ տվյալները profiles աղյուսակից
-        const { data: userProfile, error: profileError } = await supabase
-          .from('profiles')
-          .select('full_name, email')
-          .eq('id', user.id)
-          .single()
-
-        if (profileError) {
-          console.error('Error fetching user profile:', profileError)
-          const emailName = user?.email?.split('@')[0] || 'User'
-          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
-        } else if (userProfile?.full_name) {
-          const firstName = userProfile.full_name.split(' ')[0]
-          setUserName(firstName)
-        } else {
-          const emailName = userProfile?.email?.split('@')[0] || user?.email?.split('@')[0] || 'User'
-          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
-        }
-
-        // Ստանալ quote_requests-ները
-        const { data: quotes, error: quotesError } = await supabase
-          .from('quotes')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(50)
-
-        if (quotesError) throw quotesError
-
-        // Ստանալ policies-ները
-        const { data: policies, error: policiesError } = await supabase
-          .from('policies')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(50)
-
-        if (policiesError) throw policiesError
-
-        // Միավորել և format անել տվյալները - ԹԱՐՄԵՐԸ ՎԵՐԵՎՈՒՄ
-        const formattedData = formatCombinedData(
-          quotes || [],
-          policies || []
-        )
-        setDashboardRows(formattedData)
-
-        // Հաշվել conversion data բոլոր ժամանակահատվածների համար
-        const periods = ['This Week', 'This Month', 'Last Month', 'Last Quarter'];
-        const newConversionData: Record<string, ConversionChartData> = {};
-        
-        periods.forEach(period => {
-          newConversionData[period] = calculateConversionData(quotes || [], period);
-        });
-        
-        setConversionData(newConversionData);
-
-        // Կոդի հատվածը, որը պետք է փոխարինել `loadDashboardData` ֆունկցիայում
-
-// Հաշվել ավելի ճշգրիտ performance metrics
-// Կոդի հատվածը, որը պետք է փոխարինել `loadDashboardData` ֆունկցիայում
-// dashboard/page.tsx-ում loadDashboardData ֆունկցիայում
-// Այս մասը փոխարինեք ձեր ներկայիս metrics-ի հաշվարկի հետ
-
-// ...ձեր գոյություն ունեցող կոդը...
-
-// Տվյալների հաշվարկից հետո՝ հաշվել metrics-ը
-const totalInsuredAmount = (policies || []).reduce((sum, policy) => 
-  sum + (parseFloat(policy.coverage_amount) || 0), 0);
-
-const activePoliciesCount = (policies || []).filter(p => p.status === 'active').length;
-const totalPoliciesCount = policies?.length || 1;
-
-// 1. Contracts Due to Expire
-const contractsDueToExpireCount = formattedData.filter(item => {
-  if (item.expiringDays === null || item.expiringDays === undefined) return false;
-  
-  const isActiveOrApprovedPaid = 
-    (item.dataType === 'policy' && item.policyStatus === 'active') ||
-    (item.dataType === 'quote' && item.quoteStatus === 'approved' && item.paymentStatus === 'paid');
-  
-  return isActiveOrApprovedPaid && item.expiringDays >= 0 && item.expiringDays <= 2;
-}).length;
-
-// 2. Required Document Uploads - փաստաթղթերի հիման վրա
-// 2. Required Document Uploads - փաստաթղթերի հիման վրա
-let requiredDocumentUploadsCount = 0;
-
-try {
-  // Ստանալ quote-ների և policy-ների ID-ները
-  const userQuoteIds = (quotes || []).map(q => q.id);
-  const userPolicyIds = (policies || []).map(p => p.id);
-  
-  if (userQuoteIds.length > 0 || userPolicyIds.length > 0) {
-    // Փնտրել փաստաթղթեր, որոնք կապված են օգտատիրոջ quote-ների կամ policy-ների հետ
-    const { data: userDocuments, error: userDocsError } = await supabase
-      .from('documents')
-      .select('*')
-      .or(`quote_id.in.(${userQuoteIds.join(',')}),policy_id.in.(${userPolicyIds.join(',')})`);
-
-    if (!userDocsError && userDocuments) {
-      // Հաշվել pending փաստաթղթերը
-      requiredDocumentUploadsCount = userDocuments.filter(doc => {
-        return doc.commercial_invoice_status === 'pending' ||
-               doc.packing_list_status === 'pending' ||
-               doc.bill_of_lading_status === 'pending';
-      }).length;
+    if (dashboardRows.length > 0) {
+      const sorted = [...dashboardRows].sort((a, b) => {
+        const dateA = new Date(a.rawData?.created_at || a.date || '1970-01-01').getTime();
+        const dateB = new Date(b.rawData?.created_at || b.date || '1970-01-01').getTime();
+        return dateB - dateA;
+      });
+      setSortedRows(sorted);
     }
-  }
-} catch (error) {
-  console.error("Error fetching user documents:", error);
-}
-
-// 3. Under Review
-const underReviewCount = (quotes || []).filter(q => q.status === 'under_review').length;
-
-// 4. Ready to Pay
-const readyToPayCount = (quotes || []).filter(q => 
-  q.status === 'approved' && q.payment_status !== 'paid'
-).length;
-
-const totalQuotes = quotes?.length || 1;
-
-// Ավելի ճշգրիտ հաշվարկներ
-const totalInsuredInK = Math.floor(totalInsuredAmount / 1000);
-const decimalPart = Math.round((totalInsuredAmount % 1000) / 10);
-
-// Հիմա հաշվարկենք arrowDirection և arrowColor
-// Մենթալ տրամաբանություն. Եթե count > 0, ապա up arrow (բացի Ready to Pay-ից, որը ունի հակառակ տրամաբանություն)
-// Ready to Pay-ի համար՝ count > 0 = good (blue up), count === 0 = bad (red down)
-// Մյուսների համար՝ count > 0 = bad (red up), count === 0 = good (blue down)
-
-const calculateArrowConfig = (metricId: string, count: number, previousCount?: number) => {
-  switch(metricId) {
-    case 'active-policies':
-      // Active Policies: count > 0 = good (blue up)
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'blue' as const,
-        isPositive: true
-      };
-      
-    case 'quotes-awaiting':
-      // Required Document Uploads: count > 0 = bad (red up)
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'red' as const,
-        isPositive: false
-      };
-      
-    case 'under-review':
-      // Contracts Due to Expire: count > 0 = bad (red up)
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'red' as const,
-        isPositive: false
-      };
-      
-    case 'ready-to-pay':
-      // Ready to Pay: count > 0 = good (blue up)
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'blue' as const,
-        isPositive: true
-      };
-      
-    default:
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'blue' as const,
-        isPositive: true
-      };
-  }
-};
-
-// Տեղադրել metrics-ը state-ում
-setPerformanceMetrics({
-  totalInsured: { 
-    value: totalInsuredInK.toString(), 
-    decimal: `${decimalPart}k`, 
-    total: totalInsuredAmount 
-  },
-  activePolicies: { 
-    count: activePoliciesCount, 
-    percentage: Math.round((activePoliciesCount / totalPoliciesCount) * 100) || 0
-  },
-  quotesAwaiting: {
-    count: requiredDocumentUploadsCount, 
-    percentage: Math.round((requiredDocumentUploadsCount / totalQuotes) * 100) || 0
-  },
-  underReview: {
-    count: contractsDueToExpireCount, 
-    percentage: Math.round((contractsDueToExpireCount / totalQuotes) * 100) || 0
-  },
-  readyToPay: { 
-    count: readyToPayCount, 
-    percentage: Math.round((readyToPayCount / totalQuotes) * 100) || 0
-  }
-});
-      } catch (error) {
-        console.error('Error loading dashboard data:', error)
-        
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadDashboardData()
-  }, [user])
-
-  // Status config ֆունկցիա quotes-ի համար
-  const getQuoteStatusConfig = (quote: any) => {
-    const calculateDaysText = (expirationTime: string) => {
-      if (!expirationTime) return '';
-      
-      const now = new Date();
-      const expiration = new Date(expirationTime);
-      const diffTime = expiration.getTime() - now.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays > 0) {
-        return ` (${diffDays} day${diffDays !== 1 ? 's' : ''} left)`;
-      } else if (diffDays < 0) {
-        const daysAgo = Math.abs(diffDays);
-        return ` (${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago)`;
-      } else {
-        return ' (Today)';
-      }
-    };
-
-    const isPaid = quote.payment_status === 'paid';
-    const isExpired = quote.quote_expires_at && new Date(quote.quote_expires_at) < new Date();
-    const daysText = quote.expiration_time ? calculateDaysText(quote.expiration_time) : '';
-
-    // Եթե quote-ը արդեն approved և paid է, ապա հաշվի չառնել expiration-ը
-    const isApprovedAndPaid = quote.status === 'approved' && isPaid;
-    
-    const statusMap: Record<string, any> = {
-      'draft': { 
-        text: 'Continue Quote', 
-        color: 'bg-gray-100', 
-        dot: 'bg-gray-500', 
-        textColor: 'text-gray-700',
-        buttonText: 'Continue Quote',
-        buttonVariant: 'primary' as const
-      },
-      'submitted': { 
-        text: 'Waiting for review', 
-        color: 'bg-blue-50', 
-        dot: 'bg-blue-500', 
-        textColor: 'text-blue-700',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      },
-      'under_review': { 
-        text: 'Documents under review', 
-        color: 'bg-amber-50', 
-        dot: 'bg-amber-500', 
-        textColor: 'text-amber-700',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      },
-      'approved': { 
-        text: isPaid ? 'Approved & Paid' : 'Pay to Activate', 
-        color: isPaid ? 'bg-emerald-50' : 'bg-amber-50', 
-        dot: isPaid ? 'bg-emerald-500' : 'bg-amber-500', 
-        textColor: isPaid ? 'text-emerald-700' : 'text-amber-700',
-        buttonText: isPaid ? 'View Policy' : 'Pay Now',
-        buttonVariant: isPaid ? 'success' as const : 'primary' as const
-      },
-      'rejected': { 
-        text: 'Rejected', 
-        color: 'bg-rose-50', 
-        dot: 'bg-rose-500', 
-        textColor: 'text-rose-700',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      },
-      'expired': { 
-        text: 'Expired', 
-        color: 'bg-gray-100', 
-        dot: 'bg-gray-400', 
-        textColor: 'text-gray-600',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      },
-      'converted': { 
-        text: 'Converted to Policy', 
-        color: 'bg-emerald-50', 
-        dot: 'bg-emerald-500', 
-        textColor: 'text-emerald-700',
-        buttonText: 'View Policy',
-        buttonVariant: 'success' as const
-      },
-      'waiting_for_docs': { 
-        text: 'Waiting for Documents', 
-        color: 'bg-cyan-50', 
-        dot: 'bg-cyan-500', 
-        textColor: 'text-cyan-700',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      }
-    };
-
-    // 1. Ստուգենք, արդյոք quote-ն expired է
-    if (isExpired) {
-      return {
-        text: 'Expired' + daysText,
-        color: 'bg-gray-100',
-        dot: 'bg-gray-400',
-        textColor: 'text-gray-600',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const,
-        isActuallyExpired: true
-      };
-    }
-
-    // 2. Եթե արդեն approved և paid է, ապա պարզապես ցույց տալ "Approved & Paid"
-    if (isApprovedAndPaid) {
-      return {
-        text: 'Approved & Paid',
-        color: 'bg-emerald-50',
-        dot: 'bg-emerald-500',
-        textColor: 'text-emerald-700',
-        buttonText: 'View Policy',
-        buttonVariant: 'success' as const
-      };
-    }
-
-    const baseConfig = statusMap[quote.status] || statusMap['draft'];
-    
-    // 3. Մնացած դեպքերում ավելացնել ժամանակ, եթե կա
-    if (['approved', 'pay_to_activate', 'submitted'].includes(quote.status) && quote.expiration_time && !isApprovedAndPaid) {
-      return {
-        ...baseConfig,
-        text: baseConfig.text + daysText
-      };
-    }
-    
-    return baseConfig;
-  };
-
-  // Status config ֆունկցիա policies-ի համար
-  const getPolicyStatusConfig = (policy: any) => {
-    const statusMap: Record<string, any> = {
-      'active': { 
-        text: 'Active', 
-        color: 'bg-emerald-50', 
-        dot: 'bg-emerald-500', 
-        textColor: 'text-emerald-700',
-        buttonText: 'View Shipment',
-        buttonVariant: 'success' as const
-      },
-      'pending': { 
-        text: 'Pending Activation', 
-        color: 'bg-blue-50', 
-        dot: 'bg-blue-500', 
-        textColor: 'text-blue-700',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      },
-      'expired': { 
-        text: 'Expired', 
-        color: 'bg-gray-100', 
-        dot: 'bg-gray-400', 
-        textColor: 'text-gray-600',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      },
-      'cancelled': { 
-        text: 'Cancelled', 
-        color: 'bg-rose-50', 
-        dot: 'bg-rose-500', 
-        textColor: 'text-rose-700',
-        buttonText: 'View Details',
-        buttonVariant: 'secondary' as const
-      }
-    };
-
-    return statusMap[policy.status] || statusMap['pending'];
-  };
-useEffect(() => {
-  if (dashboardRows.length > 0) {
-    // Sort ըստ ամսաթվի - ամենանորերը վերևում
-    const sorted = [...dashboardRows].sort((a, b) => {
-      const dateA = new Date(a.rawData?.created_at || a.date || '1970-01-01').getTime();
-      const dateB = new Date(b.rawData?.created_at || b.date || '1970-01-01').getTime();
-      return dateB - dateA;
-    });
-    setSortedRows(sorted);
-  } else {
-    
-  }
-}, [dashboardRows]);
-
-  const formatQuoteId = (id: string) => {
-    if (id.startsWith('Q-')) {
-      return id;
-    }
-    if (id.startsWith('temp-')) {
-      const randomNum = Math.floor(Math.random() * 10000).toString().padStart(5, '0');
-      return `Q-${randomNum}`;
-    }
-    return `Q-${id.slice(-5)}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  };
-
-// formatCombinedData ֆունկցիան պետք է ուղղենք
-// formatCombinedData ֆունկցիան պետք է ուղղենք
-const formatCombinedData = (quotes: any[], policies: any[]) => {
-  const allItems: any[] = [];
-
-  // Ստեղծել quotes-ի տարրերը
-  quotes.forEach(quote => {
-    const statusConfig = getQuoteStatusConfig(quote);
-    const createdAt = new Date(quote.created_at);
-    const expiringDays = calculateDaysUntilExpiry({ 
-      dataType: 'quote', 
-      rawData: quote 
-    });
-    
-    const buttonAction = { 
-      text: statusConfig.buttonText, 
-      variant: statusConfig.buttonVariant,
-      onClick: (row: any) => handleQuoteAction(row, quote)
-    };
-    
-    allItems.push({
-      type: 'Quote',
-      id: quote.quote_number || formatQuoteId(quote.id),
-      cargo: quote.cargo_type || 'Unknown',
-      value: quote.shipment_value || 0,
-      status: {
-        text: statusConfig.text,
-        color: statusConfig.color,
-        dot: statusConfig.dot,
-        textColor: statusConfig.textColor
-      },
-      date: formatDate(quote.created_at),
-      button: buttonAction,
-      rawData: quote,
-      dataType: 'quote',
-      quoteStatus: quote.status,
-      paymentStatus: quote.payment_status,
-      // Կարևոր! - պահպանել ISO ամսաթիվը sort-ի համար
-      sortDate: quote.created_at, // Պահպանել ISO string-ը
-      timestamp: createdAt.getTime(), // Պահպանել timestamp-ը
-      expiringDays: expiringDays // Ավելացնել expiring օրերը
-    });
-  });
-
-  // Ստեղծել policies-ի տարրերը
-  policies.forEach(policy => {
-    const statusConfig = getPolicyStatusConfig(policy);
-    const createdAt = new Date(policy.created_at);
-    const expiringDays = calculateDaysUntilExpiry({ 
-      dataType: 'policy', 
-      rawData: policy 
-    });
-    
-    const buttonAction = { 
-      text: statusConfig.buttonText, 
-      variant: statusConfig.buttonVariant,
-      onClick: (row: any) => handlePolicyAction(row, policy)
-    };
-    
-    allItems.push({
-      type: 'Policy',
-      id: policy.policy_number,
-      cargo: policy.cargo_type || 'Unknown',
-      value: parseFloat(policy.coverage_amount) || 0,
-      status: {
-        text: statusConfig.text,
-        color: statusConfig.color,
-        dot: statusConfig.dot,
-        textColor: statusConfig.textColor
-      },
-      date: formatDate(policy.created_at),
-      button: buttonAction,
-      rawData: policy,
-      dataType: 'policy',
-      policyStatus: policy.status,
-      // Կարևոր! - պահպանել ISO ամսաթիվը sort-ի համար
-      sortDate: policy.created_at, // Պահպանել ISO string-ը
-      timestamp: createdAt.getTime(), // Պահպանել timestamp-ը
-      expiringDays: expiringDays // Ավելացնել expiring օրերը
-    });
-  });
-
-  // SORT անել ըստ ամսաթվի - ԹԱՐՄԵՐԸ ՎԵՐԵՎՈՒՄ
-  // Օգտագործել timestamp-ը կամ ISO string-ը
-  return allItems.sort((a, b) => {
-    // Ստուգել, թե արդյոք տվյալներն ունեն timestamp
-    if (a.timestamp && b.timestamp) {
-      return b.timestamp - a.timestamp;
-    }
-    // Հակառակ դեպքում օգտագործել ISO string-ը
-    return new Date(b.sortDate || b.rawData?.created_at).getTime() - 
-           new Date(a.sortDate || a.rawData?.created_at).getTime();
-  });
-};
+  }, [dashboardRows]);
 
   const handleQuoteAction = (row: any, quote: any) => {
     const quoteId = row.rawData?.id || row.id;
     const status = quote.status;
     const paymentStatus = quote.payment_status;
-    const isExpired = quote.quote_expires_at && new Date(quote.quote_expires_at) < new Date();
     
     const checkPolicyAndRedirect = async () => {
       try {
@@ -891,48 +386,6 @@ const formatCombinedData = (quotes: any[], policies: any[]) => {
     
     setActiveWidget(currentIndex)
   };
-const calculateArrowConfig = (metricId: string, count: number, previousCount?: number) => {
-  switch(metricId) {
-    case 'active-policies':
-      // Active Policies: count > 0 = good (blue up)
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'blue' as const,
-        isPositive: true
-      };
-      
-    case 'quotes-awaiting':
-      // Required Document Uploads: count > 0 = bad (red up)
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'red' as const,
-        isPositive: false
-      };
-      
-    case 'under-review':
-      // Contracts Due to Expire: count > 0 = bad (red up)
-      return {
-        arrowDirection: 'down' as const,
-        arrowColor: 'blue' as const,
-        isPositive: true
-      };
-      
-    case 'ready-to-pay':
-      // Ready to Pay: count > 0 = good (blue up)
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'blue' as const,
-        isPositive: true
-      };
-      
-    default:
-      return {
-        arrowDirection: 'up' as const,
-        arrowColor: 'blue' as const,
-        isPositive: true
-      };
-  }
-};
 
   const scrollToWidget = (index: number) => {
     if (!scrollContainerRef.current || !isMobile) return
@@ -980,56 +433,56 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
             max-[1280px]:min-h-auto max-[1280px]:max-h-none max-[1280px]:row-start-2
             max-[1024px]:min-h-auto max-[1024px]:max-h-none
           ">
-<PerformanceOverview 
-  title="Performance Overview"
-  timePeriod="This Month"
-  metrics={[
-    {
-      id: 'total-insured-amount',
-      value: performanceMetrics.totalInsured.value,
-      decimal: performanceMetrics.totalInsured.decimal,
-      prefix: '$',
-      label: 'Total Insured Amount',
-      hasArrow: false
-    },
-    {
-      id: 'active-policies',
-      value: performanceMetrics.activePolicies.count.toString(),
-      decimal: '',
-      suffix: '%',
-      label: 'Active Policies',
-      hasArrow: true,
-      ...calculateArrowConfig('active-policies', performanceMetrics.activePolicies.count)
-    },
-    {
-      id: 'quotes-awaiting',
-      value: performanceMetrics.quotesAwaiting.count.toString(),
-      decimal: '',
-      suffix: '%',
-      label: 'Required Document Uploads',
-      hasArrow: true,
-      ...calculateArrowConfig('quotes-awaiting', performanceMetrics.quotesAwaiting.count)
-    },
-    {
-      id: 'under-review',
-      value: performanceMetrics.underReview.count.toString(),
-      decimal: '',
-      suffix: '%',
-      label: 'Contracts Due to Expire',
-      hasArrow: true,
-      ...calculateArrowConfig('under-review', performanceMetrics.underReview.count)
-    },
-    {
-      id: 'ready-to-pay',
-      value: performanceMetrics.readyToPay.count.toString(),
-      decimal: '',
-      suffix: '%',
-      label: 'Ready to Pay',
-      hasArrow: true,
-      ...calculateArrowConfig('ready-to-pay', performanceMetrics.readyToPay.count)
-    }
-  ]}
-/>
+            <PerformanceOverview 
+              title="Performance Overview"
+              timePeriod="This Month"
+              metrics={[
+                {
+                  id: 'total-insured-amount',
+                  value: performanceMetrics.totalInsured.value,
+                  decimal: performanceMetrics.totalInsured.decimal,
+                  prefix: '$',
+                  label: 'Total Insured Amount',
+                  hasArrow: false
+                },
+                {
+                  id: 'active-policies',
+                  value: performanceMetrics.activePolicies.count.toString(),
+                  decimal: '',
+                  suffix: '%',
+                  label: 'Active Policies',
+                  hasArrow: true,
+                  ...calculateArrowConfig('active-policies', performanceMetrics.activePolicies.count)
+                },
+                {
+                  id: 'quotes-awaiting',
+                  value: performanceMetrics.quotesAwaiting.count.toString(),
+                  decimal: '',
+                  suffix: '%',
+                  label: 'Required Document Uploads',
+                  hasArrow: true,
+                  ...calculateArrowConfig('quotes-awaiting', performanceMetrics.quotesAwaiting.count)
+                },
+                {
+                  id: 'under-review',
+                  value: performanceMetrics.underReview.count.toString(),
+                  decimal: '',
+                  suffix: '%',
+                  label: 'Contracts Due to Expire',
+                  hasArrow: true,
+                  ...calculateArrowConfig('under-review', performanceMetrics.underReview.count)
+                },
+                {
+                  id: 'ready-to-pay',
+                  value: performanceMetrics.readyToPay.count.toString(),
+                  decimal: '',
+                  suffix: '%',
+                  label: 'Ready to Pay',
+                  hasArrow: true,
+                  ...calculateArrowConfig('ready-to-pay', performanceMetrics.readyToPay.count)
+                }
+              ]}
+            />
 
             <div className="block md:hidden">
               <ConversionChart 
@@ -1051,39 +504,39 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
               />
             </div>
 
-<UniversalTable
-  title="Recent Activity"
-  showMobileHeader={false}
-  rows={sortedRows}
-  columns={dashboardColumns}
-  filterConfig={{
-    showActivityFilter: true,
-    showTimeframeFilter: true,
-    showSortFilter: false,
-    activityOptions: [
-      'All Activity', 
-      'Quotes',
-      'Policies',
-      'Draft', 
-      'Submitted', 
-      'Under Review', 
-      'Approved', 
-      'Rejected',
-      'Active'
-    ],
-    timeframeOptions: ['Last 7 days', 'Last 30 days', 'Last 3 months', 'All time']
-  }}
-  mobileDesign={{
-    showType: true,
-    showCargoIcon: true,
-    showDateIcon: true,
-    dateLabel: 'Created',
-    buttonWidth: '47%',
-    showExpiringIcon: true // Ավելացնել նոր prop
-  }}
-  mobileDesignType="dashboard"
-  desktopGridCols="0.55fr 0.35fr 0.55fr 0.45fr 0.8fr 0.6fr 0.8fr 0.7fr"
-/>
+            <UniversalTable
+              title="Recent Activity"
+              showMobileHeader={false}
+              rows={sortedRows}
+              columns={dashboardColumns}
+              filterConfig={{
+                showActivityFilter: true,
+                showTimeframeFilter: true,
+                showSortFilter: false,
+                activityOptions: [
+                  'All Activity', 
+                  'Quotes',
+                  'Policies',
+                  'Draft', 
+                  'Submitted', 
+                  'Under Review', 
+                  'Approved', 
+                  'Rejected',
+                  'Active'
+                ],
+                timeframeOptions: ['Last 7 days', 'Last 30 days', 'Last 3 months', 'All time']
+              }}
+              mobileDesign={{
+                showType: true,
+                showCargoIcon: true,
+                showDateIcon: true,
+                dateLabel: 'Created',
+                buttonWidth: '47%',
+                showExpiringIcon: true
+              }}
+              mobileDesignType="dashboard"
+              desktopGridCols="0.55fr 0.35fr 0.55fr 0.45fr 0.8fr 0.6fr 0.8fr 0.7fr"
+            />
           </div>
 
           <div className="
@@ -1115,10 +568,10 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
             </div>
 
             <HighValueCargoWidget 
-  percentage={calculateCoverageUtilization(dashboardRows)}
-  mtdValue={calculateAverageCoverage(dashboardRows)}
-  widgetType="coverage-utilization" // Ավելացնել նոր prop
-/>
+              percentage={calculateCoverageUtilization(dashboardRows)}
+              mtdValue={calculateAverageCoverage(dashboardRows)}
+              widgetType="coverage-utilization"
+            />
           </div>
 
           <div className="
@@ -1156,10 +609,10 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
 
               <div className="w-full h-[240px]">
                 <HighValueCargoWidget 
-  percentage={calculateCoverageUtilization(dashboardRows)}
-  mtdValue={calculateAverageCoverage(dashboardRows)}
-  widgetType="coverage-utilization" // Ավելացնել նոր prop
-/>
+                  percentage={calculateCoverageUtilization(dashboardRows)}
+                  mtdValue={calculateAverageCoverage(dashboardRows)}
+                  widgetType="coverage-utilization"
+                />
               </div>
             </div>
           </div>
@@ -1167,75 +620,4 @@ const calculateArrowConfig = (metricId: string, count: number, previousCount?: n
       </div>
     </DashboardLayout>
   )
-}
-
-function calculateHighValuePercentage(data: any[]) {
-  if (!data.length) return 0
-  
-  const highValueThreshold = 10000  // <-- Սա 10,000$ է
-  const highValueCount = data.filter(item => item.value >= highValueThreshold).length
-  return (highValueCount / data.length) * 100  // <-- Բաժանում է բոլոր items-ների քանակի վրա
-}
-// Հաշվել ապահովագրական ծածկույթի օգտագործումը
-// Փոխարինիր սա քո DashboardPage.tsx-ում
-function calculateCoverageUtilization(data: any[]): number {
-  if (!data.length) return 0;
-  
-  // 1. Հաշվել ակտիվ ապահովագրությունները
-  const activePolicies = data.filter(item => 
-    item.dataType === 'policy' && item.policyStatus === 'active'
-  );
-  
-  // 2. Հաշվել quotes-ները, որոնք approved և paid են (և դարձել են policies)
-  const approvedPaidQuotes = data.filter(item => 
-    item.dataType === 'quote' && 
-    item.quoteStatus === 'approved' && 
-    item.paymentStatus === 'paid'
-  );
-  
-  // 3. Հաշվել quotes-ների ընդհանուր քանակը (բացառել draft-ները և rejected-ները)
-  const totalQuotes = data.filter(item => 
-    item.dataType === 'quote' && 
-    item.quoteStatus !== 'draft' && 
-    item.quoteStatus !== 'rejected' &&
-    item.quoteStatus !== 'expired'
-  ).length;
-  
-  // 4. Հաշվել փոխակերպված քանակը
-  // Նախընտրելի է՝ activePolicies + approvedPaidQuotes
-  // Բայց որոշ approvedPaidQuotes-ներ արդեն ունեն իրենց policy-ները
-  const totalConverted = activePolicies.length;
-  
-  if (totalQuotes === 0) return 0;
-  
-  // 5. Հաշվել տոկոսը, բայց սահմանափակել 100%-ով
-  const percentage = (totalConverted / totalQuotes) * 100;
-  
-  // 6. Սահմանափակել 0-ից 100 միջակայքում
-  return Math.min(Math.max(0, percentage), 100);
-}
-// Հաշվել միջին ապահովագրական գումարը
-// Փոխարինիր սա քո DashboardPage.tsx-ում
-function calculateAverageCoverage(data: any[]): string {
-  if (!data.length) return '0';
-  
-  // Ֆիլտրել միայն ակտիվ ապահովագրությունները
-  const activePolicies = data.filter(item => 
-    item.dataType === 'policy' && item.policyStatus === 'active'
-  );
-  
-  if (activePolicies.length === 0) return '0';
-  
-  // Հաշվել ընդհանուր ապահովագրական գումարը
-  const totalValue = activePolicies.reduce((sum, item) => sum + (item.value || 0), 0);
-  const averageValue = totalValue / activePolicies.length;
-  
-  // Ձևաչափել
-  if (averageValue >= 1000000) {
-    return `$${(averageValue / 1000000).toFixed(1)}M`;
-  } else if (averageValue >= 1000) {
-    return `$${(averageValue / 1000).toFixed(1)}k`;
-  }
-  
-  return `$${Math.round(averageValue).toLocaleString()}`;
 }
