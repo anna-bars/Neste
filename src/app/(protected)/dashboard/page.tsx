@@ -1167,26 +1167,45 @@ function calculateHighValuePercentage(data: any[]) {
   return (highValueCount / data.length) * 100  // <-- Բաժանում է բոլոր items-ների քանակի վրա
 }
 // Հաշվել ապահովագրական ծածկույթի օգտագործումը
+// Փոխարինիր սա քո DashboardPage.tsx-ում
 function calculateCoverageUtilization(data: any[]): number {
   if (!data.length) return 0;
   
-  // Հաշվել ակտիվ ապահովագրությունները
+  // 1. Հաշվել ակտիվ ապահովագրությունները
   const activePolicies = data.filter(item => 
     item.dataType === 'policy' && item.policyStatus === 'active'
+  );
+  
+  // 2. Հաշվել quotes-ները, որոնք approved և paid են (և դարձել են policies)
+  const approvedPaidQuotes = data.filter(item => 
+    item.dataType === 'quote' && 
+    item.quoteStatus === 'approved' && 
+    item.paymentStatus === 'paid'
+  );
+  
+  // 3. Հաշվել quotes-ների ընդհանուր քանակը (բացառել draft-ները և rejected-ները)
+  const totalQuotes = data.filter(item => 
+    item.dataType === 'quote' && 
+    item.quoteStatus !== 'draft' && 
+    item.quoteStatus !== 'rejected' &&
+    item.quoteStatus !== 'expired'
   ).length;
   
-  // Հաշվել ընդհանուր quotes-ները (բացառել draft-ները)
-  const totalQuotes = data.filter(item => 
-    item.dataType === 'quote' && item.quoteStatus !== 'draft'
-  ).length;
+  // 4. Հաշվել փոխակերպված քանակը
+  // Նախընտրելի է՝ activePolicies + approvedPaidQuotes
+  // Բայց որոշ approvedPaidQuotes-ներ արդեն ունեն իրենց policy-ները
+  const totalConverted = activePolicies.length;
   
   if (totalQuotes === 0) return 0;
   
-  // Հաշվել տոկոսը
-  return (activePolicies / totalQuotes) * 100;
+  // 5. Հաշվել տոկոսը, բայց սահմանափակել 100%-ով
+  const percentage = (totalConverted / totalQuotes) * 100;
+  
+  // 6. Սահմանափակել 0-ից 100 միջակայքում
+  return Math.min(Math.max(0, percentage), 100);
 }
-
 // Հաշվել միջին ապահովագրական գումարը
+// Փոխարինիր սա քո DashboardPage.tsx-ում
 function calculateAverageCoverage(data: any[]): string {
   if (!data.length) return '0';
   
@@ -1197,12 +1216,14 @@ function calculateAverageCoverage(data: any[]): string {
   
   if (activePolicies.length === 0) return '0';
   
-  // Հաշվել միջին գումարը
-  const totalValue = activePolicies.reduce((sum, item) => sum + item.value, 0);
+  // Հաշվել ընդհանուր ապահովագրական գումարը
+  const totalValue = activePolicies.reduce((sum, item) => sum + (item.value || 0), 0);
   const averageValue = totalValue / activePolicies.length;
   
   // Ձևաչափել
-  if (averageValue >= 1000) {
+  if (averageValue >= 1000000) {
+    return `$${(averageValue / 1000000).toFixed(1)}M`;
+  } else if (averageValue >= 1000) {
     return `$${(averageValue / 1000).toFixed(1)}k`;
   }
   
