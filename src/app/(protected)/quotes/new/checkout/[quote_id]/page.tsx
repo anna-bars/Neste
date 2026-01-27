@@ -424,7 +424,7 @@ export default function CheckoutPage() {
 
       setTimeout(() => {
         if (createdPolicyId) {
-          router.push(`/shipments/${createdPolicyId}`);
+          router.push(`/quotes/${quoteId}/success`);
         } else {
           router.push(`/quotes/${quoteId}/success`);
         }
