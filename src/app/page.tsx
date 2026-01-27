@@ -110,7 +110,7 @@ export default async function HomePage() {
           {/* Desktop Dashboard Image */}
           <div className="hidden md:block">
             <Image 
-              src="/landing/dash.png" 
+              src="/landing/dashbaord-deskt.png" 
               alt="Cargo Guard Dashboard" 
               width={1200}
               height={600}
