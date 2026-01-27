@@ -1,3 +1,5 @@
+// src/app/(protected)/dashboard/page.tsx
+
 'use client'
 
 import DashboardLayout from '../DashboardLayout'
@@ -10,8 +12,22 @@ import { UniversalTable, renderStatus, renderButton } from '@/app/components/tab
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/app/context/UserContext';
 import { useRouter } from 'next/navigation';
-import { formatCombinedData, calculateDaysUntilExpiry, getQuoteStatusConfig, getPolicyStatusConfig, formatQuoteId, formatDate } from './dashboardHelpers';
-import { calculateCoverageUtilization, calculateAverageCoverage, calculateArrowConfig } from './dashboardCalculations';
+import { 
+  formatCombinedData, 
+  calculateDaysUntilExpiry, 
+  getQuoteStatusConfig, 
+  getPolicyStatusConfig, 
+  formatQuoteId, 
+  formatDate 
+} from './dashboardHelpers';
+import { 
+  calculateCoverageUtilization, 
+  calculateAverageCoverage, 
+  calculateArrowConfig,
+  calculateDocumentsStatus,
+  calculateQuotesAwaiting,
+  calculateContractsDueToExpire
+} from './dashboardCalculations';
 import { dashboardColumns } from './dashboardColumns';
 
 export default function DashboardPage() {
@@ -110,31 +126,9 @@ export default function DashboardPage() {
         const activePoliciesCount = (policies || []).filter(p => p.status === 'active').length;
         const totalPoliciesCount = policies?.length || 1;
 
-        let requiredDocumentUploadsCount = 0;
-
-        try {
-          const userQuoteIds = (quotes || []).map(q => q.id);
-          const userPolicyIds = (policies || []).map(p => p.id);
-          
-          if (userQuoteIds.length > 0 || userPolicyIds.length > 0) {
-            const { data: userDocuments, error: userDocsError } = await supabase
-              .from('documents')
-              .select('*')
-              .or(`quote_id.in.(${userQuoteIds.join(',')}),policy_id.in.(${userPolicyIds.join(',')})`);
-
-            if (!userDocsError && userDocuments) {
-              requiredDocumentUploadsCount = userDocuments.filter(doc => {
-                return doc.commercial_invoice_status === 'pending' ||
-                       doc.packing_list_status === 'pending' ||
-                       doc.bill_of_lading_status === 'pending';
-              }).length;
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching user documents:", error);
-        }
-
-        const underReviewCount = (quotes || []).filter(q => q.status === 'under_review').length;
+        const documentsStatus = await calculateDocumentsStatus(policies || [], supabase);
+        const requiredDocumentUploadsCount = calculateQuotesAwaiting(policies || [], documentsStatus);
+        const contractsDueToExpireCount = calculateContractsDueToExpire(formattedData);
 
         const readyToPayCount = (quotes || []).filter(q => 
           q.status === 'approved' && q.payment_status !== 'paid'
@@ -157,11 +151,15 @@ export default function DashboardPage() {
           },
           quotesAwaiting: {
             count: requiredDocumentUploadsCount, 
-            percentage: Math.round((requiredDocumentUploadsCount / totalQuotes) * 100) || 0
+            percentage: activePoliciesCount > 0 
+              ? Math.round((requiredDocumentUploadsCount / activePoliciesCount) * 100)
+              : 0
           },
           underReview: {
-            count: underReviewCount, 
-            percentage: Math.round((underReviewCount / totalQuotes) * 100) || 0
+            count: contractsDueToExpireCount, 
+            percentage: activePoliciesCount > 0
+              ? Math.round((contractsDueToExpireCount / activePoliciesCount) * 100)
+              : 0
           },
           readyToPay: { 
             count: readyToPayCount, 

@@ -1,4 +1,3 @@
-// src/app/page.tsx
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -9,7 +8,6 @@ export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Եթե օգտատերը մուտք գործած է, ուղղորդել dashboard
   if (user) {
     redirect('/dashboard')
   }

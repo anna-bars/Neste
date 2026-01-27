@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: 'Cargo Guard - Logistics Insurance',
   description: 'Instant cargo insurance quotes for global logistics',
   icons: {
-    icon: '/favicon.png', // կամ '/favicon.svg'
+    icon: '/favicon.png', 
   },
 }
 

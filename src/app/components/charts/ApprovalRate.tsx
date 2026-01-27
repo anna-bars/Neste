@@ -114,8 +114,6 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
     ? percentage + (approvalPercentage - percentage) * animationProgress
     : percentage;
 
-    console.log("😡😡😡😡", animatedPercentage);
-    
 
   const animatedCount = isAnimating
     ? Math.round(count + (approvedCount - count) * animationProgress)
