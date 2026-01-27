@@ -370,22 +370,32 @@ const contractsDueToExpireCount = formattedData.filter(item => {
 }).length;
 
 // 2. Required Document Uploads - փաստաթղթերի հիման վրա
+// 2. Required Document Uploads - փաստաթղթերի հիման վրա
 let requiredDocumentUploadsCount = 0;
 
 try {
-  const { data: allDocuments, error: allDocsError } = await supabase
-    .from('documents')
-    .select('*');
+  // Ստանալ quote-ների և policy-ների ID-ները
+  const userQuoteIds = (quotes || []).map(q => q.id);
+  const userPolicyIds = (policies || []).map(p => p.id);
+  
+  if (userQuoteIds.length > 0 || userPolicyIds.length > 0) {
+    // Փնտրել փաստաթղթեր, որոնք կապված են օգտատիրոջ quote-ների կամ policy-ների հետ
+    const { data: userDocuments, error: userDocsError } = await supabase
+      .from('documents')
+      .select('*')
+      .or(`quote_id.in.(${userQuoteIds.join(',')}),policy_id.in.(${userPolicyIds.join(',')})`);
 
-  if (!allDocsError && allDocuments) {
-    requiredDocumentUploadsCount = allDocuments.filter(doc => {
-      return doc.commercial_invoice_status === 'pending' ||
-             doc.packing_list_status === 'pending' ||
-             doc.bill_of_lading_status === 'pending';
-    }).length;
+    if (!userDocsError && userDocuments) {
+      // Հաշվել pending փաստաթղթերը
+      requiredDocumentUploadsCount = userDocuments.filter(doc => {
+        return doc.commercial_invoice_status === 'pending' ||
+               doc.packing_list_status === 'pending' ||
+               doc.bill_of_lading_status === 'pending';
+      }).length;
+    }
   }
 } catch (error) {
-  console.error("Error fetching documents:", error);
+  console.error("Error fetching user documents:", error);
 }
 
 // 3. Under Review
