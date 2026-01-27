@@ -1,4 +1,3 @@
-// ./components/QuickActions.tsx
 import React from 'react';
 import { FileText, CreditCard, CheckCircle, AlertCircle, RefreshCw, Edit } from 'lucide-react';
 import { QuoteData } from '../types';

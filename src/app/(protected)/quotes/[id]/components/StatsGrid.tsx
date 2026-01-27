@@ -10,7 +10,7 @@ interface StatsGridProps {
 export default function StatsGrid({ quoteData, statusConfig }: StatsGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Premium Card */}
+
       <div className="relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-blue-600/5 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
         <div className={`relative bg-white/90 rounded-2xl border p-5 transition-all duration-300 ${
@@ -40,7 +40,7 @@ export default function StatsGrid({ quoteData, statusConfig }: StatsGridProps) {
               ? 'text-rose-700' 
               : 'text-gray-900'
           }`}>
-            {formatCurrency(quoteData.calculated_premium)}
+          
           </p>
           <div className="mt-3 h-1 w-full bg-gray-200 rounded-full overflow-hidden">
             <div className={`h-full rounded-full ${
@@ -52,7 +52,6 @@ export default function StatsGrid({ quoteData, statusConfig }: StatsGridProps) {
         </div>
       </div>
       
-      {/* Coverage Card */}
       <div className="relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-emerald-600/5 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
         <div className="relative bg-white/90 rounded-2xl border border-gray-200 p-5 hover:border-emerald-500 transition-all duration-300">
@@ -88,7 +87,6 @@ export default function StatsGrid({ quoteData, statusConfig }: StatsGridProps) {
         </div>
       </div>
       
-      {/* Cargo Value Card */}
       <div className="relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-amber-600/5 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
         <div className="relative bg-white/90 rounded-2xl border border-gray-200 p-5 hover:border-amber-500 transition-all duration-300">
@@ -105,7 +103,6 @@ export default function StatsGrid({ quoteData, statusConfig }: StatsGridProps) {
         </div>
       </div>
       
-      {/* Transport Card */}
       <div className="relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-purple-600/5 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
         <div className="relative bg-white/90 rounded-2xl border border-gray-200 p-5 hover:border-purple-500 transition-all duration-300">

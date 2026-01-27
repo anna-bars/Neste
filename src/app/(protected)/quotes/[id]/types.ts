@@ -1,4 +1,4 @@
-import { JSX } from "react";
+import { JSX, ReactNode } from "react";
 
 // types.ts
 export interface Document {
@@ -13,6 +13,7 @@ export interface Document {
 }
 // ./types.ts
 export interface QuoteData {
+  quote_id: ReactNode;
   id: string;
   quote_number: string;
   cargo_type: string;
