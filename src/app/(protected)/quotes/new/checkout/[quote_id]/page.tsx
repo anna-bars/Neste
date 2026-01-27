@@ -73,56 +73,90 @@ export default function CheckoutPage() {
     loadQuoteData();
   }, [quoteId, user]);
 
-  const loadQuoteData = async () => {
-    const draftData = localStorage.getItem('quote_draft');
-    
-    if (!draftData && quoteId) {
-      try {
-        const { data: quote, error } = await supabase
-          .from('quotes')
-          .select('*')
-          .eq('id', quoteId)
-          .single();
-        
-        if (error) throw error;
-        
-        if (quote) {
-          const formattedQuote: QuoteData = {
-            id: quote.id,
-            finalPremium: quote.calculated_premium || 0,
-            shipmentValue: quote.shipment_value || 0,
-            deductible: quote.deductible || 500,
-            selectedPlan: quote.selected_coverage || 'standard',
-            startDate: quote.start_date || new Date().toISOString(),
-            endDate: quote.end_date || new Date().toISOString(),
-            cargoType: quote.cargo_type || 'general',
-            transportationMode: quote.transportation_mode || 'road',
-            origin: quote.origin || {},
-            destination: quote.destination || {},
-            quote_number: quote.quote_number
-          };
-          
-          setQuoteData(formattedQuote);
-          return;
-        }
-      } catch (error) {
-        console.error('Error loading quote from DB:', error);
-      }
-    }
 
-    if (!draftData) {
-      router.push('/quotes');
-      return;
-    }
 
+  useEffect(() => {
+  console.log('Quote Data:', quoteData);
+  console.log('Calculated Total:', calculateTotal());
+  console.log('Premium:', quoteData?.finalPremium);
+  console.log('Shipment Value:', quoteData?.shipmentValue);
+}, [quoteData]);
+
+
+
+
+const loadQuoteData = async () => {
+  const draftData = localStorage.getItem('quote_draft');
+  
+  console.log('Loading quote data, draftData exists:', !!draftData);
+  
+  if (!draftData && quoteId) {
     try {
-      const draft = JSON.parse(draftData);
-      setQuoteData(draft);
+      const { data: quote, error } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('id', quoteId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (quote) {
+        console.log('Quote loaded from DB:', quote);
+        
+        const formattedQuote: QuoteData = {
+          id: quote.id,
+          finalPremium: quote.calculated_premium ? Number(quote.calculated_premium) : 0,
+          shipmentValue: quote.shipment_value ? Number(quote.shipment_value) : 0,
+          deductible: quote.deductible ? Number(quote.deductible) : 500,
+          selectedPlan: quote.selected_coverage || 'standard',
+          startDate: quote.start_date || new Date().toISOString(),
+          endDate: quote.end_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          cargoType: quote.cargo_type || 'general',
+          otherCargoType: quote.other_cargo_type || '',
+          transportationMode: quote.transportation_mode || 'road',
+          origin: quote.origin || {},
+          destination: quote.destination || {},
+          quote_number: quote.quote_number
+        };
+        
+        console.log('Formatted quote:', formattedQuote);
+        setQuoteData(formattedQuote);
+        return;
+      }
     } catch (error) {
-      console.error('Error parsing draft data:', error);
-      router.push('/quotes');
+      console.error('Error loading quote from DB:', error);
     }
-  };
+  }
+
+  if (!draftData) {
+    console.log('No draft data, redirecting to quotes');
+    router.push('/quotes');
+    return;
+  }
+
+  try {
+    const draft = JSON.parse(draftData);
+    console.log('Draft data from localStorage:', draft);
+    
+    const formattedDraft: QuoteData = {
+      ...draft,
+      finalPremium: draft.finalPremium ? Number(draft.finalPremium) : 
+                   draft.calculated_premium ? Number(draft.calculated_premium) : 0,
+      shipmentValue: draft.shipmentValue ? Number(draft.shipmentValue) : 
+                    draft.shipment_value ? Number(draft.shipment_value) : 0,
+      deductible: draft.deductible ? Number(draft.deductible) : 500,
+      startDate: draft.startDate || new Date().toISOString(),
+      endDate: draft.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    };
+    
+    console.log('Formatted draft:', formattedDraft);
+    setQuoteData(formattedDraft);
+  } catch (error) {
+    console.error('Error parsing draft data:', error);
+    router.push('/quotes');
+  }
+};
+
 
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -166,122 +200,146 @@ export default function CheckoutPage() {
     return `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  const generateCertificateAsync = async (
-    policyNumber: string, 
-    policyId: string
-  ) => {
-    try {
-      if (!quoteData || !user) return;
+const generateCertificateAsync = async (
+  policyNumber: string, 
+  policyId: string
+) => {
+  try {
+    if (!quoteData || !user) return;
 
-      const response = await fetch('/api/generate-pdf-certificate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          policyNumber,
-          quoteData,
-          user
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        console.error('Certificate generation failed:', result.error);
-        throw new Error(result.error || 'Failed to generate certificate');
-      }
-      
-      if (result.success && result.certificateUrl) {
-        console.log('Certificate generated:', result.certificateUrl);
-        
-        await supabase
-          .from('policies')
-          .update({ 
-            insurance_certificate_url: result.certificateUrl,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', policyId);
-        
-        console.log('Policy updated with certificate URL');
-        
-      } else {
-        console.warn('Certificate generation warning:', result.error || 'Unknown error');
-        
-        const fallbackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/certificate-${policyNumber}.pdf`;
-        
-        await supabase
-          .from('policies')
-          .update({ 
-            insurance_certificate_url: fallbackUrl,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', policyId);
-        
-        console.log('Used fallback URL:', fallbackUrl);
-      }
-      
-    } catch (error) {
-      console.error('Certificate generation failed:', error);
-      
-      try {
-        const fallbackUrl = `https://storage.cargoguard.com/certificates/generic.pdf`;
-        
-        await supabase
-          .from('policies')
-          .update({ 
-            insurance_certificate_url: fallbackUrl,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', policyId);
-        
-        console.log('Used generic certificate URL as ultimate fallback');
-      } catch (fallbackError) {
-        console.error('Even fallback failed:', fallbackError);
-      }
+    console.log('Generating certificate with quoteData:', quoteData);
+    
+    // Օգտագործեք արդեն գործող API էնդփոյնթը
+    const response = await fetch('/api/generate-pdf-certificate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        policyNumber,
+        quoteData: {
+          shipment_value: parseFloat(quoteData.shipmentValue?.toString()) || 0,
+          calculated_premium: parseFloat(quoteData.finalPremium?.toString()) || 0,
+          deductible: parseFloat(quoteData.deductible?.toString()) || 500,
+          cargo_type: quoteData.cargoType === 'other' ? quoteData.otherCargoType : quoteData.cargoType,
+          selected_coverage: quoteData.selectedPlan,
+          start_date: quoteData.startDate,
+          end_date: quoteData.endDate,
+          transportation_mode: quoteData.transportationMode,
+          origin: quoteData.origin,
+          destination: quoteData.destination
+        },
+        user: {
+          email: user.email
+        }
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      console.error('Certificate generation failed:', result.error);
+      throw new Error(result.error || 'Failed to generate certificate');
     }
-  };
-
-  const generateReceiptAsync = async (
-    transactionId: string,
-    policyNumber: string,
-    policyId: string
-  ) => {
+    
+    if (result.success && result.certificateUrl) {
+      console.log('Certificate generated:', result.certificateUrl);
+      
+      await supabase
+        .from('policies')
+        .update({ 
+          insurance_certificate_url: result.certificateUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', policyId);
+      
+      console.log('Policy updated with certificate URL');
+      
+    } else {
+      console.warn('Certificate generation warning:', result.error || 'Unknown error');
+      
+      const fallbackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/certificate-${policyNumber}.pdf`;
+      
+      await supabase
+        .from('policies')
+        .update({ 
+          insurance_certificate_url: fallbackUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', policyId);
+      
+      console.log('Used fallback URL:', fallbackUrl);
+    }
+    
+  } catch (error) {
+    console.error('Certificate generation failed:', error);
+    
     try {
-      const response = await fetch('/api/generate-receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transactionId,
-          policyNumber,
+      const fallbackUrl = `https://storage.cargoguard.com/certificates/generic.pdf`;
+      
+      await supabase
+        .from('policies')
+        .update({ 
+          insurance_certificate_url: fallbackUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', policyId);
+      
+      console.log('Used generic certificate URL as ultimate fallback');
+    } catch (fallbackError) {
+      console.error('Even fallback failed:', fallbackError);
+    }
+  }
+};
+
+ const generateReceiptAsync = async (
+  transactionId: string,
+  policyNumber: string,
+  policyId: string,
+  paymentData: any
+) => {
+  try {
+    const response = await fetch('/api/generate-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transactionId,
+        policyNumber,
+        payment: {
           amount: calculateTotal(),
-          user
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        console.error('Receipt generation failed:', result.error);
-        throw new Error(result.error || 'Failed to generate receipt');
-      }
-      
-      if (result.success && result.receiptUrl) {
-        console.log('Receipt generated:', result.receiptUrl);
-        
-        await supabase
-          .from('policies')
-          .update({ 
-            receipt_url: result.receiptUrl,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', policyId);
-        
-        console.log('Receipt URL updated');
-      }
-      
-    } catch (error) {
-      console.error('Receipt generation failed:', error);
+          premiumAmount: quoteData?.finalPremium || 0,
+          serviceFee: 99,
+          taxes: Math.round((quoteData?.finalPremium || 0) * 0.08)
+        },
+        user: {
+          email: user?.email
+        }
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      console.error('Receipt generation failed:', result.error);
+      throw new Error(result.error || 'Failed to generate receipt');
     }
-  };
+    
+    if (result.success && result.receiptUrl) {
+      console.log('Receipt generated:', result.receiptUrl);
+      
+      await supabase
+        .from('policies')
+        .update({ 
+          receipt_url: result.receiptUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', policyId);
+      
+      console.log('Receipt URL updated');
+    }
+    
+  } catch (error) {
+    console.error('Receipt generation failed:', error);
+  }
+};
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -363,37 +421,40 @@ export default function CheckoutPage() {
       if (paymentError) {
         console.error('Payment creation error:', paymentError);
       }
+// 4. Create policy
+      let startDate = new Date(quoteData.startDate);
+      let endDate = new Date(quoteData.endDate);
 
-      // 4. Create policy
-      const startDate = new Date(quoteData.startDate);
-      const endDate = new Date(quoteData.endDate);
-      
-      const placeholderCertificateUrl = `/api/documents/generate-certificate`;
-      const termsUrl = `https://storage.cargoguard.com/legal/terms-and-conditions-v1.0.pdf`;
-      const placeholderReceiptUrl = `/api/generate-receipt`;
+// Ստուգեք, որ ամսաթվերը ճիշտ են
+if (isNaN(startDate.getTime())) startDate = new Date();
+if (isNaN(endDate.getTime())) endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-      const policyData = {
-        quote_id: quoteId,
-        user_id: user.id,
-        policy_number: policyNumber,
-        status: 'active',
-        payment_status: 'paid',
-        premium_amount: quoteData.finalPremium || 0,
-        coverage_amount: parseFloat(quoteData.shipmentValue.toString()) || 0,
-        deductible: quoteData.deductible || 500,
-        cargo_type: quoteData.cargoType === 'other' ? quoteData.otherCargoType : quoteData.cargoType,
-        transportation_mode: quoteData.transportationMode,
-        origin: quoteData.origin,
-        destination: quoteData.destination,
-        coverage_start: startDate.toISOString().split('T')[0],
-        coverage_end: endDate.toISOString().split('T')[0],
-        insurance_certificate_url: placeholderCertificateUrl,
-        terms_url: termsUrl,
-        receipt_url: placeholderReceiptUrl,
-        activated_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+const placeholderCertificateUrl = `/api/documents/generate-certificate`;
+const termsUrl = `https://storage.cargoguard.com/legal/terms-and-conditions-v1.0.pdf`;
+const placeholderReceiptUrl = `/api/generate-receipt`;
+
+const policyData = {
+  quote_id: quoteId,
+  user_id: user.id,
+  policy_number: policyNumber,
+  status: 'active',
+  payment_status: 'paid',
+  premium_amount: quoteData.finalPremium || 0,
+  coverage_amount: quoteData.shipmentValue || 0,
+  deductible: quoteData.deductible || 500,
+  cargo_type: quoteData.cargoType === 'other' ? quoteData.otherCargoType : quoteData.cargoType,
+  transportation_mode: quoteData.transportationMode,
+  origin: quoteData.origin,
+  destination: quoteData.destination,
+  coverage_start: startDate.toISOString().split('T')[0],
+  coverage_end: endDate.toISOString().split('T')[0],
+  insurance_certificate_url: placeholderCertificateUrl,
+  terms_url: termsUrl,
+  receipt_url: placeholderReceiptUrl,
+  activated_at: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
 
       const { data: newPolicy, error: policyError } = await supabase
         .from('policies')
@@ -409,14 +470,22 @@ export default function CheckoutPage() {
       const createdPolicyId = newPolicy.id;
 
       // 5. Generate documents async
-      generateCertificateAsync(policyNumber, createdPolicyId)
-        .catch(error => console.error('Certificate generation error:', error));
+generateCertificateAsync(policyNumber, createdPolicyId)
+  .catch(error => console.error('Certificate generation error:', error));
 
-      if (newPayment) {
-        generateReceiptAsync(transactionId, policyNumber, createdPolicyId)
-          .catch(error => console.error('Receipt generation error:', error));
-      }
-
+if (newPayment) {
+  generateReceiptAsync(
+    transactionId, 
+    policyNumber, 
+    createdPolicyId,
+    {
+      amount: calculateTotal(),
+      premiumAmount: quoteData.finalPremium || 0,
+      serviceFee: 99,
+      taxes: Math.round((quoteData.finalPremium || 0) * 0.08)
+    }
+  ).catch(error => console.error('Receipt generation error:', error));
+}
       // 6. Clean up and redirect
       localStorage.removeItem('quote_draft');
       toast.dismiss();
@@ -437,24 +506,29 @@ export default function CheckoutPage() {
       setIsProcessing(false);
     }
   };
+
+  
 const calculateTotal = () => {
-  if (!quoteData?.finalPremium) return 0;
+  if (!quoteData) return 0;
   
-  const premium = quoteData.finalPremium;
-  const serviceFee = 99; // ֆիքսված
-  const taxes = Math.round(premium * 0.08);
+  const premium = parseFloat(quoteData.finalPremium?.toString()) || 0;
+  const serviceFee = 99;
+  const taxes = Math.max(0, Math.round(premium * 0.08));
   
-  return premium + serviceFee + taxes;
+  const total = premium + serviceFee + taxes;
+  console.log('Calculating total:', { premium, serviceFee, taxes, total });
+  
+  return total;
 };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -817,7 +891,7 @@ const totalAmount = calculateTotal();
               
               <div className="mb-4">
                 <div className="text-3xl font-bold text-gray-900 mb-1">
-                  ${totalAmount.toFixed(2)}
+                  {formatCurrency(calculateTotal())}
                 </div>
                 <div className="text-xs text-gray-600">
                   Including all fees and taxes
@@ -825,26 +899,34 @@ const totalAmount = calculateTotal();
               </div>
               
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Premium</span>
-                  <span className="font-medium text-gray-900">${premium.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Service Fee</span>
-                  <span className="font-medium text-gray-900">${serviceFee.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Taxes (8%)</span>
-                  <span className="font-medium text-gray-900">${taxes.toFixed(2)}</span>
-                </div>
+  <div className="flex items-center justify-between text-sm">
+    <span className="text-gray-600">Premium</span>
+    <span className="font-medium text-gray-900">
+      {formatCurrency(parseFloat(quoteData.finalPremium?.toString()) || 0)}
+    </span>
+  </div>
+  <div className="flex items-center justify-between text-sm">
+    <span className="text-gray-600">Service Fee</span>
+    <span className="font-medium text-gray-900">
+      {formatCurrency(99)}
+    </span>
+  </div>
+  <div className="flex items-center justify-between text-sm">
+    <span className="text-gray-600">Taxes (8%)</span>
+    <span className="font-medium text-gray-900">
+      {formatCurrency(Math.round((parseFloat(quoteData.finalPremium?.toString()) || 0) * 0.08))}
+    </span>
+  </div>
               </div>
-              
               <div className="mt-4 pt-4 border-t border-blue-200">
                 <div className="flex items-center justify-between text-sm font-bold">
                   <span className="text-gray-900">Total Amount</span>
-                  <span className="text-gray-900">${totalAmount.toFixed(2)}</span>
+                  <span className="text-gray-900">
+                    {formatCurrency(calculateTotal())}
+                  </span>
                 </div>
               </div>
+
             </div>
 
             {/* Shipment Summary */}
@@ -860,12 +942,14 @@ const totalAmount = calculateTotal();
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Coverage Amount</span>
                   <span className="font-medium text-gray-900">
-                    ${parseFloat(quoteData.shipmentValue.toString()).toLocaleString()}
+                    {formatCurrency(parseFloat(quoteData.shipmentValue?.toString()) || 0)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Deductible</span>
-                  <span className="font-medium text-gray-900">${quoteData.deductible}</span>
+                  <span className="font-medium text-gray-900">
+                    {formatCurrency(quoteData.deductible || 500)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Coverage Plan</span>

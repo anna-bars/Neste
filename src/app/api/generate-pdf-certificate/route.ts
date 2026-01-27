@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/client';
 
 export async function POST(request: NextRequest) {
   try {
     const { policyNumber, quoteData, user } = await request.json();
+    
+    console.log('PDF generation request:', { policyNumber, quoteData: quoteData ? 'present' : 'missing', user: user ? 'present' : 'missing' });
     
     if (!policyNumber) {
       return NextResponse.json({ 
@@ -12,55 +13,29 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 1. Create HTML content for the certificate
+    // 1. Create HTML content
     const htmlContent = generateCertificateHTML(policyNumber, quoteData, user);
     
     // 2. Convert HTML to PDF using PDF.co API
     const pdfUrl = await convertHTMLToPDF(htmlContent, policyNumber);
     
+    console.log('PDF generation result:', { pdfUrl: pdfUrl ? 'generated' : 'failed' });
+    
     if (!pdfUrl) {
       throw new Error('Failed to generate PDF');
     }
 
-    // 3. Download the PDF and upload to Supabase
-    const pdfResponse = await fetch(pdfUrl);
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    
-    const supabase = createClient();
-    const fileName = `certificate-${policyNumber}.pdf`;
-    
-    // Try to upload to documents bucket
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(fileName, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true
-      });
-    
-    let finalUrl = pdfUrl; // Use PDF.co URL as fallback
-    
-    if (!uploadError) {
-      // Get Supabase URL if upload succeeded
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(fileName);
-      finalUrl = publicUrl;
-    } else {
-      console.log('Using PDF.co URL directly:', pdfUrl);
-    }
-
     return NextResponse.json({ 
       success: true, 
-      certificateUrl: finalUrl,
+      certificateUrl: pdfUrl,
       message: 'Certificate generated successfully'
     });
     
   } catch (error: any) {
     console.error('Certificate generation error:', error);
     
-    // Fallback: Create a simple URL
-    const { policyNumber } = await request.json().catch(() => ({ policyNumber: 'UNKNOWN' }));
-    const fallbackUrl = `https://storage.cargoguard.com/certificates/${policyNumber}.pdf`;
+    // Fallback URL
+    const fallbackUrl = `https://storage.cargoguard.com/certificates/generic-certificate.pdf`;
     
     return NextResponse.json({ 
       success: true, 
@@ -78,8 +53,44 @@ function generateCertificateHTML(policyNumber: string, quoteData: any, user: any
     day: 'numeric'
   });
   
-  const startDate = quoteData?.start_date ? new Date(quoteData.start_date).toLocaleDateString() : 'N/A';
-  const endDate = quoteData?.end_date ? new Date(quoteData.end_date).toLocaleDateString() : 'N/A';
+  // Ensure dates are valid
+  let startDate = 'N/A';
+  let endDate = 'N/A';
+  
+  if (quoteData?.start_date) {
+    try {
+      const date = new Date(quoteData.start_date);
+      if (!isNaN(date.getTime())) {
+        startDate = date.toLocaleDateString('en-US');
+      }
+    } catch (e) {
+      console.error('Error parsing start date:', e);
+    }
+  }
+  
+  if (quoteData?.end_date) {
+    try {
+      const date = new Date(quoteData.end_date);
+      if (!isNaN(date.getTime())) {
+        endDate = date.toLocaleDateString('en-US');
+      }
+    } catch (e) {
+      console.error('Error parsing end date:', e);
+    }
+  }
+  
+  // Ensure numeric values
+  const shipmentValue = quoteData?.shipment_value ? Number(quoteData.shipment_value) : 0;
+  const deductible = quoteData?.deductible ? Number(quoteData.deductible) : 0;
+  const premium = quoteData?.calculated_premium ? Number(quoteData.calculated_premium) : 0;
+  
+  console.log('Generating certificate with values:', {
+    shipmentValue,
+    deductible,
+    premium,
+    startDate,
+    endDate
+  });
   
   return `
 <!DOCTYPE html>
@@ -128,22 +139,8 @@ function generateCertificateHTML(policyNumber: string, quoteData: any, user: any
       font-weight: bold;
     }
     
-    .watermark {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-45deg);
-      font-size: 120px;
-      color: rgba(30, 64, 175, 0.1);
-      font-weight: bold;
-      white-space: nowrap;
-      z-index: 1;
-    }
-    
     .section {
       margin-bottom: 25px;
-      position: relative;
-      z-index: 2;
     }
     
     .section-title {
@@ -209,8 +206,6 @@ function generateCertificateHTML(policyNumber: string, quoteData: any, user: any
 </head>
 <body>
   <div class="certificate">
-    <div class="watermark">CARGO GUARD</div>
-    
     <div class="header">
       <div class="company-name">CARGO GUARD INSURANCE</div>
       <div class="certificate-title">CERTIFICATE OF INSURANCE</div>
@@ -250,11 +245,11 @@ function generateCertificateHTML(policyNumber: string, quoteData: any, user: any
         </div>
         <div class="info-item">
           <div class="info-label">Insured Value:</div>
-          <div class="info-value">$${(quoteData?.shipment_value || 0).toLocaleString('en-US')} USD</div>
+          <div class="info-value">$${shipmentValue.toLocaleString('en-US')} USD</div>
         </div>
         <div class="info-item">
           <div class="info-label">Deductible:</div>
-          <div class="info-value">$${(quoteData?.deductible || 0).toLocaleString('en-US')} USD</div>
+          <div class="info-value">$${deductible.toLocaleString('en-US')} USD</div>
         </div>
         <div class="info-item">
           <div class="info-label">Coverage Type:</div>

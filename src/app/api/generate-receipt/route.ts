@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/client';
 
 export async function POST(request: NextRequest) {
   try {
     const { transactionId, payment, policyNumber } = await request.json();
+    
+    console.log('Receipt generation request:', { transactionId, payment, policyNumber });
+    
+    if (!transactionId || !payment || !policyNumber) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      }, { status: 400 });
+    }
     
     // Create HTML for receipt
     const htmlContent = generateReceiptHTML(transactionId, payment, policyNumber);
@@ -15,41 +23,9 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to generate receipt');
     }
     
-    // Download and upload to Supabase
-    const pdfResponse = await fetch(pdfUrl);
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    
-    const supabase = createClient();
-    const fileName = `receipt-${transactionId}.pdf`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(fileName, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true
-      });
-    
-    let finalUrl = pdfUrl;
-    
-    if (!uploadError) {
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(fileName);
-      finalUrl = publicUrl;
-    }
-    
-    // Update payment record
-    await supabase
-      .from('payments')
-      .update({ 
-        receipt_url: finalUrl,
-        updated_at: new Date().toISOString()
-      })
-      .eq('transaction_id', transactionId);
-    
     return NextResponse.json({ 
       success: true, 
-      receiptUrl: finalUrl,
+      receiptUrl: pdfUrl,
       message: 'Receipt generated successfully'
     });
     
@@ -64,6 +40,14 @@ export async function POST(request: NextRequest) {
 }
 
 function generateReceiptHTML(transactionId: string, payment: any, policyNumber: string): string {
+  console.log('Generating receipt with payment:', payment);
+  
+  // Calculate amounts correctly
+  const premiumAmount = payment.premiumAmount || 0;
+  const serviceFee = payment.serviceFee || 99;
+  const taxes = payment.taxes || Math.round(premiumAmount * 0.08);
+  const total = payment.amount || (premiumAmount + serviceFee + taxes);
+  
   return `
 <!DOCTYPE html>
 <html>
@@ -71,56 +55,172 @@ function generateReceiptHTML(transactionId: string, payment: any, policyNumber: 
   <meta charset="UTF-8">
   <title>Receipt - ${transactionId}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    .receipt { max-width: 600px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .title { color: #1e40af; font-size: 28px; font-weight: bold; }
-    .info { margin: 20px 0; }
-    .label { font-weight: bold; color: #374151; }
-    .value { color: #111827; }
-    .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    .table th { background: #f3f4f6; padding: 10px; text-align: left; }
-    .table td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
-    .total { font-size: 20px; font-weight: bold; text-align: right; }
-    .footer { margin-top: 40px; text-align: center; color: #6b7280; font-size: 12px; }
+    @page {
+      margin: 20mm;
+    }
+    
+    body { 
+      font-family: 'Arial', sans-serif; 
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    
+    .receipt { 
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 15mm;
+    }
+    
+    .header { 
+      text-align: center; 
+      margin-bottom: 30px;
+      border-bottom: 2px solid #1e40af;
+      padding-bottom: 20px;
+    }
+    
+    .title { 
+      color: #1e40af; 
+      font-size: 28px; 
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #6b7280;
+      font-size: 18px;
+      margin-bottom: 5px;
+    }
+    
+    .info { 
+      margin: 25px 0;
+      padding: 20px;
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .info-item {
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    
+    .label { 
+      font-weight: bold; 
+      color: #374151;
+      display: inline-block;
+      width: 150px;
+    }
+    
+    .value { 
+      color: #111827;
+    }
+    
+    .table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin: 30px 0;
+      font-size: 14px;
+    }
+    
+    .table th { 
+      background: #f3f4f6; 
+      padding: 12px 15px; 
+      text-align: left;
+      border-bottom: 2px solid #e5e7eb;
+      color: #374151;
+    }
+    
+    .table td { 
+      padding: 12px 15px; 
+      border-bottom: 1px solid #e5e7eb;
+      color: #111827;
+    }
+    
+    .table tr:last-child td {
+      border-bottom: none;
+    }
+    
+    .total-row {
+      border-top: 2px solid #1e40af;
+      font-weight: bold;
+    }
+    
+    .total-row td {
+      padding-top: 15px;
+      font-size: 16px;
+    }
+    
+    .footer { 
+      margin-top: 40px; 
+      text-align: center; 
+      color: #6b7280; 
+      font-size: 12px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 5px 15px;
+      background: #10b981;
+      color: white;
+      border-radius: 20px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
   <div class="receipt">
     <div class="header">
       <div class="title">CARGO GUARD</div>
-      <div style="color: #4b5563; font-size: 18px;">Payment Receipt</div>
+      <div class="subtitle">Payment Receipt</div>
+      <div class="status-badge">PAID</div>
     </div>
     
     <div class="info">
-      <div><span class="label">Receipt Number:</span> <span class="value">${transactionId}</span></div>
-      <div><span class="label">Date:</span> <span class="value">${new Date().toLocaleDateString()}</span></div>
-      <div><span class="label">Policy Number:</span> <span class="value">${policyNumber}</span></div>
+      <div class="info-item">
+        <span class="label">Receipt Number:</span>
+        <span class="value">${transactionId}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Date:</span>
+        <span class="value">${new Date().toLocaleDateString('en-US')}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Policy Number:</span>
+        <span class="value">${policyNumber}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Transaction Status:</span>
+        <span class="value">Completed</span>
+      </div>
     </div>
     
     <table class="table">
       <thead>
         <tr>
           <th>Description</th>
-          <th>Amount</th>
+          <th style="text-align: right;">Amount</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td>Insurance Premium</td>
-          <td>$${(payment?.amount * 0.8 || 0).toFixed(2)}</td>
+          <td style="text-align: right;">$${premiumAmount.toFixed(2)}</td>
         </tr>
         <tr>
           <td>Service Fee</td>
-          <td>$${(payment?.amount * 0.1 || 0).toFixed(2)}</td>
+          <td style="text-align: right;">$${serviceFee.toFixed(2)}</td>
         </tr>
         <tr>
-          <td>Taxes</td>
-          <td>$${(payment?.amount * 0.1 || 0).toFixed(2)}</td>
+          <td>Taxes (8%)</td>
+          <td style="text-align: right;">$${taxes.toFixed(2)}</td>
         </tr>
-        <tr style="border-top: 2px solid #000;">
-          <td><strong>Total</strong></td>
-          <td><strong>$${(payment?.amount || 0).toFixed(2)} USD</strong></td>
+        <tr class="total-row">
+          <td><strong>Total Amount</strong></td>
+          <td style="text-align: right;"><strong>$${total.toFixed(2)} USD</strong></td>
         </tr>
       </tbody>
     </table>
