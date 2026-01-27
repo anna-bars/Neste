@@ -457,7 +457,7 @@ export default function DocumentsPage() {
         {/* Actions */}
         <div className="flex flex-col gap-3 items-center">
           <button 
-            onClick={() => router.push('/quotes/new/shipping')}
+            onClick={() => router.push('/quotes/new/shipment')}
             className="
               relative
               px-6 py-3
