@@ -250,17 +250,17 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
           bars.push(
             <div 
               key={barKey}
-              className={`${item.type}-chart-bar`}
+              className={`${item.type}-chart-bar indicator-line`}
               style={{
                 width: '1px',
-                transform: 'scaleX(2.28)', // ԿԱՐԵՎՈՐ: Նույնը ինչ ApprovalRate-ում
-                transformOrigin: 'left',
                 height: `${height}px`,
                 backgroundColor: backgroundColor,
                 opacity: 0.5,
                 cursor: 'pointer',
                 borderRadius: '1px',
-                transition: 'all 0.3s ease'
+                transition: 'all 0.3s ease',
+                // Կարևոր: Այստեղ չենք օգտագործում inline transform
+                // փոխարենը օգտագործում ենք CSS class
               }}
               onMouseEnter={() => setHoveredType(item.type)}
               onMouseLeave={() => setHoveredType(null)}
@@ -360,11 +360,9 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         bars.push(
           <div 
             key={barKey}
-            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''}`}
+            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''} indicator-line`}
             style={{
               width: '1px',
-              transform: 'scaleX(2.28)', // ԿԱՐԵՎՈՐ: Նույնը ինչ ApprovalRate-ում
-              transformOrigin: 'left',
               height: showBars ? `${height}px` : '0px',
               backgroundColor: backgroundColor,
               opacity: showBars ? opacity : 0,
@@ -373,6 +371,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                 'all 0.3s ease',
               cursor: 'pointer',
               borderRadius: '1px'
+              // Կարևոր: Այստեղ չենք օգտագործում inline transform
             }}
             onMouseEnter={() => setHoveredType(barType)}
             onMouseLeave={() => setHoveredType(null)}
@@ -563,11 +562,8 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               {Array.from({ length: 60 }).map((_, i) => (
                 <div 
                   key={`line2-${i}`}
+                  className="indicator-line w-px h-[10px] bg-[#E8E8E8] flex-shrink-0"
                   style={{
-                    width: '1px',
-                    height: '10px',
-                    transform: 'scaleX(2.28)', // ԿԱՐԵՎՈՐ: Նույնը ինչ գծիկների համար
-                    transformOrigin: 'left',
                     background: 'linear-gradient(180deg, #E2E3E4, transparent)',
                     borderRadius: '1px'
                   }}
@@ -588,6 +584,17 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        
+        /* ԿԱՐԵՎՈՐ: Սա նույն CSS-ն է, ինչ ApprovalRate-ում */
+        .indicator-line {
+          transform: scaleX(2.28) !important;
+          transform-origin: left !important;
+        }
+        
+        /* ԿԱՐԵՎՈՐ: Հաստատում ենք, որ hover-ի ժամանակ չփոխվի transform-ը */
+        .indicator-line:hover {
+          transform: scaleX(2.28) !important;
         }
         
         .chart-cont {
