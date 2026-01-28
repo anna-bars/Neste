@@ -206,19 +206,23 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         type: 'approved', 
         count: currentDataForBars.approved, 
         hegHeight: 24,
-        normalHeight: 16
+        normalHeight: 16,
+        // Ավելացնում ենք hover բարձրությունը, որը նման է ApprovalRate-ին
+        hoverHeight: 20
       },
       { 
         type: 'declined', 
         count: currentDataForBars.declined, 
         hegHeight: 24, 
-        normalHeight: 16 
+        normalHeight: 16,
+        hoverHeight: 20
       },
       { 
         type: 'expired', 
         count: currentDataForBars.expired, 
         hegHeight: 24, 
-        normalHeight: 16 
+        normalHeight: 16,
+        hoverHeight: 20
       }
     ];
     
@@ -258,7 +262,8 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                 backgroundColor: backgroundColor,
                 opacity: 0.5,
                 cursor: 'pointer',
-                borderRadius: '1px'
+                borderRadius: '1px',
+                transition: 'all 0.3s ease'
               }}
               onMouseEnter={() => setHoveredType(item.type)}
               onMouseLeave={() => setHoveredType(null)}
@@ -335,12 +340,18 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         const isLast = i === itemBarCount - 1;
         const barKey = `${barType}-${i}-${barIndex}-${activeTime}`;
         
+        // ՀԻՄՆԱԿԱՆ ՓՈՓՈԽՈՒԹՅՈՒՆ․ պահպանում ենք բարձրության փոփոխությունը hover-ի ժամանակ
+        // բայց այն դարձնում ենք ավելի նուրբ (փոքր տարբերությամբ)
         let height = item.normalHeight;
         
         if (isFirst || isLast) {
           height = item.hegHeight;
-        } else if (hoveredType === item.type) {
-          height = item.hegHeight;
+        }
+        
+        // Hover-ի ժամանակ փոխում ենք բարձրությունը, բայց փոքր չափով
+        const isHovered = hoveredType === barType;
+        if (isHovered) {
+          height = item.hoverHeight; // Փոքր բարձրացում, ոչ թե մեծ
         }
         
         const gradientProgress = itemBarCount > 1 ? i / (itemBarCount - 1) : 0.5;
@@ -350,8 +361,9 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         
         if (hoveredType && hoveredType !== barType) {
           opacity = 0.4;
-        } else if (hoveredType === barType) {
-          backgroundColor = adjustColorBrightness(backgroundColor, 20);
+        } else if (isHovered) {
+          // Hover-ի ժամանակ միայն գույնը փոխում ենք
+          backgroundColor = adjustColorBrightness(backgroundColor, 15); // Ավելի փոքր պայծառացում
         }
         
         const individualDelay = animationDelay + (i * 10);
@@ -368,10 +380,11 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               backgroundColor: backgroundColor,
               opacity: showBars ? opacity : 0,
               transition: showBars ? 
-                `height 0.3s ease ${individualDelay}ms, opacity 0.3s ease ${individualDelay}ms` : 
+                `height 0.2s ease ${individualDelay}ms, opacity 0.3s ease ${individualDelay}ms, background-color 0.3s ease` : 
                 'all 0.3s ease',
               cursor: 'pointer',
-              borderRadius: '1px'
+              borderRadius: '1px',
+              willChange: 'transform, opacity, height, background-color'
             }}
             onMouseEnter={() => setHoveredType(barType)}
             onMouseLeave={() => setHoveredType(null)}
@@ -618,6 +631,13 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
+        }
+        
+        /* ՀԻՄՆԱԿԱՆ ՈՒՂՂՈՒՄ․ ապահովում ենք հարթ անցումներ */
+        .approved-chart-bar:hover,
+        .declined-chart-bar:hover,
+        .expired-chart-bar:hover {
+          transition: height 0.2s ease, background-color 0.3s ease, opacity 0.3s ease !important;
         }
         
         @media screen and (max-width: 1024px) {
