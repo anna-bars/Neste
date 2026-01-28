@@ -355,7 +355,7 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
                 {Array.from({ length: 187 }).map((_, index) => (
                   <div
                     key={index}
-                    className="indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.7]"
+                    className="indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2]"
                     style={{
                       opacity: disabledProgress ? 0.4 : 1
                     }}

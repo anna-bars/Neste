@@ -256,7 +256,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className={`${item.type}-chart-bar`}
               style={{
                 width: '1px',
-                transform: 'scaleX(2)',
+                transform: 'scaleX(2.4)',
                 transformOrigin: 'left',
                 height: `${height}px`,
                 backgroundColor: backgroundColor,
@@ -374,7 +374,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
             className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''}`}
             style={{
               width: '1px',
-              transform: 'scaleX(2.7)',
+              transform: 'scaleX(2.4)',
               transformOrigin: 'left',
               height: showBars ? `${height}px` : '0px',
               backgroundColor: backgroundColor,
@@ -579,7 +579,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                   style={{
                     width: '1px',
                     height: '10px',
-                    transform: 'scaleX(2.7)',
+                    transform: 'scaleX(2.4)',
                     transformOrigin: 'left',
                     background: 'linear-gradient(180deg, #E2E3E4, transparent)',
                     borderRadius: '1px'
