@@ -281,7 +281,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                 backgroundColor: backgroundColor,
                 opacity: 0.5,
                 cursor: 'pointer',
-                borderRadius: '1px',
+                borderRadius: '0px',
                 transition: 'all 0.3s ease'
               }}
               onMouseEnter={() => setHoveredType(item.type)}
@@ -395,7 +395,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                 `height 0.2s ease ${individualDelay}ms, opacity 0.3s ease ${individualDelay}ms, background-color 0.3s ease, width 0.3s ease` : 
                 'all 0.3s ease',
               cursor: 'pointer',
-              borderRadius: '1px',
+              borderRadius: '0px',
               willChange: 'transform, opacity, height, background-color'
             }}
             onMouseEnter={() => setHoveredType(barType)}
@@ -552,7 +552,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className="chaart"
               style={{
                 display: 'flex',
-                gap: '4px',
+                gap: '2.8px',
                 justifyContent: 'flex-start',
                 alignItems: 'flex-end',
                 overflow: 'hidden',
@@ -578,7 +578,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className="chaart chaart2"
               style={{
                 display: 'flex',
-                gap: '4px',
+                gap: '2.8px',
                 justifyContent: 'flex-start',
                 alignItems: 'flex-end',
                 overflow: 'hidden'
@@ -593,7 +593,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                     maxWidth: '4px',
                     height: '10px',
                     background: 'linear-gradient(180deg, #E2E3E4, transparent)',
-                    borderRadius: '1px'
+                    borderRadius: '0px'
                   }}
                 />
               ))}
