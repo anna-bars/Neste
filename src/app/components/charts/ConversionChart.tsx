@@ -256,7 +256,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className={`${item.type}-chart-bar`}
               style={{
                 width: '1px',
-                transform: 'scaleX(2.7)',
+                transform: 'scaleX(2)',
                 transformOrigin: 'left',
                 height: `${height}px`,
                 backgroundColor: backgroundColor,
