@@ -584,7 +584,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                 overflow: 'hidden'
               }}
             >
-              {Array.from({ length: barsCount }).map((_, i) => (
+              {Array.from({ length: barsCount + 16 }).map((_, i) => (
                 <div 
                   key={`line2-${i}`}
                   style={{
