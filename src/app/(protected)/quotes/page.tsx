@@ -190,7 +190,7 @@ export default function QuotesPage() {
               />
             </div>
 
-            <div className='max-h-[85%'>
+            <div className='max-h-[91%] h-[96%]'>
               <UniversalTable
                 title="Quotes Overview"
                 showMobileHeader={true}
