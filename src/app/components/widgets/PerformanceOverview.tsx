@@ -95,7 +95,7 @@ export const PerformanceOverview: React.FC<PerformanceOverviewProps> = ({
 
   return (
     <section className="
-      border border-[#d1d1d1]/33 bg-[#fdfdf8cf] rounded-2xl p-4 h-auto
+      border border-[#d1d1d1]/33 bg-[#fdfdfdd6] rounded-2xl p-4 h-auto
       max-[768px]:p-4
       max-[768px]:pl-4.5
       relative

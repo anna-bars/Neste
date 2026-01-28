@@ -119,7 +119,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
         </div>
         
         {/* Bottom part */}
-        <div className=" bg-[#fdfdf8cf] p-3 rounded-b-2xl rounded-tr-2xl flex flex-col gap-3">
+        <div className=" bg-[#fdfdfdd6] p-3 rounded-b-2xl rounded-tr-2xl flex flex-col gap-3">
           {/* Status with custom hover colors */}
           <div className="flex justify-end">
             <div className="relative">

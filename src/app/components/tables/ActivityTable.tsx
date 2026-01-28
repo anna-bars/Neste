@@ -256,7 +256,7 @@ export const UniversalTable: React.FC<UniversalTableProps> = ({
         />
 
         <div className="
-          block-2 bg-[#fdfdf8cf] rounded-t-[12px] mt-2
+          block-2 bg-[#fdfdfdd6] rounded-t-[12px] mt-2
           border border-[#8989893b]
           flex flex-col flex-1 overflow-hidden
 

@@ -74,7 +74,7 @@ export const PolicyTimelineWidget: React.FC<PolicyTimelineWidgetProps> = ({
         max-[768px]:flex-col max-[768px]:justify-between max-[768px]:flex
         max-[480px]:w-[100%]
         backdrop-blur-[10px] rounded-[16px] p-4 justify-between
-        flex flex-col gap-0 border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl p-4 
+        flex flex-col gap-0 border border-[#d1d1d154] bg-[#fdfdfdd6] rounded-2xl p-4 
         hover:shadow-sm transition-all duration-300 ease-out
         group
       "

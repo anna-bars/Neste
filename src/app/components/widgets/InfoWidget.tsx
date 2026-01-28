@@ -62,7 +62,7 @@ export const InfoWidget: React.FC<InfoWidgetProps> = ({
       }
       
       if (hoverEffects.gradientBackground) {
-        styles.background = 'linear-gradient(135deg, #fdfdf8cf 0%, #f8f9ffcf 100%)';
+        styles.background = 'linear-gradient(135deg, #fdfdfdd6 0%, #f8f9ffcf 100%)';
       }
     }
     
@@ -83,7 +83,7 @@ export const InfoWidget: React.FC<InfoWidgetProps> = ({
 
   return (
     <div 
-      className={`min-h-[calc(32%-4px)] xl:flex-[0_0_26%] flex-col flex justify-between stats-card border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl p-4 relative overflow-hidden transition-all duration-300 cursor-pointer ${className}`}
+      className={`min-h-[calc(32%-4px)] xl:flex-[0_0_26%] flex-col flex justify-between stats-card border border-[#d1d1d154] bg-[#fdfdfdd6] rounded-2xl p-4 relative overflow-hidden transition-all duration-300 cursor-pointer ${className}`}
       style={getCardStyles()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {

@@ -155,7 +155,7 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
 
   return (
     <article 
-      className="frame approval-rate-container w-full box-border relative flex flex-col items-start gap-6 p-4 border border-[#d1d1d154] bg-[#fdfdf8cf] rounded-2xl hover:shadow-sm transition-shadow duration-300"
+      className="frame approval-rate-container w-full box-border relative flex flex-col items-start gap-6 p-4 border border-[#d1d1d154] bg-[#fdfdfdd6] rounded-2xl hover:shadow-sm transition-shadow duration-300"
       onMouseEnter={() => !disabledProgress && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

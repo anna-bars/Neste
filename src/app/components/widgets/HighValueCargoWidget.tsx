@@ -78,7 +78,7 @@ export const HighValueCargoWidget: React.FC<HighValueCargoWidgetProps> = ({
       max-[480px]:w-[100%] max-[480px]:min-h-[100%] max-[480px]:max-h-[100%]
       transition-all duration-300 ease-out">
       
-      <div className="absolute top-0 left-0 w-full h-full bg-[#fdfdf8cf] rounded-xl
+      <div className="absolute top-0 left-0 w-full h-full bg-[#fdfdfdd6] rounded-xl
         transition-all duration-300 ease-out
         group-hover:bg-[#f9f9f4]"></div>
       

@@ -864,7 +864,7 @@ onClick={() => row.button?.onClick?.(row)}>
         />
 
         <div className="
-          block-2 bg-[#fdfdf8cf] rounded-t-[12px] mt-2
+          block-2 bg-[#fdfdfdd6] rounded-t-[12px] mt-2
           border border-[#8989893b]
           flex flex-col flex-1 overflow-hidden
           max-[767px]:border-none
