@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #E7ECEC;
+  --foreground: #000000;
 }
 
 @theme inline {
@@ -12,19 +12,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-/* src/app/globals.css կամ layout.tsx-ի style-ներ */
 @media screen and (max-width: 1280px) {
   .sign-img-cont {
     display: none;
@@ -71,8 +64,6 @@ body {
     width: 124px !important;
   }
 }
-/* app/globals.css */
-/* Add these styles for mobile menu */
 @keyframes fadeInUpFast {
   from {
     opacity: 0;
@@ -88,18 +79,6 @@ body {
   animation: fadeInUpFast 0.25s ease forwards;
 }
 
-/* Mobile specific styles */
-/* @media (max-width: 768px) {
-  body.menu-open {
-    overflow: hidden;
-  }
-  
-  body.menu-open .tb {
-    opacity: 0.3;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-  }
-} */
 @media screen and (max-width: 768px) {
   .container {
     width: 88% !important;
@@ -122,15 +101,14 @@ body {
          height: 100vh;
 } 
          .block-1 {
-    /* Բարձրությունը կլինի ավտո (համաձայն պարունակության) */
+  
     height: auto;
-    flex-shrink: 0; /* Կանխում է սեղմումը */
+    flex-shrink: 0; 
 }
 
 .block-2 {
-    flex-grow: 1; /* Զբաղեցնում է մնացած ամբողջ տարածքը */
-    min-height: 0; /* Կարևոր է, որ բովանդակությունը չսեղմի բլոկը */
-    /* overflow-y: auto;  */
+    flex-grow: 1; 
+    min-height: 0; 
 }
         @media screen and (max-width: 1336px) {
         .block-2 {
@@ -139,13 +117,8 @@ body {
 
         }
 
-/* 🍭 */
-/* Global Scrollbar Styles */
-/* style jsx-ում ավելացրեք */
-/* Ultra minimal scrollbar - just a thin line */
-/* Ultra minimal scrollbar - just a thin line */
 *::-webkit-scrollbar {
-  width: 4px; /* կամ 1px եթե շատ բարակ եք ուզում */
+  width: 4px;
   margin-left: 4px;
 }
 
@@ -154,13 +127,12 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #d5e3fa7c; /* Մոխրագույն */
-  /* Եթե border-radius ուզում եք, ավելացրեք */
-  border-radius: 48px; /* 0px - ուղիղ գիծ, 1px - մի փոքր կլորացված */
+  background: #d5e3fa7c;
+  border-radius: 48px; 
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #669cee86; /* Մուգ մոխրագույն hover-ի ժամանակ */
+  background: #669cee86;
 }
 
 *::-webkit-scrollbar-button,
@@ -180,7 +152,6 @@ body {
   --expired-start: #BEF8BE;
   --expired-end: #66EE88;
 }
-/* Լրացուցիչ CSS ֆայլում */
 @media screen and (max-width: 768px) {
   .omblock {
     min-width: 92.5% !important;
@@ -189,22 +160,20 @@ body {
   }
 }
 
-/* Hide scrollbars on mobile */
 @media (max-width: 767px) {
   * {
-    -ms-overflow-style: none;  /* IE & Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none; 
+    scrollbar-width: none;    
   }
 
   *::-webkit-scrollbar {
-    display: none;             /* Chrome, Safari */
+    display: none;            
   }
 }
 
-/* Add these styles to your globals.css */
 @layer components {
   .quote-wizard-container {
-    height: calc(100vh - 64px); /* Subtract header height */
+    height: calc(100vh - 64px);
     max-height: calc(100vh - 64px);
     width: 78%;
     max-width: 78%;
@@ -212,7 +181,7 @@ body {
   }
 
   .quote-wizard-content {
-    height: calc(100vh - 200px); /* Subtract header + progress */
+    height: calc(100vh - 200px);
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #CBD5E1 #F1F5F9;
