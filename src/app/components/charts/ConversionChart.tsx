@@ -207,7 +207,6 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         count: currentDataForBars.approved, 
         hegHeight: 24,
         normalHeight: 16,
-        // Ավելացնում ենք hover բարձրությունը, որը նման է ApprovalRate-ին
         hoverHeight: 20
       },
       { 
@@ -230,7 +229,6 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
     const isAllZero = total === 0;
     
     if (isAllZero) {
-      // Եթե բոլոր արժեքները 0 են, ցույց տալ բոլոր գծիկները հավասար բաշխված
       const equalCount = Math.floor(barsCount / 3);
       const bars: JSX.Element[] = [];
       
@@ -247,14 +245,15 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
           const gradientProgress = barCount > 1 ? i / (barCount - 1) : 0.5;
           let backgroundColor = getGradientColor(item.type, gradientProgress);
           
-          // Միայն թեթև opacity, բայց պահպանել գույնը
-          backgroundColor = backgroundColor + '80'; // 50% opacity
+          backgroundColor = backgroundColor + '80';
           
           bars.push(
             <div 
               key={barKey}
-              className={`${item.type}-chart-bar indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]`}
+              className={`${item.type}-chart-bar`}
               style={{
+                width: '1px',
+                transform: 'scaleX(2.28)', // ԿԱՐԵՎՈՐ: Նույնը ինչ ApprovalRate-ում
                 transformOrigin: 'left',
                 height: `${height}px`,
                 backgroundColor: backgroundColor,
@@ -274,16 +273,13 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
       return bars;
     }
     
-    // Նորմալ դեպք՝ երբ կան տվյալներ
     const barsPerType = chartData.map(item => ({
       ...item,
       barCount: Math.round((item.count / total) * barsCount)
     }));
     
-    // Վերահաշվել ընդհանուր գծիկների քանակը
     let totalBars = barsPerType.reduce((sum, item) => sum + item.barCount, 0);
     
-    // Կարգավորել եթե տարբերություն կա
     let diff = barsCount - totalBars;
     
     if (diff !== 0) {
@@ -310,7 +306,6 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
     let barIndex = 0;
     const bars: JSX.Element[] = [];
     
-    // Յուրաքանչյուր տեսակի գծիկների համար
     barsPerType.forEach((item) => {
       const itemBarCount = item.barCount;
       const barType = item.type;
@@ -338,18 +333,15 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         const isLast = i === itemBarCount - 1;
         const barKey = `${barType}-${i}-${barIndex}-${activeTime}`;
         
-        // ՀԻՄՆԱԿԱՆ ՓՈՓՈԽՈՒԹՅՈՒՆ․ պահպանում ենք բարձրության փոփոխությունը hover-ի ժամանակ
-        // բայց այն դարձնում ենք ավելի նուրբ (փոքր տարբերությամբ)
         let height = item.normalHeight;
         
         if (isFirst || isLast) {
           height = item.hegHeight;
         }
         
-        // Hover-ի ժամանակ փոխում ենք բարձրությունը, բայց փոքր չափով
         const isHovered = hoveredType === barType;
         if (isHovered) {
-          height = item.hoverHeight; // Փոքր բարձրացում, ոչ թե մեծ
+          height = item.hoverHeight;
         }
         
         const gradientProgress = itemBarCount > 1 ? i / (itemBarCount - 1) : 0.5;
@@ -360,8 +352,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         if (hoveredType && hoveredType !== barType) {
           opacity = 0.4;
         } else if (isHovered) {
-          // Hover-ի ժամանակ միայն գույնը փոխում ենք
-          backgroundColor = adjustColorBrightness(backgroundColor, 15); // Ավելի փոքր պայծառացում
+          backgroundColor = adjustColorBrightness(backgroundColor, 15);
         }
         
         const individualDelay = animationDelay + (i * 10);
@@ -369,8 +360,10 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         bars.push(
           <div 
             key={barKey}
-            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''} indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]`}
+            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''}`}
             style={{
+              width: '1px',
+              transform: 'scaleX(2.28)', // ԿԱՐԵՎՈՐ: Նույնը ինչ ApprovalRate-ում
               transformOrigin: 'left',
               height: showBars ? `${height}px` : '0px',
               backgroundColor: backgroundColor,
@@ -379,8 +372,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
                 `height 0.2s ease ${individualDelay}ms, opacity 0.3s ease ${individualDelay}ms, background-color 0.3s ease` : 
                 'all 0.3s ease',
               cursor: 'pointer',
-              borderRadius: '1px',
-              willChange: 'transform, opacity, height, background-color'
+              borderRadius: '1px'
             }}
             onMouseEnter={() => setHoveredType(barType)}
             onMouseLeave={() => setHoveredType(null)}
@@ -536,7 +528,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className="chaart"
               style={{
                 display: 'inline-flex',
-                gap: '4px',
+                gap: '4.5px',
                 justifyContent: 'start',
                 alignItems: 'end',
                 overflow: 'hidden',
@@ -547,7 +539,6 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
             >
               {renderBars()}
               
-              {/* Show subtle overlay when no data */}
               {isAllZero && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="text-center">
@@ -563,7 +554,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className="chaart chaart2"
               style={{
                 display: 'inline-flex',
-                gap: '4px',
+                gap: '4.5px',
                 justifyContent: 'start',
                 alignItems: 'end',
                 overflow: 'hidden'
@@ -572,9 +563,10 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               {Array.from({ length: 60 }).map((_, i) => (
                 <div 
                   key={`line2-${i}`}
-                  className='indicator-line w-px bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]'
                   style={{
+                    width: '1px',
                     height: '10px',
+                    transform: 'scaleX(2.28)', // ԿԱՐԵՎՈՐ: Նույնը ինչ գծիկների համար
                     transformOrigin: 'left',
                     background: 'linear-gradient(180deg, #E2E3E4, transparent)',
                     borderRadius: '1px'
@@ -598,10 +590,6 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
           }
         }
         
-        .empty-chart-bar {
-          background: linear-gradient(180deg, #E2E3E4, transparent) !important;
-        }
-        
         .chart-cont {
           gap: 0px;
           display: grid;
@@ -609,8 +597,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         
         .approved-chart-bar,
         .declined-chart-bar,
-        .expired-chart-bar,
-        .empty-chart-bar {
+        .expired-chart-bar {
           transition: all 0.3s ease !important;
         }
         
@@ -626,13 +613,6 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
-        }
-        
-        /* ՀԻՄՆԱԿԱՆ ՈՒՂՂՈՒՄ․ ապահովում ենք հարթ անցումներ */
-        .approved-chart-bar:hover,
-        .declined-chart-bar:hover,
-        .expired-chart-bar:hover {
-          transition: height 0.2s ease, background-color 0.3s ease, opacity 0.3s ease !important;
         }
         
         @media screen and (max-width: 1024px) {
