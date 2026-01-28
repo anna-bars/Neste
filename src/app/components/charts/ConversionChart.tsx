@@ -253,8 +253,10 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
           bars.push(
             <div 
               key={barKey}
-              className={`${item.type}-chart-bar indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]`}
+              className={`${item.type}-chart-bar`}
               style={{
+                width: '1px',
+                transform: 'scaleX(2)',
                 transformOrigin: 'left',
                 height: `${height}px`,
                 backgroundColor: backgroundColor,
@@ -369,8 +371,10 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         bars.push(
           <div 
             key={barKey}
-            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''} indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]`}
+            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''}`}
             style={{
+              width: '1px',
+              transform: 'scaleX(2.7)',
               transformOrigin: 'left',
               height: showBars ? `${height}px` : '0px',
               backgroundColor: backgroundColor,
@@ -536,7 +540,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className="chaart"
               style={{
                 display: 'inline-flex',
-                gap: '4px',
+                gap: '4.5px',
                 justifyContent: 'start',
                 alignItems: 'end',
                 overflow: 'hidden',
@@ -563,7 +567,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               className="chaart chaart2"
               style={{
                 display: 'inline-flex',
-                gap: '4px',
+                gap: '4.5px',
                 justifyContent: 'start',
                 alignItems: 'end',
                 overflow: 'hidden'
@@ -572,9 +576,10 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               {Array.from({ length: 60 }).map((_, i) => (
                 <div 
                   key={`line2-${i}`}
-                  className='indicator-line w-px bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]'
                   style={{
+                    width: '1px',
                     height: '10px',
+                    transform: 'scaleX(2.7)',
                     transformOrigin: 'left',
                     background: 'linear-gradient(180deg, #E2E3E4, transparent)',
                     borderRadius: '1px'
