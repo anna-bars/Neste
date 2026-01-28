@@ -253,7 +253,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
           bars.push(
             <div 
               key={barKey}
-              className={`${item.type}-chart-bar indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.7]`}
+              className={`${item.type}-chart-bar indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]`}
               style={{
                 transformOrigin: 'left',
                 height: `${height}px`,
@@ -369,7 +369,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
         bars.push(
           <div 
             key={barKey}
-            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''} indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.7]`}
+            className={`${barType}-chart-bar ${isFirst || isLast ? 'heg' : ''} indicator-line w-px h-[18px] bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]`}
             style={{
               transformOrigin: 'left',
               height: showBars ? `${height}px` : '0px',
@@ -572,7 +572,7 @@ export const ConversionChart: React.FC<ConversionChartProps> = ({
               {Array.from({ length: 60 }).map((_, i) => (
                 <div 
                   key={`line2-${i}`}
-                  className='indicator-line w-px bg-[#E8E8E8] flex-shrink-0 scale-x-[2.7]'
+                  className='indicator-line w-px bg-[#E8E8E8] flex-shrink-0 scale-x-[2.28]'
                   style={{
                     height: '10px',
                     transformOrigin: 'left',
