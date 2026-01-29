@@ -148,7 +148,7 @@ export default function ShipmentsPage() {
               />
             </div>
 
-            <div className='max-h-[85%'>
+            <div className='max-h-[91%] h-[96%]'>
               <UniversalTable
                 title="Policies Overview"
                 showMobileHeader={true}
