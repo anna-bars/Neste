@@ -54,7 +54,7 @@ export default function LoginPage() {
   return (
     <div className="cont flex justify-between flex-nowrap">
       {/* Left Side - Login Form */}
-      <div className="sign-in-cont w-[40%] h-[108vh] p-[2%_3%] relative">
+      <div className="bg-white sign-in-cont w-[40%] h-[108vh] p-[2%_3%] relative">
         <Link href="/">
           <Image
             src="/auth/logo.svg"
