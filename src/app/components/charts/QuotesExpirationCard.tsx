@@ -458,7 +458,6 @@ const QuotesExpirationCard = ({
         }
         
         .chart-container {
-          flex: 1;
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
@@ -612,8 +611,8 @@ const QuotesExpirationCard = ({
         </div>
         
         {/* Միջին բլոկ - Տոկոս և տվյալներ */}
-        <div className="expiration-stats h-[inherit] relative w-[149px] hidden xl:block">
-          <div className="expiration-left absolute top-0 left-0.5 w-[143px] h-11 flex gap-3">
+        <div className="expiration-stats h-[fit] relative w-[149px] hidden xl:block">
+          <div className="expiration-left  top-0 left-0.5 w-[143px] h-11 flex gap-3">
             <div className="expiration-rate w-20 h-10 flex gap-1 items-baseline">
               <span className="ml-4 rate-number font-montserrat text-[56px] text-black font-normal tracking-[1.12px] leading-10 w-16 transition-all duration-300"
                 style={{
@@ -627,7 +626,7 @@ const QuotesExpirationCard = ({
               </span>
             </div>
           </div>
-          <div className="expiration-right absolute top-14 left-0">
+          <div className="expiration-right  top-14 left-0">
             <span className="expiration-total font-montserrat text-xs font-medium text-[#c7c7c7] tracking-[0.24px] whitespace-nowrap transition-all duration-300">
               {info}: {convertingCount}
             </span>
