@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ActivityTableFilter } from './ActivityTableFilter';
+import { AlertCircle, Calendar, CalendarDays, CheckCircle, Clock, DollarSign, FileText, Package, Shield, XCircle } from 'lucide-react';
 
 interface TableColumn {
   key: string;
@@ -71,6 +72,7 @@ interface UniversalTableProps {
     buttonWidth?: string;
   };
   desktopGridCols?: string;
+  computedHeaderDesktopGridCols?: string;
   mobileDesignType?: 'dashboard' | 'quotes';
 }
 
@@ -122,6 +124,7 @@ export const UniversalTable: React.FC<UniversalTableProps> = ({
     buttonWidth: '47%'
   },
   desktopGridCols,
+  computedHeaderDesktopGridCols,
   mobileDesignType = 'dashboard'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -561,7 +564,8 @@ const defaultEmptyState = (
 
 
   const visibleDesktopColumns = columns.filter(col => !col.hideOnMobile);
-  const computedDesktopGridCols = desktopGridCols || `0.7fr repeat(${visibleDesktopColumns.length - 3}, minmax(0, 1fr)) 0.9fr 1fr`;
+  // const computedDesktopGridCols = desktopGridCols || `0.7fr repeat(${visibleDesktopColumns.length - 3}, minmax(0, 1fr)) 0.9fr 1fr`;
+ const computedDesktopGridCols = computedHeaderDesktopGridCols ||desktopGridCols;
 
   const renderDesktopCell = (column: TableColumn, row: TableRow) => {
     if (column.renderDesktop) {
@@ -712,14 +716,28 @@ const defaultEmptyState = (
       </div>
     </div>
   );
+
+  
+  // UniversalTable.tsx-ում
 const renderDashboardMobileDesign = (row: TableRow) => (
   <div className="md:hidden w-full mob-lay">
+    {/* 1. Reference - ID + Type միասին */}
     <div className="flex justify-between items-center mb-4">
-      <div className="flex items-center gap-2">
-        {mobileDesign.showType && row.type && (
-          <span className="font-poppins text-sm font-normal text-black xs:text-[16px]">{row.type}</span>
-        )}
-        <span className="font-poppins text-sm text-[#2563eb] underline xs:text-[#2563eb]">{row.id}</span>
+      <div className="flex flex-col">
+        <span className="font-poppins text-sm text-[#2563eb] underline">{row.id}</span>
+        <span className="font-poppins text-xs text-gray-500">
+          {row.dataType === 'quote' ? (
+            <div className="flex items-center gap-1 mt-0.5">
+              <FileText className="w-3 h-3 text-blue-500" />
+              Insurance Quote
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 mt-0.5">
+              <Shield className="w-3 h-3 text-green-500" />
+              Insurance Policy
+            </div>
+          )}
+        </span>
       </div>
       
       {row.status && (
@@ -728,109 +746,103 @@ const renderDashboardMobileDesign = (row: TableRow) => (
             inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[37px] font-poppins text-xs 
             ${row.status.color} ${row.status.textColor}
             w-fit min-w-fit whitespace-nowrap pl-3 pr-3 h-[26px] items-center transition-all duration-300
-            xs:text-[10px] xs:px-2 xs:py-1.5 xs:h-[22px] xs3:text-[11px] xs3:px-2.5 xs3:py-1.5 xs3:h-[24px]
           `}>
-            <span className={`w-2 h-2 rounded-full ${row.status.dot}`}></span>
+            {/* Փոխարինել dot-ը՝ ըստ status-ի */}
+            {row.status.text.includes('Active') || row.status.text.includes('Approved') ? (
+              <CheckCircle className="w-3 h-3" />
+            ) : row.status.text.includes('Pending') || row.status.text.includes('Waiting') ? (
+              <Clock className="w-3 h-3" />
+            ) : row.status.text.includes('Rejected') || row.status.text.includes('Expired') ? (
+              <XCircle className="w-3 h-3" />
+            ) : (
+              <AlertCircle className="w-3 h-3" />
+            )}
             {row.status.text}
           </span>
         </div>
       )}
     </div>
-      
-      {/* Cargo and Value Section */}
-      {(row.cargo || row.value) && (
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            {mobileDesign.showCargoIcon && (
-              <img 
-                src="/table/package-stroke-rounded.svg" 
-                alt="Cargo" 
-                className="w-4 h-4 xs:w-[16px] xs:h-[16px] xs2:w-[14px] xs2:h-[14px] opacity-80 hover:opacity-100"
-              />
-            )}
-            <span className="font-poppins text-sm text-gray-700">
-              {row.cargo ? 'Cargo' : 'Value'}
-            </span>
-          </div>
-          <div className="font-poppins text-sm font-normal text-black">
-            {row.cargo || `$${row.value?.toLocaleString?.() || row.value}`}
-          </div>
-        </div>
-      )}
-      
-      {/* Expiring Date Section - Ավելացրել ենք */}
-      {row.expiringDays !== undefined && row.expiringDays !== null && (
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <span className="font-poppins text-sm text-gray-700">Expiring</span>
-          </div>
-          <div className={`font-poppins text-sm ${
-            row.expiringDays === 0 ? 'text-amber-600 font-medium' :
-            row.expiringDays > 0 ? 'text-gray-700' : 'text-rose-600'
-          }`}>
-            {row.expiringDays === 0 ? 'Today' :
-             row.expiringDays > 0 ? `${row.expiringDays} day${row.expiringDays !== 1 ? 's' : ''} left` :
-             `${Math.abs(row.expiringDays)} day${Math.abs(row.expiringDays) !== 1 ? 's' : ''} ago`}
-          </div>
-        </div>
-      )}
-      
-      {/* Value Section (եթե առանձին կա) */}
-      {row.value && !row.cargo && (
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <img 
-              src="/table/dollar-sign.svg" 
-              alt="Value" 
-              className="w-4 h-4 opacity-80"
-            />
-            <span className="font-poppins text-sm text-gray-700">Value</span>
-          </div>
-          <div className="font-poppins text-sm font-normal text-black">
-            ${row.value?.toLocaleString?.() || row.value}
-          </div>
-        </div>
-      )}
-      
-      <div className="border-t border-[#f2f2ed] my-3 xs:my-3"></div>
-      
-      <div className="flex items-center justify-between xs:flex xs:items-center xs:gap-3 xs:w-full xs4:flex-col xs4:gap-2">
-        {(row.date || row.lastUpdate) && (
-          <div className="flex items-center gap-2 w-1/2 xs4:w-full xs4:justify-center xs4:mb-1">
-            {mobileDesign.showDateIcon && (
-              <img 
-                src="/table/clock.svg" 
-                alt="Time" 
-                className="w-4 h-4 xs:w-[16px] xs:h-[16px] xs2:w-[14px] xs2:h-[14px]"
-              />
-            )}
-            <div className="font-poppins text-sm text-gray-600 xs2:text-[12px]">
-              {row.date || row.lastUpdate || mobileDesign.dateLabel}
-            </div>
-          </div>
-        )}
-        
-        {row.button && (
-          <div className={`${row.date || row.lastUpdate ? mobileDesign.buttonWidth : 'w-full'} xs4:w-full xs:pl-1.5`}>
-           <button className={`
-  h-[36px] px-4 w-full rounded-lg font-inter text-sm justify-center items-center gap-2 transition-colors duration-300
-  ${row.button.variant === 'primary' 
-    ? 'bg-[#2563EB] text-white border border-[rgba(255,255,255,0.22)] hover:bg-[#1d4ed8] hover:text-white hover:border-[#d1d5db]' 
-    : (row.button.variant as string) === 'success'
-    ? 'bg-[#10B981] text-white border border-[rgba(255,255,255,0.22)] hover:bg-[#059669]'
-    : 'bg-transparent text-[#374151] border border-[#e3e6ea] hover:bg-[#f3f4f6] hover:text-white hover:border-[#d1d5db]'
-  }
-  xs:text-[14px] xs:font-medium xs:w-[95%] xs:min-w-0
-  xs2:text-[13px] xs2:px-1.5 xs2:py-2.5 xs2:h-[40px] xs2:max-w-[95%]
-`}
-onClick={() => row.button?.onClick?.(row)}>
-  {row.button.text}
-</button>
-          </div>
-        )}
+    
+    {/* 2. Cargo */}
+    <div className="flex justify-between items-center mb-4">
+      <div className="flex items-center gap-2">
+        <Package className="w-4 h-4 text-gray-600" />
+        <span className="font-poppins text-sm text-gray-700">Cargo</span>
+      </div>
+      <div className="font-poppins text-sm font-normal text-black capitalize">
+        {row.cargo}
       </div>
     </div>
-  );
+    
+    {/* 3. Amount */}
+    <div className="flex justify-between items-center mb-4">
+      <div className="flex items-center gap-2">
+        <DollarSign className="w-4 h-4 text-gray-600" />
+        <span className="font-poppins text-sm text-gray-700">Amount</span>
+      </div>
+      <div className="font-poppins text-sm font-normal text-black font-medium">
+        ${row.amount?.toLocaleString?.() || row.value}
+      </div>
+    </div>
+    
+    {/* 4. Valid Until */}
+    {row.expiringDays !== undefined && row.expiringDays !== null && (
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays className={`w-4 h-4 ${
+            row.expiringDays === 0 ? 'text-amber-500' :
+            row.expiringDays > 0 ? 'text-blue-500' : 'text-rose-500'
+          }`} />
+          <span className="font-poppins text-sm text-gray-700">Valid Until</span>
+        </div>
+        <div className={`font-poppins text-sm ${
+          row.expiringDays === 0 ? 'text-amber-600 font-medium' :
+          row.expiringDays > 0 ? 'text-gray-700' : 'text-rose-600'
+        }`}>
+          {row.expiringDays === 0 ? 'Today' :
+           row.expiringDays > 0 ? `${row.expiringDays} day${row.expiringDays !== 1 ? 's' : ''} left` :
+           `${Math.abs(row.expiringDays)} day${Math.abs(row.expiringDays) !== 1 ? 's' : ''} ago`}
+        </div>
+      </div>
+    )}
+    
+    <div className="border-t border-[#f2f2ed] my-3"></div>
+    
+    {/* 5. Created + Action */}
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Calendar className="w-4 h-4 text-gray-500" />
+        <div className="font-poppins text-sm text-gray-600">
+          {row.created}
+        </div>
+      </div>
+      
+      {row.button && (
+        <div className="w-[47%]">
+          <button className={`
+            h-[36px] px-4 w-full rounded-lg font-inter text-sm justify-center items-center gap-2 transition-colors duration-300
+            flex items-center
+            ${row.button.variant === 'primary' 
+              ? 'bg-[#2563EB] text-white border border-[rgba(255,255,255,0.22)] hover:bg-[#1d4ed8] hover:text-white hover:border-[#d1d5db]' 
+              : (row.button.variant as string) === 'success'
+              ? 'bg-[#10B981] text-white border border-[rgba(255,255,255,0.22)] hover:bg-[#059669]'
+              : 'bg-transparent text-[#374151] border border-[#e3e6ea] hover:bg-[#f3f4f6] hover:text-white hover:border-[#d1d5db]'
+            }
+          `}
+          onClick={() => row.button?.onClick?.(row)}>
+            {/* Կոճակի իկոններ՝ ըստ տեսակի */}
+            {row.button.text === 'Pay Now' && <DollarSign className="w-4 h-4" />}
+            {row.button.text === 'View Policy' && <Shield className="w-4 h-4" />}
+            {row.button.text === 'Continue Quote' && <FileText className="w-4 h-4" />}
+            {row.button.text === 'Upload Docs' && <Package className="w-4 h-4" />}
+            {row.button.text === 'View Details' && <AlertCircle className="w-4 h-4" />}
+            {row.button.text}
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+);
   return (
     <>
       <section className="
@@ -872,7 +884,7 @@ onClick={() => row.button?.onClick?.(row)}>
         ">
            
           {/* Desktop Table Header */}
-          <div className="mt-4 px-4 sm:px-4 py-2 mb-0 hidden md:grid gap-2 pb-2 mb-0 table-header w-[97%] bg-[#ededed7a] mx-auto my-3.5 rounded-[4px]" 
+          <div className="desktop-table-header mt-4 px-4 sm:px-4 py-2 mb-0 hidden md:grid gap-2 pb-2 mb-0 table-header w-[97%] bg-[#ededed7a] mx-auto my-3.5 rounded-[4px]" 
                style={{ gridTemplateColumns: computedDesktopGridCols, gap: "16px" }}>
             {visibleDesktopColumns.map((column, idx) => (
               <div key={idx} className={`max-w-[80%] flex items-center gap-2 font-poppins text-sm font-normal text-[#606068] ${getColumnVisibilityClass(column)} ${column.label === 'Action' ? 'justify-end' : ''}`}>
