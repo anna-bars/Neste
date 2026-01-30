@@ -273,7 +273,7 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
               aria-valuemax={100}
               aria-label={disabledProgress ? "Progress tracking disabled - upload documents" : "Document approval progress bar"}
               style={{
-                width: `${animatedPercentage}%`,
+                width: `${animatedPercentage === 0 ? 4 : animatedPercentage}%`,
                 background: getProgressGradient(),
                 transition: disabledProgress ? 'none' : isAnimating ? 'width 0.5s ease, background 0.3s ease' : 'width 0.3s ease, background 0.3s ease',
                 boxShadow: disabledProgress ? 'none' : isAnimating ? '0 0 10px rgba(255, 200, 100, 0.5)' : isHovered ? '0 0 12px rgba(39, 100, 235, 0.25)' : 'none',
@@ -343,7 +343,7 @@ export const ApprovalRate: React.FC<ApprovalRateProps> = ({
                   inline-flex gap-[4.5px] ml-[2px]
                   justify-start items-center
                   overflow-hidden z-10 -ml-0.5
-                  ${animatedPercentage === 0 ? 'drop-shadow-[2px_4px_6px_blue]' : ''}
+                  ${animatedPercentage === 0 ? '' : ''}
                 `}
                 style={{ 
                   width: `${100 - animatedPercentage}%`,
