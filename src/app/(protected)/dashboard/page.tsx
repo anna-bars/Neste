@@ -570,7 +570,7 @@ export default function DashboardPage() {
                 showExpiringIcon: true
               }}
               mobileDesignType="dashboard"
-              desktopGridCols="0.55fr 0.35fr 0.55fr 0.45fr 0.8fr 0.6fr 0.8fr 0.7fr"
+              desktopGridCols="0.55fr 0.65fr 0.48fr 0.75fr 0.7fr 0.8fr 0.6fr"
             />
           </div>
 
@@ -655,4 +655,4 @@ export default function DashboardPage() {
       </div>
     </DashboardLayout>
   )
-}
+} 

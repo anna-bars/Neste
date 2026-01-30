@@ -236,24 +236,37 @@ export const formatCombinedData = (
       rawData: quote 
     });
     
+    // ✅ Փոխել button text-երը՝ ըստ պահանջի
+    let buttonText = statusConfig.buttonText;
+    if (quote.status === 'approved' && quote.payment_status === 'paid') {
+      buttonText = 'View Policy';
+    } else if (quote.status === 'approved' && quote.payment_status !== 'paid') {
+      buttonText = 'Pay Now';
+    } else if (quote.status === 'draft') {
+      buttonText = 'Continue Quote';
+    } else {
+      buttonText = 'View Details';
+    }
+    
     const buttonAction = { 
-      text: statusConfig.buttonText, 
+      text: buttonText, 
       variant: statusConfig.buttonVariant,
       onClick: () => {}
     };
     
     allItems.push({
-      type: 'Quote',
-      id: quote.quote_number || formatQuoteId(quote.id),
+      // ✅ reference-ը փոխարինում է առանձին id-ին
+      reference: `${formatQuoteId(quote.id)}|Insurance Quote`,
       cargo: quote.cargo_type || 'Unknown',
-      value: quote.shipment_value || 0,
+      amount: quote.shipment_value || 0,
       status: {
         text: statusConfig.text,
         color: statusConfig.color,
         dot: statusConfig.dot,
         textColor: statusConfig.textColor
       },
-      date: formatDate(quote.created_at),
+      validUntil: expiringDays, // ✅ պահպանում ենք օրերի քանակը
+      created: formatDate(quote.created_at),
       button: buttonAction,
       rawData: quote,
       dataType: 'quote',
@@ -261,7 +274,11 @@ export const formatCombinedData = (
       paymentStatus: quote.payment_status,
       sortDate: quote.created_at,
       timestamp: createdAt.getTime(),
-      expiringDays: expiringDays
+      expiringDays: expiringDays,
+      // ✅ պահպանում ենք հին fields-ը backward compatibility-ի համար
+      id: formatQuoteId(quote.id),
+      value: quote.shipment_value || 0,
+      date: formatDate(quote.created_at)
     });
   });
 
@@ -273,31 +290,44 @@ export const formatCombinedData = (
       rawData: policy 
     });
     
+    // ✅ Փոխել button text-երը՝ ըստ պահանջի
+    let buttonText = statusConfig.buttonText;
+    if (policy.status === 'active') {
+      buttonText = 'View Policy';
+    } else {
+      buttonText = 'View Details';
+    }
+    
     const buttonAction = { 
-      text: statusConfig.buttonText, 
+      text: buttonText, 
       variant: statusConfig.buttonVariant,
       onClick: () => {}
     };
     
     allItems.push({
-      type: 'Policy',
-      id: policy.policy_number,
+      // ✅ reference-ը փոխարինում է առանձին id-ին
+      reference: `${policy.policy_number}|Insurance Policy`,
       cargo: policy.cargo_type || 'Unknown',
-      value: parseFloat(policy.coverage_amount) || 0,
+      amount: parseFloat(policy.coverage_amount) || 0,
       status: {
         text: statusConfig.text,
         color: statusConfig.color,
         dot: statusConfig.dot,
         textColor: statusConfig.textColor
       },
-      date: formatDate(policy.created_at),
+      validUntil: expiringDays, // ✅ պահպանում ենք օրերի քանակը
+      created: formatDate(policy.created_at),
       button: buttonAction,
       rawData: policy,
       dataType: 'policy',
       policyStatus: policy.status,
       sortDate: policy.created_at,
       timestamp: createdAt.getTime(),
-      expiringDays: expiringDays
+      expiringDays: expiringDays,
+      // ✅ պահպանում ենք հին fields-ը backward compatibility-ի համար
+      id: policy.policy_number,
+      value: parseFloat(policy.coverage_amount) || 0,
+      date: formatDate(policy.created_at)
     });
   });
 

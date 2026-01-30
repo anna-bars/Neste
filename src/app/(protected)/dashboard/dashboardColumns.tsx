@@ -1,45 +1,42 @@
+// src/app/(protected)/dashboard/dashboardColumns.tsx
 import React from 'react';
 import { renderStatus, renderButton } from '@/app/components/tables/UniversalTable';
 
 export const dashboardColumns = [
   {
-    key: 'id',
-    label: 'ID',
+    key: 'reference',
+    label: 'Reference',
     sortable: true,
-    renderDesktop: (value: string) => (
-      <span className="font-poppins text-sm text-[#2563eb] underline hover:text-[#1d4ed8] transition-colors duration-300 cursor-pointer">
-        {value}
-      </span>
-    )
-  },
-  {
-    key: 'type',
-    label: 'Type',
-    sortable: true,
-    renderDesktop: (type: string) => (
-      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-        type === 'Quote' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-      }`}>
-        {type}
-      </div>
-    )
+    renderDesktop: (_: any, row: any) => {
+      const entityType = row.dataType === 'quote' ? 'Insurance Quote' : 'Insurance Policy';
+      return (
+        <div className="flex flex-col">
+          <span className="font-poppins text-sm text-[#2563eb] underline hover:text-[#1d4ed8] transition-colors duration-300 cursor-pointer">
+            {row.id}
+          </span>
+          <span className="font-poppins text-xs text-gray-500 mt-0.5">
+            {entityType}
+          </span>
+        </div>
+      );
+    }
   },
   {
     key: 'cargo',
     label: 'Cargo',
     sortable: true,
     renderDesktop: (_: any, row: any) => (
-      <span className="font-poppins text-sm text-black">
+      <span className="font-poppins text-sm text-black capitalize">
         {row.cargo}
       </span>
     )
   },
   {
-    key: 'value',
-    label: 'Value',
+    key: 'amount',
+    label: 'Amount',
     sortable: true,
     renderDesktop: (_: any, row: any) => (
-      <span className="font-poppins text-sm text-black">
+      <span className="font-poppins text-sm text-black font-medium">
         ${row.value?.toLocaleString('en-US') || '0'}
       </span>
     )
@@ -51,11 +48,11 @@ export const dashboardColumns = [
     renderDesktop: (status: any) => renderStatus(status)
   },
   {
-    key: 'expiring',
-    label: 'Expiring',
+    key: 'validUntil',
+    label: 'Valid Until',
     sortable: true,
     renderDesktop: (_: any, row: any) => {
-      if (row.expiringDays !== undefined) {
+      if (row.expiringDays !== undefined && row.expiringDays !== null) {
         if (row.expiringDays === 0) {
           return (
             <span className="font-poppins text-sm text-amber-600 font-medium">
@@ -77,6 +74,23 @@ export const dashboardColumns = [
           );
         }
       }
+      
+      // Այլ դեպքերում, եթե կա specific expiration date
+      const expirationDate = row.rawData?.quote_expires_at || row.rawData?.coverage_end;
+      if (expirationDate) {
+        const date = new Date(expirationDate);
+        const formattedDate = date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        return (
+          <span className="font-poppins text-sm text-gray-700">
+            Until {formattedDate}
+          </span>
+        );
+      }
+      
       return (
         <span className="font-poppins text-sm text-gray-400">
           -
@@ -85,9 +99,14 @@ export const dashboardColumns = [
     }
   },
   {
-    key: 'date',
+    key: 'created',
     label: 'Created',
-    sortable: true
+    sortable: true,
+    renderDesktop: (date: string) => (
+      <span className="font-poppins text-sm text-gray-600">
+        {date}
+      </span>
+    )
   },
   {
     key: 'button',

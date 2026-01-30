@@ -870,7 +870,7 @@ onClick={() => row.button?.onClick?.(row)}>
           max-[767px]:border-none
           max-[767px]:bg-[#f3f3f6] max-[767px]:!w-[99.5%] pb-2
         ">
-          
+           
           {/* Desktop Table Header */}
           <div className="mt-4 px-4 sm:px-4 py-2 mb-0 hidden md:grid gap-2 pb-2 mb-0 table-header w-[97%] bg-[#ededed7a] mx-auto my-3.5 rounded-[4px]" 
                style={{ gridTemplateColumns: computedDesktopGridCols, gap: "16px" }}>
