@@ -95,8 +95,8 @@ export const dashboardColumns = [
                 {row.expiringDays} day{row.expiringDays !== 1 ? 's' : ''} left
               </span>
             ) : (
-              <span className="font-poppins text-sm text-rose-600">
-                {Math.abs(row.expiringDays)} day{Math.abs(row.expiringDays) !== 1 ? 's' : ''} ago
+              <span className="font-poppins text-sm text-gray-600">
+                
               </span>
             )}
           </div>
